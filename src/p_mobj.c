@@ -3216,12 +3216,13 @@ boolean P_SceneryZMovement(mobj_t *mo)
 boolean P_CanRunOnWater(player_t *player, ffloor_t *rover)
 {
 	fixed_t topheight = P_GetFFloorTopZAt(rover, player->mo->x, player->mo->y);
+	fixed_t speed = R_PointToDist2(0, 0, player->mo->momx, player->mo->momy);
 
 	if (!player->powers[pw_carry] && !player->homing
-		&& player->mo->eflags & MFE_ONGROUND
+		&& P_IsObjectOnGround(player->mo)
 		&& player->mo->ceilingz-topheight >= player->mo->height
 		&& rover->flags & FF_SWIMMABLE
-		&& player->speed > FixedMul(player->runspeed, player->mo->scale)
+		&& speed > FixedMul(player->runspeed + 2*FRACUNIT, player->mo->scale)
 		&& !(player->pflags & PF_SLIDING)
 		&& abs(player->mo->z - topheight) < FixedMul(30*FRACUNIT, player->mo->scale))
 		return true;

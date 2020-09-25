@@ -24,7 +24,7 @@
 #include "i_video.h" // rendermode
 #include "i_system.h"
 #include "r_things.h"
-#include "r_patch.h"
+#include "r_picformats.h"
 #include "r_plane.h"
 #include "r_portal.h"
 #include "p_tick.h"
@@ -280,10 +280,14 @@ boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef, UINT16
 				patch_t *png = W_CacheLumpNumPwad(wadnum, l, PU_STATIC);
 				size_t len = W_LumpLengthPwad(wadnum, l);
 				// lump is a png so convert it
-				if (R_IsLumpPNG((UINT8 *)png, len))
+				if (Picture_IsLumpPNG((UINT8 *)png, len))
 				{
-					png = R_PNGToPatch((UINT8 *)png, len, NULL);
-					M_Memcpy(&patch, png, sizeof(INT16)*4);
+					// Dummy variables.
+					INT32 pngwidth, pngheight;
+					INT16 topoffset, leftoffset;
+					patch_t *converted = (patch_t *)Picture_PNGConvert((UINT8 *)png, PICFMT_PATCH, &pngwidth, &pngheight, &topoffset, &leftoffset, len, NULL, 0);
+					M_Memcpy(&patch, converted, sizeof(INT16)*4); // only copy the header because that's all we need
+					Z_Free(converted);
 				}
 				Z_Free(png);
 			}
@@ -1367,6 +1371,8 @@ static void R_ProjectSprite(mobj_t *thing)
 	size_t frame, rot;
 	UINT16 flip;
 	boolean vflip = (!(thing->eflags & MFE_VERTICALFLIP) != !(thing->frame & FF_VERTICALFLIP));
+	boolean mirrored = thing->mirrored;
+	boolean hflip = (!(thing->frame & FF_HORIZONTALFLIP) != !mirrored);
 
 	INT32 lindex;
 
@@ -1477,7 +1483,11 @@ static void R_ProjectSprite(mobj_t *thing)
 #endif
 
 	if (sprframe->rotate != SRF_SINGLE || papersprite)
+	{
 		ang = R_PointToAngle (thing->x, thing->y) - (thing->player ? thing->player->drawangle : thing->angle);
+		if (mirrored)
+			ang = InvAngle(ang);
+	}
 
 	if (sprframe->rotate == SRF_SINGLE)
 	{
@@ -1536,6 +1546,8 @@ static void R_ProjectSprite(mobj_t *thing)
 		}
 	}
 #endif
+
+	flip = !flip != !hflip;
 
 	// calculate edges of the shape
 	if (flip)
@@ -2765,7 +2777,7 @@ boolean R_ThingVisible (mobj_t *thing)
 	return (!(
 				thing->sprite == SPR_NULL ||
 				( thing->flags2 & (MF2_DONTDRAW) ) ||
-				thing == r_viewmobj
+				(r_viewmobj && (thing == r_viewmobj || (r_viewmobj->player && r_viewmobj->player->followmobj == thing)))
 	));
 }
 

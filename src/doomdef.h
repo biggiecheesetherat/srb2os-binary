@@ -29,7 +29,6 @@
 // Use Mixer interface?
 #ifdef HAVE_MIXER
     #define SOUND SOUND_MIXER
-    #define NOHS // No HW3SOUND
     #ifdef HW3SOUND
     #undef HW3SOUND
     #endif
@@ -45,7 +44,6 @@
 // Use FMOD?
 #ifdef HAVE_FMOD
     #define SOUND SOUND_FMOD
-    #define NOHS // No HW3SOUND
     #ifdef HW3SOUND
     #undef HW3SOUND
     #endif
@@ -61,10 +59,6 @@
 #define NONET
 #if !defined (HWRENDER) && !defined (NOHW)
 #define HWRENDER
-#endif
-// judgecutor: 3D sound support
-#if !defined(HW3SOUND) && !defined (NOHS)
-#define HW3SOUND
 #endif
 #endif
 
@@ -86,6 +80,7 @@
 // warning C4213: nonstandard extension used : cast on l-value
 
 
+#include "version.h"
 #include "doomtype.h"
 
 #include <stdarg.h>
@@ -107,10 +102,6 @@
 
 #if defined (_WIN32) || defined (__DJGPP__)
 #include <io.h>
-#endif
-
-#ifdef PC_DOS
-#include <conio.h>
 #endif
 
 //#define NOMD5
@@ -135,20 +126,20 @@ extern char logfilename[1024];
 
 //#define DEVELOP // Disable this for release builds to remove excessive cheat commands and enable MD5 checking and stuff, all in one go. :3
 #ifdef DEVELOP
-#define VERSION    0 // Game version
-#define SUBVERSION 0 // more precise version number
 #define VERSIONSTRING "Development EXE"
-#define VERSIONSTRINGW L"Development EXE"
 // most interface strings are ignored in development mode.
 // we use comprevision and compbranch instead.
 #else
-#define VERSION    202 // Game version
-#define SUBVERSION 4  // more precise version number
-#define VERSIONSTRING "v2.2.4"
-#define VERSIONSTRINGW L"v2.2.4"
+#ifdef BETAVERSION
+#define VERSIONSTRING "v"SRB2VERSION" "BETAVERSION
+#else
+#define VERSIONSTRING "v"SRB2VERSION
+#endif
 // Hey! If you change this, add 1 to the MODVERSION below!
 // Otherwise we can't force updates!
 #endif
+
+#define VERSIONSTRINGW WSTRING (VERSIONSTRING)
 
 /* A custom URL protocol for server links. */
 #define SERVER_URL_PROTOCOL "srb2://"
@@ -166,7 +157,9 @@ extern char logfilename[1024];
 // the other options the same.
 
 // Comment out this line to completely disable update alerts (recommended for testing, but not for release)
+#ifndef BETAVERSION
 #define UPDATE_ALERT
+#endif
 
 // The string used in the alert that pops up in the event of an update being available.
 // Please change to apply to your modification (we don't want everyone asking where your mod is on SRB2.org!).
@@ -203,17 +196,6 @@ extern char logfilename[1024];
 // (such as 2.0.4 to 2.0.5, etc) into your working copy.
 // Will always resemble the versionstring, 205 = 2.0.5, 210 = 2.1, etc.
 #define CODEBASE 220
-
-// The Modification ID; must be obtained from Rob ( https://mb.srb2.org/private.php?do=newpm&u=546 ).
-// DO NOT try to set this otherwise, or your modification will be unplayable through the Master Server.
-// "18" is the default mod ID for version 2.2
-#define MODID 18
-
-// The Modification Version, starting from 1. Do not follow your version string for this,
-// it's only for detection of the version the player is using so the MS can alert them of an update.
-// Only set it higher, not lower, obviously.
-// Note that we use this to help keep internal testing in check; this is why v2.2.0 is not version "1".
-#define MODVERSION 44
 
 // To version config.cfg, MAJOREXECVERSION is set equal to MODVERSION automatically.
 // Increment MINOREXECVERSION whenever a config change is needed that does not correspond
@@ -503,6 +485,8 @@ char *sizeu4(size_t num);
 char *sizeu5(size_t num);
 
 // d_main.c
+extern int    VERSION;
+extern int SUBVERSION;
 extern boolean devparm; // development mode (-debug)
 // d_netcmd.c
 extern INT32 cv_debug;
@@ -570,8 +554,8 @@ INT32 I_GetKey(void);
 #endif
 
 // The character that separates pathnames. Forward slash on
-// most systems, but reverse solidus (\) on Windows and DOS.
-#if defined (PC_DOS) || defined (_WIN32)
+// most systems, but reverse solidus (\) on Windows.
+#if defined (_WIN32)
 	#define PATHSEP "\\"
 #else
 	#define PATHSEP "/"
@@ -617,11 +601,6 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 ///	    	memory that never gets touched.
 #define ALLOW_RESETDATA
 
-#ifndef NONET
-///	Display a connection screen on join attempts.
-#define CLIENT_LOADINGSCREEN
-#endif
-
 /// Experimental tweaks to analog mode. (Needs a lot of work before it's ready for primetime.)
 //#define REDSANALOG
 
@@ -661,5 +640,14 @@ extern const char *compdate, *comptime, *comprevision, *compbranch;
 
 /// Render flats on walls
 #define WALLFLATS
+
+/// Maintain compatibility with older 2.2 demos
+#define OLD22DEMOCOMPAT
+
+#if defined (HAVE_CURL) && ! defined (NONET)
+#define MASTERSERVER
+#else
+#undef UPDATE_ALERT
+#endif
 
 #endif // __DOOMDEF__

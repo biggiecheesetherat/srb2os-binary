@@ -45,7 +45,7 @@
 #include "lua_hook.h"
 #include "md5.h"
 
-#ifdef CLIENT_LOADINGSCREEN
+#ifndef NONET
 // cl loading screen
 #include "v_video.h"
 #include "f_finale.h"
@@ -157,7 +157,7 @@ ticcmd_t netcmds[BACKUPTICS][MAXPLAYERS];
 static textcmdtic_t *textcmds[TEXTCMD_HASH_SIZE] = {NULL};
 
 
-consvar_t cv_showjoinaddress = {"showjoinaddress", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_showjoinaddress = {"showjoinaddress", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static CV_PossibleValue_t playbackspeed_cons_t[] = {{1, "MIN"}, {10, "MAX"}, {0, NULL}};
 consvar_t cv_playbackspeed = {"playbackspeed", "1", 0, playbackspeed_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -1107,19 +1107,13 @@ static void SV_AcknowledgeResynchAck(INT32 node, UINT8 rsg)
 
 static INT16 Consistancy(void);
 
-#ifndef NONET
-#define JOININGAME
-#endif
-
 typedef enum
 {
 	CL_SEARCHING,
 	CL_DOWNLOADFILES,
 	CL_ASKJOIN,
 	CL_WAITJOINRESPONSE,
-#ifdef JOININGAME
 	CL_DOWNLOADSAVEGAME,
-#endif
 	CL_CONNECTED,
 	CL_ABORTED
 } cl_mode_t;
@@ -1162,7 +1156,7 @@ static void CV_LoadPlayerNames(UINT8 **p)
 	}
 }
 
-#ifdef CLIENT_LOADINGSCREEN
+#ifndef NONET
 #define SNAKE_SPEED 5
 
 #define SNAKE_NUM_BLOCKS_X 20
@@ -1684,7 +1678,6 @@ static inline void CL_DrawConnectionStatus(void)
 
 		switch (cl_mode)
 		{
-#ifdef JOININGAME
 			case CL_DOWNLOADSAVEGAME:
 				if (lastfilenum != -1)
 				{
@@ -1710,7 +1703,6 @@ static inline void CL_DrawConnectionStatus(void)
 				else
 					cltext = M_GetText("Waiting to download game state...");
 				break;
-#endif
 			case CL_ASKJOIN:
 			case CL_WAITJOINRESPONSE:
 				cltext = M_GetText("Requesting to join...");
@@ -2048,7 +2040,7 @@ static boolean SV_SendServerConfig(INT32 node)
 	return waspacketsent;
 }
 
-#ifdef JOININGAME
+#ifndef NONET
 #define SAVEGAMESIZE (768*1024)
 
 static void SV_SendSaveGame(INT32 node)
@@ -2236,7 +2228,7 @@ static void CL_LoadReceivedSavegame(void)
 #endif
 
 #ifndef NONET
-static void SendAskInfo(INT32 node, boolean viams)
+static void SendAskInfo(INT32 node)
 {
 	const tic_t asktime = I_GetTime();
 	netbuffer->packettype = PT_ASKINFO;
@@ -2247,10 +2239,6 @@ static void SendAskInfo(INT32 node, boolean viams)
 	// now allowed traffic from the host to us in, so once the MS relays
 	// our address to the host, it'll be able to speak to us.
 	HSendPacket(node, false, 0, sizeof (askinfo_pak));
-
-	// Also speak to the MS.
-	if (viams && node != 0 && node != BROADCASTADDR)
-		SendAskInfoViaMS(node, asktime);
 }
 
 serverelem_t serverlist[MAXSERVERLIST];
@@ -2318,13 +2306,95 @@ static void SL_InsertServer(serverinfo_pak* info, SINT8 node)
 	M_SortServerList();
 }
 
+#if defined (MASTERSERVER) && defined (HAVE_THREADS)
+struct Fetch_servers_ctx
+{
+	int room;
+	int id;
+};
+
+static void
+Fetch_servers_thread (struct Fetch_servers_ctx *ctx)
+{
+	msg_server_t *server_list;
+
+	server_list = GetShortServersList(ctx->room, ctx->id);
+
+	if (server_list)
+	{
+		I_lock_mutex(&ms_QueryId_mutex);
+		{
+			if (ctx->id != ms_QueryId)
+			{
+				free(server_list);
+				server_list = NULL;
+			}
+		}
+		I_unlock_mutex(ms_QueryId_mutex);
+
+		if (server_list)
+		{
+			I_lock_mutex(&m_menu_mutex);
+			{
+				if (m_waiting_mode == M_WAITING_SERVERS)
+					m_waiting_mode = M_NOT_WAITING;
+			}
+			I_unlock_mutex(m_menu_mutex);
+
+			I_lock_mutex(&ms_ServerList_mutex);
+			{
+				ms_ServerList = server_list;
+			}
+			I_unlock_mutex(ms_ServerList_mutex);
+		}
+	}
+
+	free(ctx);
+}
+#endif/*defined (MASTERSERVER) && defined (HAVE_THREADS)*/
+
+void CL_QueryServerList (msg_server_t *server_list)
+{
+	INT32 i;
+
+	for (i = 0; server_list[i].header.buffer[0]; i++)
+	{
+		// Make sure MS version matches our own, to
+		// thwart nefarious servers who lie to the MS.
+
+		/* lol bruh, that version COMES from the servers */
+		//if (strcmp(version, server_list[i].version) == 0)
+		{
+			INT32 node = I_NetMakeNodewPort(server_list[i].ip, server_list[i].port);
+			if (node == -1)
+				break; // no more node free
+			SendAskInfo(node);
+			// Force close the connection so that servers can't eat
+			// up nodes forever if we never get a reply back from them
+			// (usually when they've not forwarded their ports).
+			//
+			// Don't worry, we'll get in contact with the working
+			// servers again when they send SERVERINFO to us later!
+			//
+			// (Note: as a side effect this probably means every
+			// server in the list will probably be using the same node (e.g. node 1),
+			// not that it matters which nodes they use when
+			// the connections are closed afterwards anyway)
+			// -- Monster Iestyn 12/11/18
+			Net_CloseConnection(node|FORCECLOSE);
+		}
+	}
+}
+
 void CL_UpdateServerList(boolean internetsearch, INT32 room)
 {
+	(void)internetsearch;
+	(void)room;
+
 	SL_ClearServerList(0);
 
 	if (!netgame && I_NetOpenSocket)
 	{
-		MSCloseUDPSocket();		// Tidy up before wiping the slate.
 		if (I_NetOpenSocket())
 		{
 			netgame = true;
@@ -2334,71 +2404,54 @@ void CL_UpdateServerList(boolean internetsearch, INT32 room)
 
 	// search for local servers
 	if (netgame)
-		SendAskInfo(BROADCASTADDR, false);
+		SendAskInfo(BROADCASTADDR);
 
+#ifdef MASTERSERVER
 	if (internetsearch)
 	{
-		const msg_server_t *server_list;
-		INT32 i = -1;
-		server_list = GetShortServersList(room);
+#ifdef HAVE_THREADS
+		struct Fetch_servers_ctx *ctx;
+
+		ctx = malloc(sizeof *ctx);
+
+		/* This called from M_Refresh so I don't use a mutex */
+		m_waiting_mode = M_WAITING_SERVERS;
+
+		I_lock_mutex(&ms_QueryId_mutex);
+		{
+			ctx->id = ms_QueryId;
+		}
+		I_unlock_mutex(ms_QueryId_mutex);
+
+		ctx->room = room;
+
+		I_spawn_thread("fetch-servers", (I_thread_fn)Fetch_servers_thread, ctx);
+#else
+		msg_server_t *server_list;
+
+		server_list = GetShortServersList(room, 0);
+
 		if (server_list)
 		{
-			char version[8] = "";
-#if VERSION > 0 || SUBVERSION > 0
-			snprintf(version, sizeof (version), "%d.%d.%d", VERSION/100, VERSION%100, SUBVERSION);
-#else
-			strcpy(version, GetRevisionString());
+			CL_QueryServerList(server_list);
+			free(server_list);
+		}
 #endif
-			version[sizeof (version) - 1] = '\0';
-
-			for (i = 0; server_list[i].header.buffer[0]; i++)
-			{
-				// Make sure MS version matches our own, to
-				// thwart nefarious servers who lie to the MS.
-
-				if (strcmp(version, server_list[i].version) == 0)
-				{
-					INT32 node = I_NetMakeNodewPort(server_list[i].ip, server_list[i].port);
-					if (node == -1)
-						break; // no more node free
-					SendAskInfo(node, true);
-					// Force close the connection so that servers can't eat
-					// up nodes forever if we never get a reply back from them
-					// (usually when they've not forwarded their ports).
-					//
-					// Don't worry, we'll get in contact with the working
-					// servers again when they send SERVERINFO to us later!
-					//
-					// (Note: as a side effect this probably means every
-					// server in the list will probably be using the same node (e.g. node 1),
-					// not that it matters which nodes they use when
-					// the connections are closed afterwards anyway)
-					// -- Monster Iestyn 12/11/18
-					Net_CloseConnection(node|FORCECLOSE);
-				}
-			}
-		}
-
-		//no server list?(-1) or no servers?(0)
-		if (!i)
-		{
-			; /// TODO: display error or warning?
-		}
 	}
+#endif/*MASTERSERVER*/
 }
 
 #endif // ifndef NONET
 
 /** Called by CL_ServerConnectionTicker
   *
-  * \param viams ???
-  * \param asksent ???
+  * \param asksent The last time we asked the server to join. We re-ask every second in case our request got lost in transmit.
   * \return False if the connection was aborted
   * \sa CL_ServerConnectionTicker
   * \sa CL_ConnectToServer
   *
   */
-static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
+static boolean CL_ServerConnectionSearchTicker(tic_t *asksent)
 {
 #ifndef NONET
 	INT32 i;
@@ -2494,7 +2547,9 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
 				if (CL_SendFileRequest())
 				{
 					cl_mode = CL_DOWNLOADFILES;
+#ifndef NONET
 					Snake_Initialise();
+#endif
 				}
 			}
 		}
@@ -2507,11 +2562,10 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
 	// Ask the info to the server (askinfo packet)
 	if (*asksent + NEWTICRATE < I_GetTime())
 	{
-		SendAskInfo(servernode, viams);
+		SendAskInfo(servernode);
 		*asksent = I_GetTime();
 	}
 #else
-	(void)viams;
 	(void)asksent;
 	// No netgames, so we skip this state.
 	cl_mode = CL_ASKJOIN;
@@ -2522,7 +2576,6 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
 
 /** Called by CL_ConnectToServer
   *
-  * \param viams ???
   * \param tmpsave The name of the gamestate file???
   * \param oldtic Used for knowing when to poll events and redraw
   * \param asksent ???
@@ -2531,7 +2584,7 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
   * \sa CL_ConnectToServer
   *
   */
-static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *oldtic, tic_t *asksent)
+static boolean CL_ServerConnectionTicker(const char *tmpsave, tic_t *oldtic, tic_t *asksent)
 {
 	boolean waitmore;
 	INT32 i;
@@ -2543,7 +2596,7 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 	switch (cl_mode)
 	{
 		case CL_SEARCHING:
-			if (!CL_ServerConnectionSearchTicker(viams, asksent))
+			if (!CL_ServerConnectionSearchTicker(asksent))
 				return false;
 			break;
 
@@ -2559,18 +2612,20 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 			if (waitmore)
 				break; // exit the case
 
+#ifndef NONET
 			if (snake)
 			{
 				free(snake);
 				snake = NULL;
 			}
+#endif
 
 			cl_mode = CL_ASKJOIN; // don't break case continue to cljoin request now
 			/* FALLTHRU */
 
 		case CL_ASKJOIN:
 			CL_LoadServerFiles();
-#ifdef JOININGAME
+#ifndef NONET
 			// prepare structures to save the file
 			// WARNING: this can be useless in case of server not in GS_LEVEL
 			// but since the network layer doesn't provide ordered packets...
@@ -2580,7 +2635,7 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 				cl_mode = CL_WAITJOINRESPONSE;
 			break;
 
-#ifdef JOININGAME
+#ifndef NONET
 		case CL_DOWNLOADSAVEGAME:
 			// At this state, the first (and only) needed file is the gamestate
 			if (fileneeded[0].status == FS_FOUND)
@@ -2620,11 +2675,13 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 			CONS_Printf(M_GetText("Network game synchronization aborted.\n"));
 //				M_StartMessage(M_GetText("Network game synchronization aborted.\n\nPress ESC\n"), NULL, MM_NOTHING);
 
+#ifndef NONET
 			if (snake)
 			{
 				free(snake);
 				snake = NULL;
 			}
+#endif
 
 			D_QuitNetGame();
 			CL_Reset();
@@ -2632,8 +2689,10 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 			memset(gamekeydown, 0, NUMKEYS);
 			return false;
 		}
+#ifndef NONET
 		else if (cl_mode == CL_DOWNLOADFILES && snake)
 			Snake_Handle();
+#endif
 
 		if (client && (cl_mode == CL_DOWNLOADFILES || cl_mode == CL_DOWNLOADSAVEGAME))
 			FileReceiveTicker();
@@ -2644,7 +2703,7 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 		//FileSendTicker();
 		*oldtic = I_GetTime();
 
-#ifdef CLIENT_LOADINGSCREEN
+#ifndef NONET
 		if (client && cl_mode != CL_CONNECTED && cl_mode != CL_ABORTED)
 		{
 			if (cl_mode != CL_DOWNLOADFILES && cl_mode != CL_DOWNLOADSAVEGAME)
@@ -2673,30 +2732,25 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 
 /** Use adaptive send using net_bandwidth and stat.sendbytes
   *
-  * \param viams ???
   * \todo Better description...
   *
   */
-static void CL_ConnectToServer(boolean viams)
+static void CL_ConnectToServer(void)
 {
 	INT32 pnumnodes, nodewaited = doomcom->numnodes, i;
 	tic_t oldtic;
 #ifndef NONET
 	tic_t asksent;
-#endif
-#ifdef JOININGAME
 	char tmpsave[256];
 
 	sprintf(tmpsave, "%s" PATHSEP TMPSAVENAME, srb2home);
+
+	lastfilenum = -1;
 #endif
 
 	cl_mode = CL_SEARCHING;
 
-#ifdef CLIENT_LOADINGSCREEN
-	lastfilenum = -1;
-#endif
-
-#ifdef JOININGAME
+#ifndef NONET
 	// Don't get a corrupt savegame error because tmpsave already exists
 	if (FIL_FileExists(tmpsave) && unlink(tmpsave) == -1)
 		I_Error("Can't delete %s\n", tmpsave);
@@ -2741,9 +2795,9 @@ static void CL_ConnectToServer(boolean viams)
 	{
 		// If the connection was aborted for some reason, leave
 #ifndef NONET
-		if (!CL_ServerConnectionTicker(viams, tmpsave, &oldtic, &asksent))
+		if (!CL_ServerConnectionTicker(tmpsave, &oldtic, &asksent))
 #else
-		if (!CL_ServerConnectionTicker(viams, (char*)NULL, &oldtic, (tic_t *)NULL))
+		if (!CL_ServerConnectionTicker((char*)NULL, &oldtic, (tic_t *)NULL))
 #endif
 			return;
 
@@ -2920,9 +2974,6 @@ static void Command_ReloadBan(void)  //recheck ban.txt
 
 static void Command_connect(void)
 {
-	// Assume we connect directly.
-	boolean viams = false;
-
 	if (COM_Argc() < 2 || *COM_Argv(1) == 0)
 	{
 		CONS_Printf(M_GetText(
@@ -2958,9 +3009,6 @@ static void Command_connect(void)
 		if (netgame && !stricmp(COM_Argv(1), "node"))
 		{
 			servernode = (SINT8)atoi(COM_Argv(2));
-
-			// Use MS to traverse NAT firewalls.
-			viams = true;
 		}
 		else if (netgame)
 		{
@@ -2969,7 +3017,6 @@ static void Command_connect(void)
 		}
 		else if (I_NetOpenSocket)
 		{
-			MSCloseUDPSocket(); // Tidy up before wiping the slate.
 			I_NetOpenSocket();
 			netgame = true;
 			multiplayer = true;
@@ -2998,7 +3045,7 @@ static void Command_connect(void)
 	SplitScreen_OnChange();
 	botingame = false;
 	botskin = 0;
-	CL_ConnectToServer(viams);
+	CL_ConnectToServer();
 }
 #endif
 
@@ -3576,6 +3623,8 @@ static void Got_KickCmd(UINT8 **p, INT32 playernum)
 
 	if (pnum == consoleplayer)
 	{
+		if (Playing())
+			LUAh_GameQuit();
 #ifdef DUMPCONSISTENCY
 		if (msg == KICK_MSG_CON_FAIL) SV_SavedGame();
 #endif
@@ -3616,6 +3665,9 @@ static void Got_KickCmd(UINT8 **p, INT32 playernum)
 	else
 		CL_RemovePlayer(pnum, kickreason);
 }
+
+static CV_PossibleValue_t netticbuffer_cons_t[] = {{0, "MIN"}, {3, "MAX"}, {0, NULL}};
+consvar_t cv_netticbuffer = {"netticbuffer", "1", CV_SAVE, netticbuffer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 consvar_t cv_allownewplayer = {"allowjoin", "On", CV_NETVAR, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL	};
 consvar_t cv_joinnextround = {"joinnextround", "Off", CV_NETVAR, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL}; /// \todo not done
@@ -3790,8 +3842,10 @@ void D_QuitNetGame(void)
 		for (i = 0; i < MAXNETNODES; i++)
 			if (nodeingame[i])
 				HSendPacket(i, true, 0, 0);
+#ifdef MASTERSERVER
 		if (serverrunning && ms_RoomId > 0)
 			UnregisterServer();
+#endif
 	}
 	else if (servernode > 0 && servernode < MAXNETNODES && nodeingame[(UINT8)servernode])
 	{
@@ -4054,15 +4108,16 @@ boolean SV_SpawnServer(void)
 		SV_GenContext();
 		if (netgame && I_NetOpenSocket)
 		{
-			MSCloseUDPSocket();		// Tidy up before wiping the slate.
 			I_NetOpenSocket();
+#ifdef MASTERSERVER
 			if (ms_RoomId > 0)
 				RegisterServer();
+#endif
 		}
 
 		// non dedicated server just connect to itself
 		if (!dedicated)
-			CL_ConnectToServer(false);
+			CL_ConnectToServer();
 		else doomcom->numslots = 1;
 	}
 
@@ -4215,7 +4270,7 @@ static void HandleConnect(SINT8 node)
 			G_SetGamestate(backupstate);
 			DEBFILE("new node joined\n");
 		}
-#ifdef JOININGAME
+#ifndef NONET
 		if (nodewaiting[node])
 		{
 			if ((gamestate == GS_LEVEL || gamestate == GS_INTERMISSION) && newnode)
@@ -4227,11 +4282,6 @@ static void HandleConnect(SINT8 node)
 			joindelay += cv_joindelay.value * TICRATE;
 			player_joining = true;
 		}
-#else
-#ifndef NONET
-		// I guess we have no use for this if we aren't doing mid-level joins?
-		(void)newnode;
-#endif
 #endif
 	}
 }
@@ -4244,6 +4294,8 @@ static void HandleConnect(SINT8 node)
 static void HandleShutdown(SINT8 node)
 {
 	(void)node;
+	if (Playing())
+		LUAh_GameQuit();
 	D_QuitNetGame();
 	CL_Reset();
 	D_StartTitle();
@@ -4258,6 +4310,8 @@ static void HandleShutdown(SINT8 node)
 static void HandleTimeout(SINT8 node)
 {
 	(void)node;
+	if (Playing())
+		LUAh_GameQuit();
 	D_QuitNetGame();
 	CL_Reset();
 	D_StartTitle();
@@ -4409,7 +4463,7 @@ static void HandlePacketFromAwayNode(SINT8 node)
 				playernode[(UINT8)serverplayer] = servernode;
 
 			if (netgame)
-#ifdef JOININGAME
+#ifndef NONET
 				CONS_Printf(M_GetText("Join accepted, waiting for complete game state...\n"));
 #else
 				CONS_Printf(M_GetText("Join accepted, waiting for next level change...\n"));
@@ -4433,7 +4487,7 @@ static void HandlePacketFromAwayNode(SINT8 node)
 			scp = netbuffer->u.servercfg.varlengthinputs;
 			CV_LoadPlayerNames(&scp);
 			CV_LoadNetVars(&scp);
-#ifdef JOININGAME
+#ifndef NONET
 			/// \note Wait. What if a Lua script uses some global custom variables synched with the NetVars hook?
 			///       Shouldn't them be downloaded even at intermission time?
 			///       Also, according to HandleConnect, the server will send the savegame even during intermission...
@@ -5162,7 +5216,7 @@ static void SV_SendTics(void)
 		{
 			// assert supposedtics[n]>=nettics[n]
 			realfirsttic = supposedtics[n];
-			lasttictosend = min(maketic, realfirsttic + CLIENTBACKUPTICS);
+			lasttictosend = min(maketic, nettics[n] + CLIENTBACKUPTICS);
 
 			if (realfirsttic >= lasttictosend)
 			{
@@ -5379,10 +5433,18 @@ void TryRunTics(tic_t realtics)
 			{
 				DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
 
+				rs_tictime = I_GetTimeMicros();
+
 				G_Ticker((gametic % NEWTICRATERATIO) == 0);
 				ExtraDataTicker();
 				gametic++;
 				consistancy[gametic%BACKUPTICS] = Consistancy();
+
+				rs_tictime = I_GetTimeMicros() - rs_tictime;
+
+				// Leave a certain amount of tics present in the net buffer as long as we've ran at least one tic this frame.
+				if (client && gamestate == GS_LEVEL && leveltime > 3 && neededtic <= gametic + cv_netticbuffer.value)
+					break;
 			}
 	}
 }
@@ -5516,7 +5578,9 @@ void NetUpdate(void)
 	// client send the command after a receive of the server
 	// the server send before because in single player is beter
 
+#ifdef MASTERSERVER
 	MasterClient_Ticker(); // Acking the Master Server
+#endif
 
 	if (client)
 	{
@@ -5591,7 +5655,13 @@ void NetUpdate(void)
 	if (nowtime > resptime)
 	{
 		resptime = nowtime;
+#ifdef HAVE_THREADS
+		I_lock_mutex(&m_menu_mutex);
+#endif
 		M_Ticker();
+#ifdef HAVE_THREADS
+		I_unlock_mutex(m_menu_mutex);
+#endif
 		CON_Ticker();
 	}
 

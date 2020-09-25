@@ -29,8 +29,9 @@
 #include "p_local.h" // for var1 and var2, and some constants
 #include "p_setup.h"
 #include "r_data.h"
+#include "r_textures.h"
 #include "r_draw.h"
-#include "r_patch.h"
+#include "r_picformats.h"
 #include "r_things.h" // R_Char2Frame
 #include "r_sky.h"
 #include "fastcmp.h"
@@ -44,12 +45,6 @@
 
 #ifdef HWRENDER
 #include "hardware/hw_light.h"
-#endif
-
-#ifdef PC_DOS
-#include <stdio.h> // for snprintf
-//int	snprintf(char *str, size_t n, const char *fmt, ...);
-int	vsnprintf(char *str, size_t n, const char *fmt, va_list ap);
 #endif
 
 // Free slot names
@@ -806,8 +801,43 @@ static void readskincolor(MYFILE *f, INT32 num)
 
 			if (fastcmp(word, "NAME"))
 			{
-				deh_strlcpy(skincolors[num].name, word2,
-					sizeof (skincolors[num].name), va("Skincolor %d: name", num));
+				size_t namesize = sizeof(skincolors[num].name);
+				char truncword[namesize];
+				UINT16 dupecheck;
+
+				deh_strlcpy(truncword, word2, namesize, va("Skincolor %d: name", num)); // truncate here to check for dupes
+				dupecheck = R_GetColorByName(truncword);
+				if (truncword[0] != '\0' && (!stricmp(truncword, skincolors[SKINCOLOR_NONE].name) || (dupecheck && dupecheck != num)))
+				{
+					size_t lastchar = strlen(truncword);
+					char oldword[lastchar+1];
+					char dupenum = '1';
+
+					strlcpy(oldword, truncword, lastchar+1);
+					lastchar--;
+					if (lastchar == namesize-2) // exactly max length, replace last character with 0
+						truncword[lastchar] = '0';
+					else // append 0
+					{
+						strcat(truncword, "0");
+						lastchar++;
+					}
+
+					while (R_GetColorByName(truncword))
+					{
+						truncword[lastchar] = dupenum;
+						if (dupenum == '9')
+							dupenum = 'A';
+						else if (dupenum == 'Z') // give up :?
+							break;
+						else
+							dupenum++;
+					}
+
+					deh_warning("Skincolor %d: name %s is a duplicate of another skincolor's name - renamed to %s", num, oldword, truncword);
+				}
+
+				strlcpy(skincolors[num].name, truncword, namesize); // already truncated
 			}
 			else if (fastcmp(word, "RAMP"))
 			{
@@ -818,10 +848,15 @@ static void readskincolor(MYFILE *f, INT32 num)
 					if ((tmp = strtok(NULL,",")) == NULL)
 						break;
 				}
+				skincolor_modified[num] = true;
 			}
 			else if (fastcmp(word, "INVCOLOR"))
 			{
-				skincolors[num].invcolor = (UINT16)get_number(word2);
+				UINT16 v = (UINT16)get_number(word2);
+				if (v < numskincolors)
+					skincolors[num].invcolor = v;
+				else
+					skincolors[num].invcolor = SKINCOLOR_GREEN;
 			}
 			else if (fastcmp(word, "INVSHADE"))
 			{
@@ -3082,6 +3117,7 @@ static actionpointer_t actionpointers[] =
 	{{A_NapalmScatter},          "A_NAPALMSCATTER"},
 	{{A_SpawnFreshCopy},         "A_SPAWNFRESHCOPY"},
 	{{A_FlickySpawn},            "A_FLICKYSPAWN"},
+	{{A_FlickyCenter},           "A_FLICKYCENTER"},
 	{{A_FlickyAim},              "A_FLICKYAIM"},
 	{{A_FlickyFly},              "A_FLICKYFLY"},
 	{{A_FlickySoar},             "A_FLICKYSOAR"},
@@ -4687,11 +4723,11 @@ static void DEH_LoadDehackedFile(MYFILE *f, boolean mainfile)
 				{
 					if (i == 0 && word2[0] != '0') // If word2 isn't a number
 						i = get_skincolor(word2); // find a skincolor by name
-					if (i < numskincolors && i >= (INT32)SKINCOLOR_FIRSTFREESLOT)
+					if (i && i < numskincolors)
 						readskincolor(f, i);
 					else
 					{
-						deh_warning("Skincolor %d out of range (%d - %d)", i, SKINCOLOR_FIRSTFREESLOT, numskincolors-1);
+						deh_warning("Skincolor %d out of range (1 - %d)", i, numskincolors-1);
 						ignorelines(f);
 					}
 				}
@@ -5334,6 +5370,7 @@ static const char *const STATE_LIST[] = { // array length left dynamic for sanit
 	"S_JETJAW_CHOMP14",
 	"S_JETJAW_CHOMP15",
 	"S_JETJAW_CHOMP16",
+	"S_JETJAW_SOUND",
 
 	// Snailer
 	"S_SNAILER1",
@@ -5756,10 +5793,12 @@ static const char *const STATE_LIST[] = { // array length left dynamic for sanit
 	"S_FANG_PINCHPATHINGSTART1",
 	"S_FANG_PINCHPATHINGSTART2",
 	"S_FANG_PINCHPATHING",
+	"S_FANG_PINCHBOUNCE0",
 	"S_FANG_PINCHBOUNCE1",
 	"S_FANG_PINCHBOUNCE2",
 	"S_FANG_PINCHBOUNCE3",
 	"S_FANG_PINCHBOUNCE4",
+	"S_FANG_PINCHFALL0",
 	"S_FANG_PINCHFALL1",
 	"S_FANG_PINCHFALL2",
 	"S_FANG_PINCHSKID1",
@@ -8146,6 +8185,9 @@ static const char *const STATE_LIST[] = { // array length left dynamic for sanit
 	"S_GFZDEBRIS",
 	"S_BRICKDEBRIS",
 	"S_WOODDEBRIS",
+	"S_REDBRICKDEBRIS",
+	"S_BLUEBRICKDEBRIS",
+	"S_YELLOWBRICKDEBRIS",
 
 #ifdef SEENAMES
 	"S_NAMECHECK",
@@ -8893,7 +8935,6 @@ static const char *const MOBJTYPE_LIST[] = {  // array length left dynamic for s
 	"MT_ANGLEMAN",
 	"MT_POLYANCHOR",
 	"MT_POLYSPAWN",
-	"MT_POLYSPAWNCRUSH",
 
 	// Skybox objects
 	"MT_SKYBOX",
@@ -8926,6 +8967,9 @@ static const char *const MOBJTYPE_LIST[] = {  // array length left dynamic for s
 	"MT_GFZDEBRIS",
 	"MT_BRICKDEBRIS",
 	"MT_WOODDEBRIS",
+	"MT_REDBRICKDEBRIS",
+	"MT_BLUEBRICKDEBRIS",
+	"MT_YELLOWBRICKDEBRIS",
 
 #ifdef SEENAMES
 	"MT_NAMECHECK",
@@ -9039,7 +9083,7 @@ static const char *const PLAYERFLAG_LIST[] = {
 
 	// True if button down last tic.
 	"ATTACKDOWN",
-	"USEDOWN",
+	"SPINDOWN",
 	"JUMPDOWN",
 	"WPNDOWN",
 
@@ -9312,7 +9356,9 @@ static const char *const POWERS_LIST[] = {
 	//for dyes
 	"DYE",
 
-	"JUSTLAUNCHED"
+	"JUSTLAUNCHED",
+
+	"IGNORELATCH"
 };
 
 static const char *const HUDITEMS_LIST[] = {
@@ -9472,8 +9518,6 @@ struct {
 	{"PUSHACCEL",PUSHACCEL},
 	{"MODID",MODID}, // I don't know, I just thought it would be cool for a wad to potentially know what mod it was loaded into.
 	{"CODEBASE",CODEBASE}, // or what release of SRB2 this is.
-	{"VERSION",VERSION}, // Grab the game's version!
-	{"SUBVERSION",SUBVERSION}, // more precise version number
 	{"NEWTICRATE",NEWTICRATE}, // TICRATE*NEWTICRATERATIO
 	{"NEWTICRATERATIO",NEWTICRATERATIO},
 
@@ -9504,6 +9548,7 @@ struct {
 	{"FF_GLOBALANIM",FF_GLOBALANIM},
 	{"FF_FULLBRIGHT",FF_FULLBRIGHT},
 	{"FF_VERTICALFLIP",FF_VERTICALFLIP},
+	{"FF_HORIZONTALFLIP",FF_HORIZONTALFLIP},
 	{"FF_PAPERSPRITE",FF_PAPERSPRITE},
 	{"FF_TRANSMASK",FF_TRANSMASK},
 	{"FF_TRANSSHIFT",FF_TRANSSHIFT},
@@ -9653,6 +9698,8 @@ struct {
 	{"SF_MULTIABILITY",SF_MULTIABILITY},
 	{"SF_NONIGHTSROTATION",SF_NONIGHTSROTATION},
 	{"SF_NONIGHTSSUPER",SF_NONIGHTSSUPER},
+	{"SF_NOSUPERSPRITES",SF_NOSUPERSPRITES},
+	{"SF_NOSUPERJUMPBOOST",SF_NOSUPERJUMPBOOST},
 
 	// Dashmode constants
 	{"DASHMODE_THRESHOLD",DASHMODE_THRESHOLD},
@@ -9923,7 +9970,7 @@ struct {
 	{"BT_WEAPONNEXT",BT_WEAPONNEXT},
 	{"BT_WEAPONPREV",BT_WEAPONPREV},
 	{"BT_ATTACK",BT_ATTACK}, // shoot rings
-	{"BT_USE",BT_USE}, // spin
+	{"BT_SPIN",BT_SPIN},
 	{"BT_CAMLEFT",BT_CAMLEFT}, // turn camera left
 	{"BT_CAMRIGHT",BT_CAMRIGHT}, // turn camera right
 	{"BT_TOSSFLAG",BT_TOSSFLAG},
@@ -10615,7 +10662,7 @@ static inline int lib_freeslot(lua_State *L)
 					CONS_Printf("State S_%s allocated.\n",word);
 					FREE_STATES[i] = Z_Malloc(strlen(word)+1, PU_STATIC, NULL);
 					strcpy(FREE_STATES[i],word);
-					lua_pushinteger(L, i);
+					lua_pushinteger(L, S_FIRSTFREESLOT + i);
 					r++;
 					break;
 				}
@@ -10630,7 +10677,7 @@ static inline int lib_freeslot(lua_State *L)
 					CONS_Printf("MobjType MT_%s allocated.\n",word);
 					FREE_MOBJS[i] = Z_Malloc(strlen(word)+1, PU_STATIC, NULL);
 					strcpy(FREE_MOBJS[i],word);
-					lua_pushinteger(L, i);
+					lua_pushinteger(L, MT_FIRSTFREESLOT + i);
 					r++;
 					break;
 				}
@@ -10646,7 +10693,7 @@ static inline int lib_freeslot(lua_State *L)
 					FREE_SKINCOLORS[i] = Z_Malloc(strlen(word)+1, PU_STATIC, NULL);
 					strcpy(FREE_SKINCOLORS[i],word);
 					M_AddMenuColor(numskincolors++);
-					lua_pushinteger(L, i);
+					lua_pushinteger(L, SKINCOLOR_FIRSTFREESLOT + i);
 					r++;
 					break;
 				}
@@ -10667,11 +10714,12 @@ static inline int lib_freeslot(lua_State *L)
 					CONS_Printf("Sprite SPR2_%s allocated.\n",word);
 					strncpy(spr2names[free_spr2],word,4);
 					spr2defaults[free_spr2] = 0;
+					lua_pushinteger(L, free_spr2);
+					r++;
 					spr2names[free_spr2++][4] = 0;
 				} else
 					CONS_Alert(CONS_WARNING, "Ran out of free SPR2 slots!\n");
 			}
-			r++;
 		}
 		else if (fastcmp(type, "TOL"))
 		{
@@ -10793,6 +10841,11 @@ static inline int lib_getenum(lua_State *L)
 		if (fastcmp(p, "FULLSTASIS"))
 		{
 			lua_pushinteger(L, (lua_Integer)PF_FULLSTASIS);
+			return 1;
+		}
+		else if (fastcmp(p, "USEDOWN")) // Remove case when 2.3 nears release...
+		{
+			lua_pushinteger(L, (lua_Integer)PF_SPINDOWN);
 			return 1;
 		}
 		if (mathlib) return luaL_error(L, "playerflag '%s' could not be found.\n", word);
@@ -11059,6 +11112,12 @@ static inline int lib_getenum(lua_State *L)
 				return 1;
 			}
 		return 0;
+	}
+
+	if (fastcmp(word, "BT_USE")) // Remove case when 2.3 nears release...
+	{
+		lua_pushinteger(L, (lua_Integer)BT_SPIN);
+		return 1;
 	}
 
 	for (i = 0; INT_CONST[i].n; i++)

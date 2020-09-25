@@ -24,12 +24,6 @@
 #include <unistd.h> // for getcwd
 #endif
 
-#ifdef PC_DOS
-#include <stdio.h> // for snprintf
-int	snprintf(char *str, size_t n, const char *fmt, ...);
-//int	vsnprintf(char *str, size_t n, const char *fmt, va_list ap);
-#endif
-
 #ifdef _WIN32
 #include <direct.h>
 #include <malloc.h>
@@ -46,6 +40,7 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #include "hu_stuff.h"
 #include "i_sound.h"
 #include "i_system.h"
+#include "i_threads.h"
 #include "i_video.h"
 #include "m_argv.h"
 #include "m_menu.h"
@@ -92,6 +87,10 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #endif
 
 #include "lua_script.h"
+
+// Version numbers for netplay :upside_down_face:
+int    VERSION;
+int SUBVERSION;
 
 // platform independant focus loss
 UINT8 window_notinfocus = false;
@@ -158,10 +157,6 @@ void D_PostEvent(const event_t *ev)
 	events[eventhead] = *ev;
 	eventhead = (eventhead+1) & (MAXEVENTS-1);
 }
-// just for lock this function
-#if defined (PC_DOS) && !defined (DOXYGEN)
-void D_PostEvent_end(void) {};
-#endif
 
 // modifier keys
 // Now handled in I_OsPolling
@@ -178,6 +173,8 @@ void D_ProcessEvents(void)
 {
 	event_t *ev;
 
+	boolean eaten;
+
 	for (; eventtail != eventhead; eventtail = (eventtail+1) & (MAXEVENTS-1))
 	{
 		ev = &events[eventtail];
@@ -193,11 +190,31 @@ void D_ProcessEvents(void)
 		}
 
 		// Menu input
-		if (M_Responder(ev))
+#ifdef HAVE_THREADS
+		I_lock_mutex(&m_menu_mutex);
+#endif
+		{
+			eaten = M_Responder(ev);
+		}
+#ifdef HAVE_THREADS
+		I_unlock_mutex(m_menu_mutex);
+#endif
+
+		if (eaten)
 			continue; // menu ate the event
 
 		// console input
-		if (CON_Responder(ev))
+#ifdef HAVE_THREADS
+		I_lock_mutex(&con_mutex);
+#endif
+		{
+			eaten = CON_Responder(ev);
+		}
+#ifdef HAVE_THREADS
+		I_unlock_mutex(con_mutex);
+#endif
+
+		if (eaten)
 			continue; // ate the event
 
 		G_Responder(ev);
@@ -478,6 +495,8 @@ static void D_Display(void)
 				lastdraw = false;
 			}
 
+			rs_uitime = I_GetTimeMicros();
+
 			if (gamestate == GS_LEVEL)
 			{
 				ST_Drawer();
@@ -486,6 +505,10 @@ static void D_Display(void)
 			}
 			else
 				F_TitleScreenDrawer();
+		}
+		else
+		{
+			rs_uitime = I_GetTimeMicros();
 		}
 	}
 
@@ -516,10 +539,18 @@ static void D_Display(void)
 	// vid size change is now finished if it was on...
 	vid.recalc = 0;
 
+#ifdef HAVE_THREADS
+	I_lock_mutex(&m_menu_mutex);
+#endif
 	M_Drawer(); // menu is drawn even on top of everything
+#ifdef HAVE_THREADS
+	I_unlock_mutex(m_menu_mutex);
+#endif
 	// focus lost moved to M_Drawer
 
 	CON_Drawer();
+
+	rs_uitime = I_GetTimeMicros() - rs_uitime;
 
 	//
 	// wipe update
@@ -599,7 +630,7 @@ static void D_Display(void)
 			snprintf(s, sizeof s - 1, "SysMiss %.2f%%", lostpercent);
 			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-10, V_YELLOWMAP, s);
 		}
-		
+
 		if (cv_renderstats.value)
 		{
 			char s[50];
@@ -608,7 +639,7 @@ static void D_Display(void)
 			rs_prevframetime = I_GetTimeMicros();
 
 			if (rs_rendercalltime > 10000) divisor = 1000;
-			
+
 			snprintf(s, sizeof s - 1, "ft   %d", frametime / divisor);
 			V_DrawThinString(30, 10, V_MONOSPACE | V_YELLOWMAP, s);
 			snprintf(s, sizeof s - 1, "rtot %d", rs_rendercalltime / divisor);
@@ -625,6 +656,7 @@ static void D_Display(void)
 			V_DrawThinString(80, 40, V_MONOSPACE | V_BLUEMAP, s);
 			if (rendermode == render_opengl) // OpenGL specific stats
 			{
+#ifdef HWRENDER
 				snprintf(s, sizeof s - 1, "nsrt %d", rs_hw_nodesorttime / divisor);
 				V_DrawThinString(30, 40, V_MONOSPACE | V_YELLOWMAP, s);
 				snprintf(s, sizeof s - 1, "ndrw %d", rs_hw_nodedrawtime / divisor);
@@ -633,9 +665,13 @@ static void D_Display(void)
 				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
 				snprintf(s, sizeof s - 1, "sdrw %d", rs_hw_spritedrawtime / divisor);
 				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "fin  %d", rs_swaptime / divisor);
+				snprintf(s, sizeof s - 1, "ui   %d", rs_uitime / divisor);
 				V_DrawThinString(30, 80, V_MONOSPACE | V_YELLOWMAP, s);
-				if (cv_grbatching.value)
+				snprintf(s, sizeof s - 1, "fin  %d", rs_swaptime / divisor);
+				V_DrawThinString(30, 90, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "tic  %d", rs_tictime / divisor);
+				V_DrawThinString(30, 105, V_MONOSPACE | V_GRAYMAP, s);
+				if (cv_glbatching.value)
 				{
 					snprintf(s, sizeof s - 1, "bsrt %d", rs_hw_batchsorttime / divisor);
 					V_DrawThinString(80, 55, V_MONOSPACE | V_REDMAP, s);
@@ -657,6 +693,7 @@ static void D_Display(void)
 					snprintf(s, sizeof s - 1, "ncol %d", rs_hw_numcolors);
 					V_DrawThinString(185, 30, V_MONOSPACE | V_PURPLEMAP, s);
 				}
+#endif
 			}
 			else // software specific stats
 			{
@@ -666,8 +703,12 @@ static void D_Display(void)
 				V_DrawThinString(30, 50, V_MONOSPACE | V_YELLOWMAP, s);
 				snprintf(s, sizeof s - 1, "mskd %d", rs_sw_maskedtime / divisor);
 				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "fin  %d", rs_swaptime / divisor);
+				snprintf(s, sizeof s - 1, "ui   %d", rs_uitime / divisor);
 				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "fin  %d", rs_swaptime / divisor);
+				V_DrawThinString(30, 80, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "tic  %d", rs_tictime / divisor);
+				V_DrawThinString(30, 95, V_MONOSPACE | V_GRAYMAP, s);
 			}
 		}
 
@@ -706,6 +747,7 @@ tic_t rendergametic;
 void D_SRB2Loop(void)
 {
 	tic_t oldentertics = 0, entertic = 0, realtics = 0, rendertimeout = INFTICS;
+	static lumpnum_t gstartuplumpnum;
 
 	if (dedicated)
 		server = true;
@@ -745,7 +787,12 @@ void D_SRB2Loop(void)
 	*/
 	/* Smells like a hack... Don't fade Sonic's ass into the title screen. */
 	if (gamestate != GS_TITLESCREEN)
-		V_DrawScaledPatch(0, 0, 0, W_CachePatchNum(W_GetNumForName("CONSBACK"), PU_PATCH));
+	{
+		gstartuplumpnum = W_CheckNumForName("STARTUP");
+		if (gstartuplumpnum == LUMPERROR)
+			gstartuplumpnum = W_GetNumForName("MISSING");
+		V_DrawScaledPatch(0, 0, 0, W_CachePatchNum(gstartuplumpnum, PU_PATCH));
+	}
 
 	for (;;)
 	{
@@ -820,9 +867,6 @@ void D_SRB2Loop(void)
 		// consoleplayer -> displayplayer (hear sounds from viewpoint)
 		S_UpdateSounds(); // move positional sounds
 		S_UpdateClosedCaptions();
-
-		// check for media change, loop music..
-		I_UpdateCD();
 
 #ifdef HW3SOUND
 		HW3S_EndFrameUpdate();
@@ -1084,63 +1128,20 @@ static void IdentifyVersion(void)
 #endif
 }
 
-#ifdef PC_DOS
-/* ======================================================================== */
-// Code for printing SRB2's title bar in DOS
-/* ======================================================================== */
-
-//
-// Center the title string, then add the date and time of compilation.
-//
-static inline void D_MakeTitleString(char *s)
+static void
+D_ConvertVersionNumbers (void)
 {
-	char temp[82];
-	char *t;
-	const char *u;
-	INT32 i;
+	/* leave at defaults (0) under DEVELOP */
+#ifndef DEVELOP
+	int major;
+	int minor;
 
-	for (i = 0, t = temp; i < 82; i++)
-		*t++=' ';
+	sscanf(SRB2VERSION, "%d.%d.%d", &major, &minor, &SUBVERSION);
 
-	for (t = temp + (80-strlen(s))/2, u = s; *u != '\0' ;)
-		*t++ = *u++;
-
-	u = compdate;
-	for (t = temp + 1, i = 11; i-- ;)
-		*t++ = *u++;
-	u = comptime;
-	for (t = temp + 71, i = 8; i-- ;)
-		*t++ = *u++;
-
-	temp[80] = '\0';
-	strcpy(s, temp);
-}
-
-static inline void D_Titlebar(void)
-{
-	char title1[82]; // srb2 title banner
-	char title2[82];
-
-	strcpy(title1, "Sonic Robo Blast 2");
-	strcpy(title2, "Sonic Robo Blast 2");
-
-	D_MakeTitleString(title1);
-
-	// SRB2 banner
-	clrscr();
-	textattr((BLUE<<4)+WHITE);
-	clreol();
-	cputs(title1);
-
-	// standard srb2 banner
-	textattr((RED<<4)+WHITE);
-	clreol();
-	gotoxy((80-strlen(title2))/2, 2);
-	cputs(title2);
-	normvideo();
-	gotoxy(1,3);
-}
+	/* this is stupid */
+	VERSION = ( major * 100 ) + minor;
 #endif
+}
 
 //
 // D_SRB2Main
@@ -1151,6 +1152,9 @@ void D_SRB2Main(void)
 
 	INT32 pstartmap = 1;
 	boolean autostart = false;
+
+	/* break the version string into version numbers, for netplay */
+	D_ConvertVersionNumbers();
 
 	// Print GPL notice for our console users (Linux)
 	CONS_Printf(
@@ -1167,7 +1171,7 @@ void D_SRB2Main(void)
 	"in this program.\n\n");
 
 	// keep error messages until the final flush(stderr)
-#if !defined (PC_DOS) && !defined(NOTERMIOS)
+#if !defined(NOTERMIOS)
 	if (setvbuf(stderr, NULL, _IOFBF, 1000))
 		I_OutputMsg("setvbuf didnt work\n");
 #endif
@@ -1203,10 +1207,6 @@ void D_SRB2Main(void)
 	// for dedicated server
 #if !defined (_WINDOWS) //already check in win_main.c
 	dedicated = M_CheckParm("-dedicated") != 0;
-#endif
-
-#ifdef PC_DOS
-	D_Titlebar();
 #endif
 
 	if (devparm)
@@ -1447,10 +1447,6 @@ void D_SRB2Main(void)
 			autostart = true;
 		}
 	}
-
-	// Initialize CD-Audio
-	if (M_CheckParm("-usecd") && !dedicated)
-		I_InitCD();
 
 	if (M_CheckParm("-noupload"))
 		COM_BufAddText("downloading 0\n");

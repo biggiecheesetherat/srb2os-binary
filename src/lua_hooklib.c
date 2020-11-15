@@ -76,6 +76,7 @@ const char *const hookNames[hook_MAX+1] = {
 	"ShouldJingleContinue",
 	"GameQuit",
 	"PlayerCmd",
+	"MusicChange",
 	NULL
 };
 
@@ -263,6 +264,9 @@ boolean LUAh_MobjHook(mobj_t *mo, enum hook which)
 		return false;
 
 	I_Assert(mo->type < NUMMOBJTYPES);
+
+	if (!(mobjhooks[MT_NULL] || mobjhooks[mo->type]))
+		return false;
 
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
@@ -536,6 +540,9 @@ UINT8 LUAh_MobjCollideHook(mobj_t *thing1, mobj_t *thing2, enum hook which)
 
 	I_Assert(thing1->type < NUMMOBJTYPES);
 
+	if (!(mobjcollidehooks[MT_NULL] || mobjcollidehooks[thing1->type]))
+		return 0;
+
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
 
@@ -614,6 +621,9 @@ UINT8 LUAh_MobjLineCollideHook(mobj_t *thing, line_t *line, enum hook which)
 		return 0;
 
 	I_Assert(thing->type < NUMMOBJTYPES);
+
+	if (!(mobjcollidehooks[MT_NULL] || mobjcollidehooks[thing->type]))
+		return 0;
 
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
@@ -695,6 +705,9 @@ boolean LUAh_MobjThinker(mobj_t *mo)
 
 	I_Assert(mo->type < NUMMOBJTYPES);
 
+	if (!(mobjthinkerhooks[MT_NULL] || mobjthinkerhooks[mo->type]))
+		return false;
+
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
 
@@ -747,9 +760,12 @@ boolean LUAh_TouchSpecial(mobj_t *special, mobj_t *toucher)
 	hook_p hookp;
 	boolean hooked = false;
 	if (!gL || !(hooksAvailable[hook_TouchSpecial/8] & (1<<(hook_TouchSpecial%8))))
-		return 0;
+		return false;
 
 	I_Assert(special->type < NUMMOBJTYPES);
+
+	if (!(mobjhooks[MT_NULL] || mobjhooks[special->type]))
+		return false;
 
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
@@ -820,6 +836,9 @@ UINT8 LUAh_ShouldDamage(mobj_t *target, mobj_t *inflictor, mobj_t *source, INT32
 		return 0;
 
 	I_Assert(target->type < NUMMOBJTYPES);
+
+	if (!(mobjhooks[MT_NULL] || mobjhooks[target->type]))
+		return 0;
 
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
@@ -908,9 +927,12 @@ boolean LUAh_MobjDamage(mobj_t *target, mobj_t *inflictor, mobj_t *source, INT32
 	hook_p hookp;
 	boolean hooked = false;
 	if (!gL || !(hooksAvailable[hook_MobjDamage/8] & (1<<(hook_MobjDamage%8))))
-		return 0;
+		return false;
 
 	I_Assert(target->type < NUMMOBJTYPES);
+
+	if (!(mobjhooks[MT_NULL] || mobjhooks[target->type]))
+		return false;
 
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
@@ -990,9 +1012,12 @@ boolean LUAh_MobjDeath(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 
 	hook_p hookp;
 	boolean hooked = false;
 	if (!gL || !(hooksAvailable[hook_MobjDeath/8] & (1<<(hook_MobjDeath%8))))
-		return 0;
+		return false;
 
 	I_Assert(target->type < NUMMOBJTYPES);
+
+	if (!(mobjhooks[MT_NULL] || mobjhooks[target->type]))
+		return false;
 
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
@@ -1392,6 +1417,9 @@ boolean LUAh_MapThingSpawn(mobj_t *mo, mapthing_t *mthing)
 	if (!gL || !(hooksAvailable[hook_MapThingSpawn/8] & (1<<(hook_MapThingSpawn%8))))
 		return false;
 
+	if (!(mobjhooks[MT_NULL] || mobjhooks[mo->type]))
+		return false;
+
 	lua_settop(gL, 0);
 	lua_pushcfunction(gL, LUA_GetErrorMessage);
 
@@ -1458,6 +1486,9 @@ boolean LUAh_FollowMobj(player_t *player, mobj_t *mobj)
 	hook_p hookp;
 	boolean hooked = false;
 	if (!gL || !(hooksAvailable[hook_FollowMobj/8] & (1<<(hook_FollowMobj%8))))
+		return 0;
+
+	if (!(mobjhooks[MT_NULL] || mobjhooks[mobj->type]))
 		return 0;
 
 	lua_settop(gL, 0);
@@ -1880,5 +1911,64 @@ boolean LUAh_PlayerCmd(player_t *player, ticcmd_t *cmd)
 
 	lua_settop(gL, 0);
 	hook_cmd_running = false;
+	return hooked;
+}
+
+// Hook for music changes
+boolean LUAh_MusicChange(const char *oldname, char *newname, UINT16 *mflags, boolean *looping,
+	UINT32 *position, UINT32 *prefadems, UINT32 *fadeinms)
+{
+	hook_p hookp;
+	boolean hooked = false;
+
+	if (!gL || !(hooksAvailable[hook_MusicChange/8] & (1<<(hook_MusicChange%8))))
+		return false;
+
+	lua_settop(gL, 0);
+	lua_pushcfunction(gL, LUA_GetErrorMessage);
+
+	for (hookp = roothook; hookp; hookp = hookp->next)
+		if (hookp->type == hook_MusicChange)
+		{
+			PushHook(gL, hookp);
+			lua_pushstring(gL, oldname);
+			lua_pushstring(gL, newname);
+			lua_pushinteger(gL, *mflags);
+			lua_pushboolean(gL, *looping);
+			lua_pushinteger(gL, *position);
+			lua_pushinteger(gL, *prefadems);
+			lua_pushinteger(gL, *fadeinms);
+			if (lua_pcall(gL, 7, 6, 1)) {
+				CONS_Alert(CONS_WARNING,"%s\n",lua_tostring(gL,-1));
+				lua_pop(gL, 1);
+				continue;
+			}
+
+			// output 1: true, false, or string musicname override
+			if (lua_isboolean(gL, -6) && lua_toboolean(gL, -6))
+				hooked = true;
+			else if (lua_isstring(gL, -6))
+				strncpy(newname, lua_tostring(gL, -6), 7);
+			// output 2: mflags override
+			if (lua_isnumber(gL, -5))
+				*mflags = lua_tonumber(gL, -5);
+			// output 3: looping override
+			if (lua_isboolean(gL, -4))
+				*looping = lua_toboolean(gL, -4);
+			// output 4: position override
+			if (lua_isboolean(gL, -3))
+				*position = lua_tonumber(gL, -3);
+			// output 5: prefadems override
+			if (lua_isboolean(gL, -2))
+				*prefadems = lua_tonumber(gL, -2);
+			// output 6: fadeinms override
+			if (lua_isboolean(gL, -1))
+				*fadeinms = lua_tonumber(gL, -1);
+
+			lua_pop(gL, 7);  // Pop returned values and error handler
+		}
+
+	lua_settop(gL, 0);
+	newname[6] = 0;
 	return hooked;
 }

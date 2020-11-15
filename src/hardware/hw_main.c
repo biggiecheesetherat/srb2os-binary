@@ -1608,7 +1608,7 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 
 	//Hurdler: 3d-floors test
-	if (gl_frontsector && gl_backsector && gl_frontsector->tag != gl_backsector->tag && (gl_backsector->ffloors || gl_frontsector->ffloors))
+	if (gl_frontsector && gl_backsector && !Tag_Compare(&gl_frontsector->tags, &gl_backsector->tags) && (gl_backsector->ffloors || gl_frontsector->ffloors))
 	{
 		ffloor_t * rover;
 		fixed_t    highcut = 0, lowcut = 0;
@@ -1625,6 +1625,18 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 		{
 			for (rover = gl_backsector->ffloors; rover; rover = rover->next)
 			{
+				boolean bothsides = false;
+				// Skip if it exists on both sectors.
+				ffloor_t * r2;
+				for (r2 = gl_frontsector->ffloors; r2; r2 = r2->next)
+					if (rover->master == r2->master)
+					{
+						bothsides = true;
+						break;
+					}
+
+				if (bothsides) continue;
+
 				if (!(rover->flags & FF_EXISTS) || !(rover->flags & FF_RENDERSIDES))
 					continue;
 				if (!(rover->flags & FF_ALLSIDES) && rover->flags & FF_INVERTSIDES)
@@ -1759,6 +1771,18 @@ static void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 		{
 			for (rover = gl_frontsector->ffloors; rover; rover = rover->next)
 			{
+				boolean bothsides = false;
+				// Skip if it exists on both sectors.
+				ffloor_t * r2;
+				for (r2 = gl_backsector->ffloors; r2; r2 = r2->next)
+					if (rover->master == r2->master)
+					{
+						bothsides = true;
+						break;
+					}
+
+				if (bothsides) continue;
+
 				if (!(rover->flags & FF_EXISTS) || !(rover->flags & FF_RENDERSIDES))
 					continue;
 				if (!(rover->flags & FF_ALLSIDES || rover->flags & FF_INVERTSIDES))
@@ -2384,7 +2408,7 @@ static void HWR_AddLine(seg_t * line)
 			if (!line->polyseg &&
 				!line->sidedef->midtexture
 				&& ((!gl_frontsector->ffloors && !gl_backsector->ffloors)
-					|| (gl_frontsector->tag == gl_backsector->tag)))
+					|| Tag_Compare(&gl_frontsector->tags, &gl_backsector->tags)))
 				return; // line is empty, don't even bother
 			// treat like wide open window instead
 			HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
@@ -2423,7 +2447,7 @@ static void HWR_AddLine(seg_t * line)
 		if (!line->polyseg &&
 			!line->sidedef->midtexture
 			&& ((!gl_frontsector->ffloors && !gl_backsector->ffloors)
-				|| (gl_frontsector->tag == gl_backsector->tag)))
+				|| Tag_Compare(&gl_frontsector->tags, &gl_backsector->tags)))
 			return; // line is empty, don't even bother
 
 		goto clippass; // treat like wide open window instead
@@ -4204,12 +4228,7 @@ static inline void HWR_DrawPrecipitationSprite(gl_vissprite_t *spr)
 		HWR_Lighting(&Surf, lightlevel, colormap);
 	}
 
-	if (spr->mobj->flags2 & MF2_SHADOW)
-	{
-		Surf.PolyColor.s.alpha = 0x40;
-		blend = PF_Translucent;
-	}
-	else if (spr->mobj->frame & FF_TRANSMASK)
+	if (spr->mobj->frame & FF_TRANSMASK)
 		blend = HWR_TranstableToAlpha((spr->mobj->frame & FF_TRANSMASK)>>FF_TRANSSHIFT, &Surf);
 	else
 	{
@@ -5556,6 +5575,20 @@ static void HWR_SetTransformAiming(FTransform *trans, player_t *player, boolean 
 	trans->anglex = (float)(gl_aimingangle>>ANGLETOFINESHIFT)*(360.0f/(float)FINEANGLES);
 }
 
+//
+// Sets the shader state.
+//
+static void HWR_SetShaderState(void)
+{
+	hwdshaderoption_t state = cv_glshaders.value;
+
+	if (!cv_glallowshaders.value)
+		state = (cv_glshaders.value == HWD_SHADEROPTION_ON ? HWD_SHADEROPTION_NOCUSTOM : cv_glshaders.value);
+
+	HWD.pfnSetSpecialState(HWD_SET_SHADERS, (INT32)state);
+	HWD.pfnSetShader(SHADER_DEFAULT);
+}
+
 // ==========================================================================
 // Same as rendering the player view, but from the skybox object
 // ==========================================================================
@@ -5674,8 +5707,7 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 	HWD.pfnSetTransform(&atransform);
 
 	// Reset the shader state.
-	HWD.pfnSetSpecialState(HWD_SET_SHADERS, cv_glshaders.value);
-	HWD.pfnSetShader(SHADER_DEFAULT);
+	HWR_SetShaderState();
 
 	validcount++;
 
@@ -5889,8 +5921,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	HWD.pfnSetTransform(&atransform);
 
 	// Reset the shader state.
-	HWD.pfnSetSpecialState(HWD_SET_SHADERS, cv_glshaders.value);
-	HWD.pfnSetShader(SHADER_DEFAULT);
+	HWR_SetShaderState();
 
 	ps_numbspcalls = 0;
 	ps_numpolyobjects = 0;
@@ -5985,9 +6016,10 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 //                                                         3D ENGINE COMMANDS
 // ==========================================================================
 
-static CV_PossibleValue_t grmodelinterpolation_cons_t[] = {{0, "Off"}, {1, "Sometimes"}, {2, "Always"}, {0, NULL}};
-static CV_PossibleValue_t grfakecontrast_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Smooth"}, {0, NULL}};
-static CV_PossibleValue_t grshearing_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Third-person"}, {0, NULL}};
+static CV_PossibleValue_t glshaders_cons_t[] = {{HWD_SHADEROPTION_OFF, "Off"}, {HWD_SHADEROPTION_ON, "On"}, {HWD_SHADEROPTION_NOCUSTOM, "Ignore custom shaders"}, {0, NULL}};
+static CV_PossibleValue_t glmodelinterpolation_cons_t[] = {{0, "Off"}, {1, "Sometimes"}, {2, "Always"}, {0, NULL}};
+static CV_PossibleValue_t glfakecontrast_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Smooth"}, {0, NULL}};
+static CV_PossibleValue_t glshearing_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Third-person"}, {0, NULL}};
 
 static void CV_glfiltermode_OnChange(void);
 static void CV_glanisotropic_OnChange(void);
@@ -5998,9 +6030,10 @@ static CV_PossibleValue_t glfiltermode_cons_t[]= {{HWD_SET_TEXTUREFILTER_POINTSA
 	{HWD_SET_TEXTUREFILTER_MIXED2, "Nearest_Linear"},
 	{HWD_SET_TEXTUREFILTER_MIXED3, "Nearest_Mipmap"},
 	{0, NULL}};
-CV_PossibleValue_t granisotropicmode_cons_t[] = {{1, "MIN"}, {16, "MAX"}, {0, NULL}};
+CV_PossibleValue_t glanisotropicmode_cons_t[] = {{1, "MIN"}, {16, "MAX"}, {0, NULL}};
 
-consvar_t cv_glshaders = CVAR_INIT ("gr_shaders", "On", CV_SAVE, CV_OnOff, NULL);
+consvar_t cv_glshaders = CVAR_INIT ("gr_shaders", "On", CV_SAVE, glshaders_cons_t, NULL);
+consvar_t cv_glallowshaders = CVAR_INIT ("gr_allowclientshaders", "On", CV_NETVAR, CV_OnOff, NULL);
 consvar_t cv_fovchange = CVAR_INIT ("gr_fovchange", "Off", CV_SAVE, CV_OnOff, NULL);
 
 #ifdef ALAM_LIGHTING
@@ -6011,17 +6044,17 @@ consvar_t cv_glcoronasize = CVAR_INIT ("gr_coronasize", "1", CV_SAVE|CV_FLOAT, 0
 #endif
 
 consvar_t cv_glmodels = CVAR_INIT ("gr_models", "Off", CV_SAVE, CV_OnOff, NULL);
-consvar_t cv_glmodelinterpolation = CVAR_INIT ("gr_modelinterpolation", "Sometimes", CV_SAVE, grmodelinterpolation_cons_t, NULL);
+consvar_t cv_glmodelinterpolation = CVAR_INIT ("gr_modelinterpolation", "Sometimes", CV_SAVE, glmodelinterpolation_cons_t, NULL);
 consvar_t cv_glmodellighting = CVAR_INIT ("gr_modellighting", "Off", CV_SAVE, CV_OnOff, NULL);
 
-consvar_t cv_glshearing = CVAR_INIT ("gr_shearing", "Off", CV_SAVE, grshearing_cons_t, NULL);
+consvar_t cv_glshearing = CVAR_INIT ("gr_shearing", "Off", CV_SAVE, glshearing_cons_t, NULL);
 consvar_t cv_glspritebillboarding = CVAR_INIT ("gr_spritebillboarding", "Off", CV_SAVE, CV_OnOff, NULL);
 consvar_t cv_glskydome = CVAR_INIT ("gr_skydome", "On", CV_SAVE, CV_OnOff, NULL);
-consvar_t cv_glfakecontrast = CVAR_INIT ("gr_fakecontrast", "Smooth", CV_SAVE, grfakecontrast_cons_t, NULL);
+consvar_t cv_glfakecontrast = CVAR_INIT ("gr_fakecontrast", "Smooth", CV_SAVE, glfakecontrast_cons_t, NULL);
 consvar_t cv_glslopecontrast = CVAR_INIT ("gr_slopecontrast", "Off", CV_SAVE, CV_OnOff, NULL);
 
 consvar_t cv_glfiltermode = CVAR_INIT ("gr_filtermode", "Nearest", CV_SAVE|CV_CALL, glfiltermode_cons_t, CV_glfiltermode_OnChange);
-consvar_t cv_glanisotropicmode = CVAR_INIT ("gr_anisotropicmode", "1", CV_CALL, granisotropicmode_cons_t, CV_glanisotropic_OnChange);
+consvar_t cv_glanisotropicmode = CVAR_INIT ("gr_anisotropicmode", "1", CV_CALL, glanisotropicmode_cons_t, CV_glanisotropic_OnChange);
 
 consvar_t cv_glsolvetjoin = CVAR_INIT ("gr_solvetjoin", "On", 0, CV_OnOff, NULL);
 
@@ -6060,6 +6093,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_glfakecontrast);
 	CV_RegisterVar(&cv_glshearing);
 	CV_RegisterVar(&cv_glshaders);
+	CV_RegisterVar(&cv_glallowshaders);
 
 	CV_RegisterVar(&cv_glfiltermode);
 	CV_RegisterVar(&cv_glsolvetjoin);

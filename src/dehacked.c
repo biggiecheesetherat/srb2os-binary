@@ -26,6 +26,7 @@
 #include "dehacked.h"
 #include "st_stuff.h"
 #include "i_system.h"
+#include "i_sound.h" // musictype_t (for lua)
 #include "p_local.h" // for var1 and var2, and some constants
 #include "p_setup.h"
 #include "r_data.h"
@@ -38,6 +39,7 @@
 #include "lua_script.h"
 #include "lua_hook.h"
 #include "d_clisrv.h"
+#include "g_state.h" // gamestate_t (for lua)
 
 #include "m_cond.h"
 
@@ -5178,6 +5180,7 @@ static const char *const STATE_LIST[] = { // array length left dynamic for sanit
 	"S_TAILSOVERLAY_PAIN",
 	"S_TAILSOVERLAY_GASP",
 	"S_TAILSOVERLAY_EDGE",
+	"S_TAILSOVERLAY_DASH",
 
 	// [:
 	"S_JETFUMEFLASH",
@@ -10105,6 +10108,35 @@ struct {
 	{"MA_RUNNING",MA_RUNNING},
 	{"MA_NOCUTSCENES",MA_NOCUTSCENES},
 	{"MA_INGAME",MA_INGAME},
+
+	// music types
+	{"MU_NONE", MU_NONE},
+	{"MU_CMD", MU_CMD},
+	{"MU_WAV", MU_WAV},
+	{"MU_MOD", MU_MOD},
+	{"MU_MID", MU_MID},
+	{"MU_OGG", MU_OGG},
+	{"MU_MP3", MU_MP3},
+	{"MU_FLAC", MU_FLAC},
+	{"MU_GME", MU_GME},
+	{"MU_MOD_EX", MU_MOD_EX},
+	{"MU_MID_EX", MU_MID_EX},
+
+	// gamestates
+	{"GS_NULL",GS_NULL},
+	{"GS_LEVEL",GS_LEVEL},
+	{"GS_INTERMISSION",GS_INTERMISSION},
+	{"GS_CONTINUING",GS_CONTINUING},
+	{"GS_TITLESCREEN",GS_TITLESCREEN},
+	{"GS_TIMEATTACK",GS_TIMEATTACK},
+	{"GS_CREDITS",GS_CREDITS},
+	{"GS_EVALUATION",GS_EVALUATION},
+	{"GS_GAMEEND",GS_GAMEEND},
+	{"GS_INTRO",GS_INTRO},
+	{"GS_ENDING",GS_ENDING},
+	{"GS_CUTSCENE",GS_CUTSCENE},
+	{"GS_DEDICATEDSERVER",GS_DEDICATEDSERVER},
+	{"GS_WAITINGPLAYERS",GS_WAITINGPLAYERS},
 
 	{NULL,0}
 };

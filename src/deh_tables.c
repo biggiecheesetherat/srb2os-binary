@@ -25,6 +25,11 @@
 
 #include "deh_tables.h"
 
+char *FREE_STATES[NUMSTATEFREESLOTS];
+char *FREE_MOBJS[NUMMOBJFREESLOTS];
+char *FREE_SKINCOLORS[NUMCOLORFREESLOTS];
+UINT8 used_spr[(NUMSPRITEFREESLOTS / 8) + 1]; // Bitwise flag for sprite freeslot in use! I would use ceil() here if I could, but it only saves 1 byte of memory anyway.
+
 const char NIGHTSGRADE_LIST[] = {
 	'F', // GRADE_F
 	'E', // GRADE_E
@@ -61,9 +66,8 @@ struct flickytypes_s FLICKYTYPES[] = {
 	{NULL, 0}
 };
 
-/** Array mapping action names to action functions.
-  * Names must be in ALL CAPS for case insensitive comparisons.
-  */
+// IMPORTANT!
+// DO NOT FORGET TO SYNC THIS LIST WITH THE ACTIONNUM ENUM IN INFO.H
 actionpointer_t actionpointers[] =
 {
 	{{A_Explode},                "A_EXPLODE"},
@@ -323,7 +327,7 @@ actionpointer_t actionpointers[] =
 	{{A_PterabyteHover},         "A_PTERABYTEHOVER"},
 	{{A_RolloutSpawn},           "A_ROLLOUTSPAWN"},
 	{{A_RolloutRock},            "A_ROLLOUTROCK"},
-	{{A_DragonbomberSpawn},      "A_DRAGONBOMERSPAWN"},
+	{{A_DragonbomberSpawn},      "A_DRAGONBOMBERSPAWN"},
 	{{A_DragonWing},             "A_DRAGONWING"},
 	{{A_DragonSegment},          "A_DRAGONSEGMENT"},
 	{{A_ChangeHeight},           "A_CHANGEHEIGHT"},
@@ -1517,6 +1521,13 @@ const char *const STATE_LIST[] = { // array length left dynamic for sanity testi
 	"S_SPINFIRE4",
 	"S_SPINFIRE5",
 	"S_SPINFIRE6",
+
+	"S_TEAM_SPINFIRE1",
+	"S_TEAM_SPINFIRE2",
+	"S_TEAM_SPINFIRE3",
+	"S_TEAM_SPINFIRE4",
+	"S_TEAM_SPINFIRE5",
+	"S_TEAM_SPINFIRE6",
 
 	// Spikes
 	"S_SPIKE1",
@@ -3474,9 +3485,7 @@ const char *const STATE_LIST[] = { // array length left dynamic for sanity testi
 	"S_BLUEBRICKDEBRIS",
 	"S_YELLOWBRICKDEBRIS",
 
-#ifdef SEENAMES
 	"S_NAMECHECK",
-#endif
 };
 
 // RegEx to generate this from info.h: ^\tMT_([^,]+), --> \t"MT_\1",
@@ -4256,9 +4265,7 @@ const char *const MOBJTYPE_LIST[] = {  // array length left dynamic for sanity t
 	"MT_BLUEBRICKDEBRIS",
 	"MT_YELLOWBRICKDEBRIS",
 
-#ifdef SEENAMES
 	"MT_NAMECHECK",
-#endif
 };
 
 const char *const MOBJFLAG_LIST[] = {
@@ -4327,6 +4334,7 @@ const char *const MOBJFLAG2_LIST[] = {
 	"AMBUSH",         // Alternate behaviour typically set by MTF_AMBUSH
 	"LINKDRAW",       // Draw vissprite of mobj immediately before/after tracer's vissprite (dependent on dispoffset and position)
 	"SHIELD",         // Thinker calls P_AddShield/P_ShieldLook (must be partnered with MF_SCENERY to use)
+	"SPLAT",          // Object is a splat
 	NULL
 };
 
@@ -4790,6 +4798,7 @@ struct int_const_s const INT_CONST[] = {
 
 	// fixed_t constants, from m_fixed.h
 	{"FRACUNIT",FRACUNIT},
+	{"FU"      ,FRACUNIT},
 	{"FRACBITS",FRACBITS},
 
 	// doomdef.h constants
@@ -4866,6 +4875,36 @@ struct int_const_s const INT_CONST[] = {
 	{"tr_trans80",tr_trans80},
 	{"tr_trans90",tr_trans90},
 	{"NUMTRANSMAPS",NUMTRANSMAPS},
+
+	// Alpha styles (blend modes)
+	{"AST_COPY",AST_COPY},
+	{"AST_TRANSLUCENT",AST_TRANSLUCENT},
+	{"AST_ADD",AST_ADD},
+	{"AST_SUBTRACT",AST_SUBTRACT},
+	{"AST_REVERSESUBTRACT",AST_REVERSESUBTRACT},
+	{"AST_MODULATE",AST_MODULATE},
+	{"AST_OVERLAY",AST_OVERLAY},
+
+	// Render flags
+	{"RF_HORIZONTALFLIP",RF_HORIZONTALFLIP},
+	{"RF_VERTICALFLIP",RF_VERTICALFLIP},
+	{"RF_ABSOLUTEOFFSETS",RF_ABSOLUTEOFFSETS},
+	{"RF_FLIPOFFSETS",RF_FLIPOFFSETS},
+	{"RF_SPLATMASK",RF_SPLATMASK},
+	{"RF_SLOPESPLAT",RF_SLOPESPLAT},
+	{"RF_OBJECTSLOPESPLAT",RF_OBJECTSLOPESPLAT},
+	{"RF_NOSPLATBILLBOARD",RF_NOSPLATBILLBOARD},
+	{"RF_NOSPLATROLLANGLE",RF_NOSPLATROLLANGLE},
+	{"RF_BLENDMASK",RF_BLENDMASK},
+	{"RF_FULLBRIGHT",RF_FULLBRIGHT},
+	{"RF_FULLDARK",RF_FULLDARK},
+	{"RF_NOCOLORMAPS",RF_NOCOLORMAPS},
+	{"RF_SPRITETYPEMASK",RF_SPRITETYPEMASK},
+	{"RF_PAPERSPRITE",RF_PAPERSPRITE},
+	{"RF_FLOORSPRITE",RF_FLOORSPRITE},
+	{"RF_SHADOWDRAW",RF_SHADOWDRAW},
+	{"RF_SHADOWEFFECTS",RF_SHADOWEFFECTS},
+	{"RF_DROPSHADOW",RF_DROPSHADOW},
 
 	// Level flags
 	{"LF_SCRIPTISFILE",LF_SCRIPTISFILE},
@@ -4983,6 +5022,7 @@ struct int_const_s const INT_CONST[] = {
 	{"SF_NOSUPERSPRITES",SF_NOSUPERSPRITES},
 	{"SF_NOSUPERJUMPBOOST",SF_NOSUPERJUMPBOOST},
 	{"SF_CANBUSTWALLS",SF_CANBUSTWALLS},
+	{"SF_NOSHIELDABILITY",SF_NOSHIELDABILITY},
 
 	// Dashmode constants
 	{"DASHMODE_THRESHOLD",DASHMODE_THRESHOLD},

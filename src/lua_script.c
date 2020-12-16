@@ -53,6 +53,7 @@ static lua_CFunction liblist[] = {
 	LUA_SkinLib, // skin_t, skins[]
 	LUA_ThinkerLib, // thinker_t
 	LUA_MapLib, // line_t, side_t, sector_t, subsector_t
+	LUA_TagLib, // tags
 	LUA_PolyObjLib, // polyobj_t
 	LUA_BlockmapLib, // blockmap stuff
 	LUA_HudLib, // HUD stuff
@@ -132,6 +133,19 @@ int LUA_GetErrorMessage(lua_State *L)
 	}
 	lua_concat(L, lua_gettop(L));
 	return 1;
+}
+
+int LUA_Call(lua_State *L, int nargs, int nresults, int errorhandlerindex)
+{
+	int err = lua_pcall(L, nargs, nresults, errorhandlerindex);
+
+	if (err)
+	{
+		CONS_Alert(CONS_WARNING, "%s\n", lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
+
+	return err;
 }
 
 // Moved here from lib_getenum.
@@ -427,6 +441,7 @@ static int setglobals(lua_State *L)
 {
 	const char *csname;
 	char *name;
+	enum actionnum actionnum;
 
 	lua_remove(L, 1); // we're not gonna be using _G
 	csname = lua_tostring(L, 1);
@@ -444,6 +459,10 @@ static int setglobals(lua_State *L)
 		lua_pushvalue(L, 2); // function
 		lua_rawset(L, -3); // rawset doesn't trigger this metatable again.
 		// otherwise we would've used setfield, obviously.
+
+		actionnum = LUA_GetActionNumByName(name);
+		if (actionnum < NUMACTIONS)
+			actionsoverridden[actionnum] = true;
 
 		Z_Free(name);
 		return 0;
@@ -476,7 +495,7 @@ static void LUA_ClearState(void)
 
 	// open base libraries
 	luaL_openlibs(L);
-	lua_pop(L, -1);
+	lua_settop(L, 0);
 
 	// make LREG_VALID table for all pushed userdata cache.
 	lua_newtable(L);
@@ -679,7 +698,7 @@ fixed_t LUA_EvalMath(const char *word)
 	*b = '\0';
 
 	// eval string.
-	lua_pop(L, -1);
+	lua_settop(L, 0);
 	if (luaL_dostring(L, buf))
 	{
 		p = lua_tostring(L, -1);
@@ -721,25 +740,37 @@ void LUA_PushLightUserdata (lua_State *L, void *data, const char *meta)
 // Pushes it to the stack and stores it in the registry.
 void LUA_PushUserdata(lua_State *L, void *data, const char *meta)
 {
+	if (LUA_RawPushUserdata(L, data) == LPUSHED_NEW)
+	{
+		luaL_getmetatable(L, meta);
+		lua_setmetatable(L, -2);
+	}
+}
+
+// Same as LUA_PushUserdata but don't set a metatable yet.
+lpushed_t LUA_RawPushUserdata(lua_State *L, void *data)
+{
+	lpushed_t status = LPUSHED_NIL;
+
 	void **userdata;
 
 	if (!data) { // push a NULL
 		lua_pushnil(L);
-		return;
+		return status;
 	}
 
 	lua_getfield(L, LUA_REGISTRYINDEX, LREG_VALID);
 	I_Assert(lua_istable(L, -1));
+
 	lua_pushlightuserdata(L, data);
 	lua_rawget(L, -2);
+
 	if (lua_isnil(L, -1)) { // no userdata? deary me, we'll have to make one.
 		lua_pop(L, 1); // pop the nil
 
 		// create the userdata
 		userdata = lua_newuserdata(L, sizeof(void *));
 		*userdata = data;
-		luaL_getmetatable(L, meta);
-		lua_setmetatable(L, -2);
 
 		// Set it in the registry so we can find it again
 		lua_pushlightuserdata(L, data); // k (store the userdata via the data's pointer)
@@ -747,8 +778,15 @@ void LUA_PushUserdata(lua_State *L, void *data, const char *meta)
 		lua_rawset(L, -4);
 
 		// stack is left with the userdata on top, as if getting it had originally succeeded.
+
+		status = LPUSHED_NEW;
 	}
+	else
+		status = LPUSHED_EXISTING;
+
 	lua_remove(L, -2); // remove LREG_VALID
+
+	return status;
 }
 
 // When userdata is freed, use this function to remove it from Lua.
@@ -808,6 +846,7 @@ void LUA_InvalidateLevel(void)
 	{
 		LUA_InvalidateUserdata(&sectors[i]);
 		LUA_InvalidateUserdata(&sectors[i].lines);
+		LUA_InvalidateUserdata(&sectors[i].tags);
 		if (sectors[i].ffloors)
 		{
 			for (rover = sectors[i].ffloors; rover; rover = rover->next)
@@ -817,6 +856,7 @@ void LUA_InvalidateLevel(void)
 	for (i = 0; i < numlines; i++)
 	{
 		LUA_InvalidateUserdata(&lines[i]);
+		LUA_InvalidateUserdata(&lines[i].tags);
 		LUA_InvalidateUserdata(lines[i].sidenum);
 	}
 	for (i = 0; i < numsides; i++)
@@ -848,7 +888,10 @@ void LUA_InvalidateMapthings(void)
 		return;
 
 	for (i = 0; i < nummapthings; i++)
+	{
 		LUA_InvalidateUserdata(&mapthings[i]);
+		LUA_InvalidateUserdata(&mapthings[i].tags);
+	}
 }
 
 void LUA_InvalidatePlayer(player_t *player)
@@ -1662,4 +1705,37 @@ int Lua_optoption(lua_State *L, int narg,
 		if (fastcmp(lst[i], name))
 			return i;
 	return -1;
+}
+
+void LUA_PushTaggableObjectArray
+(		lua_State *L,
+		const char *field,
+		lua_CFunction iterator,
+		lua_CFunction indexer,
+		lua_CFunction counter,
+		taggroup_t *garray[],
+		size_t * max_elements,
+		void * element_array,
+		size_t sizeof_element,
+		const char *meta)
+{
+	lua_newuserdata(L, 0);
+		lua_createtable(L, 0, 2);
+			lua_createtable(L, 0, 2);
+				lua_pushcfunction(L, iterator);
+				lua_setfield(L, -2, "iterate");
+
+				LUA_InsertTaggroupIterator(L, garray,
+						max_elements, element_array, sizeof_element, meta);
+
+				lua_createtable(L, 0, 1);
+					lua_pushcfunction(L, indexer);
+					lua_setfield(L, -2, "__index");
+				lua_setmetatable(L, -2);
+			lua_setfield(L, -2, "__index");
+
+			lua_pushcfunction(L, counter);
+			lua_setfield(L, -2, "__len");
+		lua_setmetatable(L, -2);
+	lua_setglobal(L, field);
 }

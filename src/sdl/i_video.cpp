@@ -1492,7 +1492,7 @@ boolean VID_CheckRenderer(void)
 
 	if (setrenderneeded)
 	{
-		rendermode = setrenderneeded;
+		rendermode = static_cast<rendermode_t>(setrenderneeded);
 		rendererchanged = true;
 
 #ifdef HWRENDER
@@ -1524,7 +1524,7 @@ boolean VID_CheckRenderer(void)
 					}
 
 					// Create a new window.
-					Impl_CreateWindow(USE_FULLSCREEN);
+					Impl_CreateWindow(static_cast<SDL_bool>(USE_FULLSCREEN));
 
 					// From there, the OpenGL context was already created.
 					contextcreated = true;
@@ -1541,7 +1541,7 @@ boolean VID_CheckRenderer(void)
 		setrenderneeded = 0;
 	}
 
-	SDLSetMode(vid.width, vid.height, USE_FULLSCREEN, (setmodeneeded ? SDL_TRUE : SDL_FALSE));
+	SDLSetMode(vid.width, vid.height, static_cast<SDL_bool>(USE_FULLSCREEN), (setmodeneeded ? SDL_TRUE : SDL_FALSE));
 	Impl_VideoSetupBuffer();
 
 	if (rendermode == render_soft)
@@ -1639,7 +1639,7 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 #endif
 
 	// Create a window
-	window = SDL_CreateWindow("SRB2 "VERSIONSTRING, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	window = SDL_CreateWindow("SRB2 " VERSIONSTRING, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			realwidth, realheight, flags);
 
 
@@ -1706,7 +1706,7 @@ static void Impl_VideoSetupBuffer(void)
 	vid.direct = NULL;
 	if (vid.buffer)
 		free(vid.buffer);
-	vid.buffer = calloc(NUMSCREENS, vid.rowbytes*vid.height);
+	vid.buffer = static_cast<uint8_t*>(calloc(vid.rowbytes*vid.height, NUMSCREENS));
 	if (!vid.buffer)
 	{
 		I_Error("%s", M_GetText("Not enough memory for video buffer\n"));
@@ -1726,12 +1726,12 @@ void I_StartupGraphics(void)
 	COM_AddCommand ("vid_nummodes", VID_Command_NumModes_f, COM_LUA);
 	COM_AddCommand ("vid_info", VID_Command_Info_f, COM_LUA);
 	COM_AddCommand ("vid_modelist", VID_Command_ModeList_f, COM_LUA);
-	COM_AddCommand ("vid_mode", VID_Command_Mode_f, 0);
+	COM_AddCommand ("vid_mode", VID_Command_Mode_f, static_cast<com_flags_t>(0));
 	CV_RegisterVar (&cv_vidwait);
 	CV_RegisterVar (&cv_stretch);
 	CV_RegisterVar (&cv_alwaysgrabmouse);
-	disable_mouse = M_CheckParm("-nomouse");
-	disable_fullscreen = M_CheckParm("-win") ? 1 : 0;
+	disable_mouse = static_cast<SDL_bool>(M_CheckParm("-nomouse"));
+	disable_fullscreen = M_CheckParm("-win") ? SDL_TRUE : SDL_FALSE;
 
 	keyboard_started = true;
 
@@ -1766,7 +1766,7 @@ void I_StartupGraphics(void)
 		{
 			if (!stricmp(modeparm, renderer_list[i].strvalue))
 			{
-				chosenrendermode = renderer_list[i].value;
+				chosenrendermode = static_cast<rendermode_t>(renderer_list[i].value);
 				break;
 			}
 			i++;
@@ -1794,8 +1794,8 @@ void I_StartupGraphics(void)
 	if (chosenrendermode != render_none)
 		rendermode = chosenrendermode;
 
-	usesdl2soft = M_CheckParm("-softblit");
-	borderlesswindow = M_CheckParm("-borderless");
+	usesdl2soft = M_CheckParm("-softblit") ? SDL_TRUE : SDL_FALSE;
+	borderlesswindow = M_CheckParm("-borderless") ? SDL_TRUE : SDL_FALSE;
 
 	//SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY>>1,SDL_DEFAULT_REPEAT_INTERVAL<<2);
 	//VID_Command_ModeList_f();
@@ -1864,45 +1864,45 @@ void VID_StartupOpenGL(void)
 	if (!glstartup)
 	{
 		CONS_Printf("VID_StartupOpenGL()...\n");
-		HWD.pfnInit             = hwSym("Init",NULL);
-		HWD.pfnFinishUpdate     = NULL;
-		HWD.pfnDraw2DLine       = hwSym("Draw2DLine",NULL);
-		HWD.pfnDrawPolygon      = hwSym("DrawPolygon",NULL);
-		HWD.pfnDrawIndexedTriangles = hwSym("DrawIndexedTriangles",NULL);
-		HWD.pfnRenderSkyDome    = hwSym("RenderSkyDome",NULL);
-		HWD.pfnSetBlend         = hwSym("SetBlend",NULL);
-		HWD.pfnClearBuffer      = hwSym("ClearBuffer",NULL);
-		HWD.pfnSetTexture       = hwSym("SetTexture",NULL);
-		HWD.pfnUpdateTexture    = hwSym("UpdateTexture",NULL);
-		HWD.pfnDeleteTexture    = hwSym("DeleteTexture",NULL);
-		HWD.pfnReadScreenTexture= hwSym("ReadScreenTexture",NULL);
-		HWD.pfnGClipRect        = hwSym("GClipRect",NULL);
-		HWD.pfnClearMipMapCache = hwSym("ClearMipMapCache",NULL);
-		HWD.pfnSetSpecialState  = hwSym("SetSpecialState",NULL);
-		HWD.pfnSetTexturePalette= hwSym("SetTexturePalette",NULL);
-		HWD.pfnGetTextureUsed   = hwSym("GetTextureUsed",NULL);
-		HWD.pfnDrawModel        = hwSym("DrawModel",NULL);
-		HWD.pfnCreateModelVBOs  = hwSym("CreateModelVBOs",NULL);
-		HWD.pfnSetTransform     = hwSym("SetTransform",NULL);
-		HWD.pfnPostImgRedraw    = hwSym("PostImgRedraw",NULL);
-		HWD.pfnFlushScreenTextures=hwSym("FlushScreenTextures",NULL);
-		HWD.pfnDoScreenWipe     = hwSym("DoScreenWipe",NULL);
-		HWD.pfnDrawScreenTexture= hwSym("DrawScreenTexture",NULL);
-		HWD.pfnMakeScreenTexture= hwSym("MakeScreenTexture",NULL);
-		HWD.pfnDrawScreenFinalTexture=hwSym("DrawScreenFinalTexture",NULL);
+		*(void**)&HWD.pfnInit             = hwSym("Init",NULL);
+		*(void**)&HWD.pfnFinishUpdate     = NULL;
+		*(void**)&HWD.pfnDraw2DLine       = hwSym("Draw2DLine",NULL);
+		*(void**)&HWD.pfnDrawPolygon      = hwSym("DrawPolygon",NULL);
+		*(void**)&HWD.pfnDrawIndexedTriangles = hwSym("DrawIndexedTriangles",NULL);
+		*(void**)&HWD.pfnRenderSkyDome    = hwSym("RenderSkyDome",NULL);
+		*(void**)&HWD.pfnSetBlend         = hwSym("SetBlend",NULL);
+		*(void**)&HWD.pfnClearBuffer      = hwSym("ClearBuffer",NULL);
+		*(void**)&HWD.pfnSetTexture       = hwSym("SetTexture",NULL);
+		*(void**)&HWD.pfnUpdateTexture    = hwSym("UpdateTexture",NULL);
+		*(void**)&HWD.pfnDeleteTexture    = hwSym("DeleteTexture",NULL);
+		*(void**)&HWD.pfnReadScreenTexture= hwSym("ReadScreenTexture",NULL);
+		*(void**)&HWD.pfnGClipRect        = hwSym("GClipRect",NULL);
+		*(void**)&HWD.pfnClearMipMapCache = hwSym("ClearMipMapCache",NULL);
+		*(void**)&HWD.pfnSetSpecialState  = hwSym("SetSpecialState",NULL);
+		*(void**)&HWD.pfnSetTexturePalette= hwSym("SetTexturePalette",NULL);
+		*(void**)&HWD.pfnGetTextureUsed   = hwSym("GetTextureUsed",NULL);
+		*(void**)&HWD.pfnDrawModel        = hwSym("DrawModel",NULL);
+		*(void**)&HWD.pfnCreateModelVBOs  = hwSym("CreateModelVBOs",NULL);
+		*(void**)&HWD.pfnSetTransform     = hwSym("SetTransform",NULL);
+		*(void**)&HWD.pfnPostImgRedraw    = hwSym("PostImgRedraw",NULL);
+		*(void**)&HWD.pfnFlushScreenTextures=hwSym("FlushScreenTextures",NULL);
+		*(void**)&HWD.pfnDoScreenWipe     = hwSym("DoScreenWipe",NULL);
+		*(void**)&HWD.pfnDrawScreenTexture= hwSym("DrawScreenTexture",NULL);
+		*(void**)&HWD.pfnMakeScreenTexture= hwSym("MakeScreenTexture",NULL);
+		*(void**)&HWD.pfnDrawScreenFinalTexture=hwSym("DrawScreenFinalTexture",NULL);
 
-		HWD.pfnInitShaders      = hwSym("InitShaders",NULL);
-		HWD.pfnLoadShader       = hwSym("LoadShader",NULL);
-		HWD.pfnCompileShader    = hwSym("CompileShader",NULL);
-		HWD.pfnSetShader        = hwSym("SetShader",NULL);
-		HWD.pfnUnSetShader      = hwSym("UnSetShader",NULL);
+		*(void**)&HWD.pfnInitShaders      = hwSym("InitShaders",NULL);
+		*(void**)&HWD.pfnLoadShader       = hwSym("LoadShader",NULL);
+		*(void**)&HWD.pfnCompileShader    = hwSym("CompileShader",NULL);
+		*(void**)&HWD.pfnSetShader        = hwSym("SetShader",NULL);
+		*(void**)&HWD.pfnUnSetShader      = hwSym("UnSetShader",NULL);
 
-		HWD.pfnSetShaderInfo    = hwSym("SetShaderInfo",NULL);
+		*(void**)&HWD.pfnSetShaderInfo    = hwSym("SetShaderInfo",NULL);
 
-		HWD.pfnSetPaletteLookup = hwSym("SetPaletteLookup",NULL);
-		HWD.pfnCreateLightTable = hwSym("CreateLightTable",NULL);
-		HWD.pfnClearLightTables = hwSym("ClearLightTables",NULL);
-		HWD.pfnSetScreenPalette = hwSym("SetScreenPalette",NULL);
+		*(void**)&HWD.pfnSetPaletteLookup = hwSym("SetPaletteLookup",NULL);
+		*(void**)&HWD.pfnCreateLightTable = hwSym("CreateLightTable",NULL);
+		*(void**)&HWD.pfnClearLightTables = hwSym("ClearLightTables",NULL);
+		*(void**)&HWD.pfnSetScreenPalette = hwSym("SetScreenPalette",NULL);
 
 		vid.glstate = HWD.pfnInit() ? VID_GL_LIBRARY_LOADED : VID_GL_LIBRARY_ERROR; // let load the OpenGL library
 

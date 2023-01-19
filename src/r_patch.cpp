@@ -25,7 +25,7 @@
 
 patch_t *Patch_Create(INT16 width, INT16 height)
 {
-	patch_t *patch = Z_Calloc(sizeof(patch_t), PU_PATCH, NULL);
+	patch_t *patch = static_cast<patch_t*>(Z_Calloc(sizeof(patch_t), PU_PATCH, NULL));
 	patch->width = width;
 	patch->height = height;
 	return patch;
@@ -47,9 +47,9 @@ patch_t *Patch_CreateFromDoomPatch(softwarepatch_t *source)
 
 	Patch_CalcDataSizes(source, &total_pixels, &total_posts);
 
-	patch->columns = Z_Calloc(sizeof(column_t) * patch->width, PU_PATCH_DATA, NULL);
-	patch->posts = Z_Calloc(sizeof(post_t) * total_posts, PU_PATCH_DATA, NULL);
-	patch->pixels = Z_Calloc(sizeof(UINT8) * total_pixels, PU_PATCH_DATA, NULL);
+	patch->columns = static_cast<column_t*>(Z_Calloc(sizeof(column_t) * patch->width, PU_PATCH_DATA, NULL));
+	patch->posts = static_cast<post_t*>(Z_Calloc(sizeof(post_t) * total_posts, PU_PATCH_DATA, NULL));
+	patch->pixels = static_cast<UINT8*>(Z_Calloc(sizeof(UINT8) * total_pixels, PU_PATCH_DATA, NULL));
 
 	Patch_MakeColumns(source, patch->width, patch->width, patch->pixels, patch->columns, patch->posts, false);
 
@@ -145,7 +145,7 @@ static void Patch_FreeData(patch_t *patch)
 		for (i = 0; i < rotsprite->angles; i++)
 		{
 			if (rotsprite->patches[i])
-				Patch_Free(rotsprite->patches[i]);
+				Patch_Free(static_cast<patch_t*>(rotsprite->patches[i]));
 		}
 
 		Z_Free(rotsprite->patches);
@@ -199,8 +199,8 @@ void *Patch_AllocateHardwarePatch(patch_t *patch)
 {
 	if (!patch->hardware)
 	{
-		GLPatch_t *grPatch = Z_Calloc(sizeof(GLPatch_t), PU_HWRPATCHINFO, &patch->hardware);
-		grPatch->mipmap = Z_Calloc(sizeof(GLMipmap_t), PU_HWRPATCHINFO, &grPatch->mipmap);
+		GLPatch_t *grPatch = static_cast<GLPatch_t*>(Z_Calloc(sizeof(GLPatch_t), PU_HWRPATCHINFO, &patch->hardware));
+		grPatch->mipmap = static_cast<GLMipmap_t*>(Z_Calloc(sizeof(GLMipmap_t), PU_HWRPATCHINFO, &grPatch->mipmap));
 	}
 	return (void *)(patch->hardware);
 }

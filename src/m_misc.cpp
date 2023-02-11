@@ -8,7 +8,7 @@
 // terms of the GNU General Public License, version 2.
 // See the 'LICENSE' file for more details.
 //-----------------------------------------------------------------------------
-/// \file  m_misc.h
+/// \file  m_misc.cpp
 /// \brief Commonly used routines
 ///        Default config file, PCX screenshots, file i/o
 
@@ -23,6 +23,7 @@
 #include <unistd.h>
 #endif
 
+#include <algorithm>
 #include <errno.h>
 
 // Extended map support.
@@ -263,7 +264,7 @@ size_t FIL_ReadFileTag(char const *name, UINT8 **buffer, INT32 tag)
 	length = ftell(handle);
 	fseek(handle,0,SEEK_SET);
 
-	buf = Z_Malloc(length + 1, tag, NULL);
+	buf = static_cast<UINT8*>(Z_Malloc(length + 1, tag, NULL));
 	count = fread(buf, 1, length, handle);
 	fclose(handle);
 
@@ -418,6 +419,7 @@ boolean FIL_CheckExtension(const char *in)
 
 	return false;
 }
+
 
 // ==========================================================================
 //                        CONFIGURATION FILE
@@ -661,8 +663,8 @@ static void M_CreateScreenShotPalette(void)
 	for (i = 0, j = 0; i < 768; i += 3, j++)
 	{
 		RGBA_t locpal = ((cv_screenshot_colorprofile.value)
-		? pLocalPalette[(max(st_palette,0)*256)+j]
-		: pMasterPalette[(max(st_palette,0)*256)+j]);
+		? pLocalPalette[(std::max(st_palette,0)*256)+j]
+		: pMasterPalette[(std::max(st_palette,0)*256)+j]);
 		screenshot_palette[i] = locpal.s.red;
 		screenshot_palette[i+1] = locpal.s.green;
 		screenshot_palette[i+2] = locpal.s.blue;
@@ -741,7 +743,7 @@ static void M_PNGhdr(png_structp png_ptr, png_infop png_info_ptr, PNG_CONST png_
 	const png_byte png_interlace = PNG_INTERLACE_NONE; //PNG_INTERLACE_ADAM7
 	if (palette)
 	{
-		png_colorp png_PLTE = png_malloc(png_ptr, sizeof(png_color)*256); //palette
+		png_colorp png_PLTE = static_cast<png_colorp>(png_malloc(png_ptr, sizeof(png_color)*256)); //palette
 		const png_byte *pal = palette;
 		png_uint_16 i;
 		for (i = 0; i < 256; i++)
@@ -858,8 +860,8 @@ static void M_PNGText(png_structp png_ptr, png_infop png_info_ptr, PNG_CONST png
 
 static inline void M_PNGImage(png_structp png_ptr, png_infop png_info_ptr, PNG_CONST png_uint_32 height, png_bytep png_buf)
 {
-	png_uint_32 pitch = png_get_rowbytes(png_ptr, png_info_ptr);
-	png_bytepp row_pointers = png_malloc(png_ptr, height* sizeof (png_bytep));
+	png_uint_32 pitch = png_get_rowbytes(png_ptr, static_cast<const png_info*>(png_info_ptr));
+	png_bytepp row_pointers = static_cast<png_bytepp>(png_malloc(png_ptr, height* sizeof (png_bytep)));
 	png_uint_32 y;
 	for (y = 0; y < height; y++)
 	{
@@ -922,7 +924,7 @@ void M_StartMovie(void)
 
 	if (cv_movie_option.value != 3)
 	{
-		strcat(pathname, PATHSEP"movies"PATHSEP);
+		strcat(pathname, PATHSEP "movies" PATHSEP);
 		I_mkdir(pathname, 0755);
 	}
 
@@ -1079,7 +1081,7 @@ boolean M_SavePNG(const char *filename, void *data, int width, int height, const
 
 	png_write_info(png_ptr, png_info_ptr);
 
-	M_PNGImage(png_ptr, png_info_ptr, height, data);
+	M_PNGImage(png_ptr, png_info_ptr, height, static_cast<png_bytep>(data));
 
 	png_write_end(png_ptr, png_info_ptr);
 	png_destroy_write_struct(&png_ptr, &png_info_ptr);
@@ -1219,7 +1221,7 @@ void M_DoScreenShot(void)
 
 	if (cv_screenshot_option.value != 3)
 	{
-		strcat(pathname, PATHSEP"screenshots"PATHSEP);
+		strcat(pathname, PATHSEP "screenshots" PATHSEP);
 		I_mkdir(pathname, 0755);
 	}
 
@@ -1692,35 +1694,35 @@ const char *GetRevisionString(void)
 char *sizeu1(size_t num)
 {
 	static char sizeu1_buf[28];
-	sprintf(sizeu1_buf, "%"PRIdS, num);
+	sprintf(sizeu1_buf, "%" PRIdS, num);
 	return sizeu1_buf;
 }
 
 char *sizeu2(size_t num)
 {
 	static char sizeu2_buf[28];
-	sprintf(sizeu2_buf, "%"PRIdS, num);
+	sprintf(sizeu2_buf, "%" PRIdS, num);
 	return sizeu2_buf;
 }
 
 char *sizeu3(size_t num)
 {
 	static char sizeu3_buf[28];
-	sprintf(sizeu3_buf, "%"PRIdS, num);
+	sprintf(sizeu3_buf, "%" PRIdS, num);
 	return sizeu3_buf;
 }
 
 char *sizeu4(size_t num)
 {
 	static char sizeu4_buf[28];
-	sprintf(sizeu4_buf, "%"PRIdS, num);
+	sprintf(sizeu4_buf, "%" PRIdS, num);
 	return sizeu4_buf;
 }
 
 char *sizeu5(size_t num)
 {
 	static char sizeu5_buf[28];
-	sprintf(sizeu5_buf, "%"PRIdS, num);
+	sprintf(sizeu5_buf, "%" PRIdS, num);
 	return sizeu5_buf;
 }
 
@@ -1845,7 +1847,7 @@ int M_JumpWord(const char *line)
 		if (isspace(line[1]))
 			return 1 + strspn(&line[1], " ");
 		else
-			return strcspn(line, " "PUNCTUATION);
+			return strcspn(line, " " PUNCTUATION);
 	}
 }
 

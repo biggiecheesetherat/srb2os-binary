@@ -56,11 +56,19 @@ const char *COM_CompleteCommand(const char *partial, INT32 skips);
 const char *COM_CompleteAlias(const char *partial, INT32 skips);
 
 // insert at queu (at end of other command)
+#ifdef __cplusplus
+#define COM_BufAddText(s) COM_BufAddTextEx(s, static_cast<com_flags_t>(0))
+#else
 #define COM_BufAddText(s) COM_BufAddTextEx(s, 0)
+#endif
 void COM_BufAddTextEx(const char *btext, com_flags_t flags);
 
 // insert in head (before other command)
+#ifdef __cplusplus
+#define COM_BufInsertText(s) COM_BufInsertTextEx(s, static_cast<com_flags_t>(0))
+#else
 #define COM_BufInsertText(s) COM_BufInsertTextEx(s, 0)
+#endif
 void COM_BufInsertTextEx(const char *btext, com_flags_t flags);
 
 // don't bother inserting, just do immediately

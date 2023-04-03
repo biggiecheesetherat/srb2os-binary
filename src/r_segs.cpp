@@ -118,12 +118,12 @@ void R_ClearSegTables(void)
 
 transnum_t R_GetLinedefTransTable(fixed_t alpha)
 {
-	return (20*(FRACUNIT - alpha - 1) + FRACUNIT) >> (FRACBITS+1);
+	return static_cast<transnum_t>((20*(FRACUNIT - alpha - 1) + FRACUNIT) >> (FRACBITS+1));
 }
 
 static UINT8 R_SideLightLevel(side_t *side, INT16 base_lightlevel)
 {
-	return max(0, min(255, side->light +
+	return std::max(0, std::min(255, side->light +
 		((side->lightabsolute) ? 0 : base_lightlevel)));
 }
 
@@ -244,7 +244,7 @@ INT32 R_GetOverlayTextureRepeats(unsigned which, side_t *side, INT32 texnum, sec
 	INT32 repeats = side->overlays[which].repeatcnt;
 
 	if (repeats > 0 || (side->overlays[which].flags & SIDEOVERLAYFLAG_WRAP) == 0)
-		return max(repeats, 1);
+		return std::max(repeats, 1);
 
 	fixed_t high, low;
 	fixed_t texheight = FixedDiv(textureheight[texnum], abs(side->overlays[which].scaley));
@@ -260,11 +260,11 @@ INT32 R_GetOverlayTextureRepeats(unsigned which, side_t *side, INT32 texnum, sec
 			}
 			else
 			{
-				high = max(
+				high = std::max(
 					P_GetSectorCeilingZAt(sec_front, v1x, v1y),
 					P_GetSectorCeilingZAt(sec_front, v2x, v2y)
 				);
-				low = min(
+				low = std::min(
 					P_GetSectorCeilingZAt(sec_back, v1x, v1y),
 					P_GetSectorCeilingZAt(sec_back, v2x, v2y)
 				);
@@ -279,11 +279,11 @@ INT32 R_GetOverlayTextureRepeats(unsigned which, side_t *side, INT32 texnum, sec
 			}
 			else
 			{
-				high = max(
+				high = std::max(
 					P_GetSectorFloorZAt(sec_front, v1x, v1y),
 					P_GetSectorFloorZAt(sec_front, v2x, v2y)
 				);
-				low = min(
+				low = std::min(
 					P_GetSectorFloorZAt(sec_back, v1x, v1y),
 					P_GetSectorFloorZAt(sec_back, v2x, v2y)
 				);
@@ -299,11 +299,11 @@ INT32 R_GetOverlayTextureRepeats(unsigned which, side_t *side, INT32 texnum, sec
 		}
 		else
 		{
-			high = max(
+			high = std::max(
 				P_GetSectorCeilingZAt(sec_front, v1x, v1y),
 				P_GetSectorCeilingZAt(sec_front, v2x, v2y)
 			);
-			low = min(
+			low = std::min(
 				P_GetSectorFloorZAt(sec_front, v1x, v1y),
 				P_GetSectorFloorZAt(sec_front, v2x, v2y)
 			);
@@ -314,7 +314,7 @@ INT32 R_GetOverlayTextureRepeats(unsigned which, side_t *side, INT32 texnum, sec
 	if ((high-low)%texheight)
 		repeats++; // tile an extra time to fill the gap -- Monster Iestyn
 
-	return max(repeats, 1);
+	return std::max(repeats, 1);
 }
 
 // Setup lighting based on the presence/lack-of 3D floors.
@@ -330,7 +330,9 @@ static void R_PrepareMaskedSegLightlist(drawseg_t *ds, INT32 range)
 		if (dc_numlights > dc_maxlights)
 		{
 			dc_maxlights = dc_numlights;
-			dc_lightlist = Z_Realloc(dc_lightlist, sizeof (*dc_lightlist) * dc_maxlights, PU_STATIC, NULL);
+			dc_lightlist = static_cast<r_lightlist_t*>(
+				Z_Realloc(dc_lightlist, sizeof (*dc_lightlist) * dc_maxlights, PU_STATIC, NULL)
+			);
 		}
 
 		for (INT32 i = 0; i < dc_numlights; i++)
@@ -346,7 +348,7 @@ static void R_PrepareMaskedSegLightlist(drawseg_t *ds, INT32 range)
 			rlight->startheight = rlight->height; // keep starting value here to reset for each repeat
 			rlight->lightlevel = *light->lightlevel;
 			rlight->extra_colormap = *light->extra_colormap;
-			rlight->flags = light->flags;
+			rlight->flags = static_cast<ffloortype_e>(light->flags);
 
 			if ((colfunc != colfuncs[COLDRAWFUNC_FUZZY])
 				|| (rlight->flags & FOF_FOG)
@@ -459,8 +461,8 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 		sector_t *sec_back = curline->polyseg->lines[0]->backsector;
 
 		// Change this when polyobjects support slopes
-		fixed_t overlay_top = min(sec_front->ceilingheight, sec_back->ceilingheight) - viewz;
-		fixed_t overlay_bottom = max(sec_front->floorheight, sec_back->floorheight) - viewz;
+		fixed_t overlay_top = std::min(sec_front->ceilingheight, sec_back->ceilingheight) - viewz;
+		fixed_t overlay_bottom = std::max(sec_front->floorheight, sec_back->floorheight) - viewz;
 
 		hasoverlaytexture = true;
 
@@ -526,7 +528,7 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 	scalestep = FixedDiv(ds->scalestep, wall_scaley);
 	scale1 = FixedDiv(ds->scale1, wall_scaley);
 
-	range = max(ds->x2-ds->x1, 1);
+	range = std::max(ds->x2-ds->x1, 1);
 	rw_scalestep = scalestep;
 	spryscale = scale1 + (x1 - ds->x1)*rw_scalestep;
 
@@ -677,8 +679,8 @@ void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2)
 			// If the texture is meant to be clipped
 			if (clipmidtex)
 			{
-				texture_top = min(FixedMul(left_top, wall_scaley), texture_top);
-				texture_bottom = max(FixedMul(left_bottom, wall_scaley), texture_bottom);
+				texture_top = std::min(FixedMul(left_top, wall_scaley), texture_top);
+				texture_bottom = std::max(FixedMul(left_bottom, wall_scaley), texture_bottom);
 
 				left_top += top_step;
 				left_bottom += bottom_step;
@@ -828,7 +830,7 @@ static void R_RenderExtraTexture(unsigned which, INT32 x1, INT32 x2, INT32 repea
 	scalestep = FixedDiv(ds->scalestep, wall_scaley);
 	scale1 = FixedDiv(ds->scale1, wall_scaley);
 
-	range = max(ds->x2-ds->x1, 1);
+	range = std::max(ds->x2-ds->x1, 1);
 	rw_scalestep = scalestep;
 	spryscale = scale1 + (x1 - ds->x1)*rw_scalestep;
 
@@ -1208,7 +1210,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 		fog = true;
 	}
 
-	range = max(ds->x2-ds->x1, 1);
+	range = std::max(ds->x2-ds->x1, 1);
 
 	dc_numlights = 0;
 	if (frontsector->numlights)
@@ -1217,7 +1219,9 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 		if (dc_numlights > dc_maxlights)
 		{
 			dc_maxlights = dc_numlights;
-			dc_lightlist = Z_Realloc(dc_lightlist, sizeof (*dc_lightlist) * dc_maxlights, PU_STATIC, NULL);
+			dc_lightlist = static_cast<r_lightlist_t*>(
+				Z_Realloc(dc_lightlist, sizeof (*dc_lightlist) * dc_maxlights, PU_STATIC, NULL)
+			);
 		}
 
 		for (i = p = 0; i < dc_numlights; i++)
@@ -1264,7 +1268,7 @@ void R_RenderThickSideRange(drawseg_t *ds, INT32 x1, INT32 x2, ffloor_t *pfloor)
 			else if (overflow_test > (INT64)CLAMPMIN) rlight->heightstep = (fixed_t)overflow_test;
 			else                                      rlight->heightstep = CLAMPMIN;
 			rlight->heightstep = (rlight->heightstep-rlight->height)/(range);
-			rlight->flags = light->flags;
+			rlight->flags = static_cast<ffloortype_e>(light->flags);
 			if (light->flags & FOF_CUTLEVEL)
 			{
 				SLOPEPARAMS(*light->caster->b_slope, leftheight, rightheight, *light->caster->bottomheight)
@@ -2151,9 +2155,9 @@ static void R_RenderSegLoop (void)
 		if (maskedtextureheight)
 		{
 			if (curline->linedef->flags & ML_MIDPEG)
-				maskedtextureheight[rw_x] = max(rw_midtexturemid, rw_midtextureback);
+				maskedtextureheight[rw_x] = std::max(rw_midtexturemid, rw_midtextureback);
 			else
-				maskedtextureheight[rw_x] = min(rw_midtexturemid, rw_midtextureback);
+				maskedtextureheight[rw_x] = std::min(rw_midtexturemid, rw_midtextureback);
 		}
 
 		if (midtexture || maskedtextureheight)
@@ -2174,10 +2178,10 @@ static void R_RenderSegLoop (void)
 		{
 #define ALIGN_UPPER(which) \
 			if (overlaytexture[which]) \
-				overlaytextureheight[which][rw_x] = max(rw_overlay[which].mid, rw_overlay[which].back)
+				overlaytextureheight[which][rw_x] = std::max(rw_overlay[which].mid, rw_overlay[which].back)
 #define ALIGN_LOWER(which) \
 			if (overlaytexture[which]) \
-				overlaytextureheight[which][rw_x] = min(rw_overlay[which].mid, rw_overlay[which].back)
+				overlaytextureheight[which][rw_x] = std::min(rw_overlay[which].mid, rw_overlay[which].back)
 
 			ALIGN_UPPER(EDGE_TEXTURE_TOP_UPPER);
 			ALIGN_LOWER(EDGE_TEXTURE_TOP_LOWER);
@@ -2259,7 +2263,7 @@ static void R_AllocClippingTables(size_t range)
 		numopenings = 16384;
 
 	numopenings += need;
-	openings = Z_Realloc(openings, numopenings * sizeof (*openings), PU_STATIC, NULL);
+	openings = static_cast<INT16*>(Z_Realloc(openings, numopenings * sizeof (*openings), PU_STATIC, NULL));
 	lastopening = openings + pos;
 
 	if (oldopenings == NULL)
@@ -2293,7 +2297,7 @@ static void R_AllocTextureColumnTables(size_t range)
 		texturecolumntablesize = 16384;
 
 	texturecolumntablesize += need;
-	texturecolumntable = Z_Realloc(texturecolumntable, texturecolumntablesize * sizeof (*texturecolumntable), PU_STATIC, NULL);
+	texturecolumntable = static_cast<fixed_t*>(Z_Realloc(texturecolumntable, texturecolumntablesize * sizeof (*texturecolumntable), PU_STATIC, NULL));
 	curtexturecolumntable = texturecolumntable + pos;
 
 	if (oldtable == NULL)
@@ -2440,12 +2444,12 @@ static void R_DoMaskedOverlayColumn(INT32 x, fixed_t textureoffset, fixed_t clip
 	if (clipbottom == INT32_MAX)
 		overlayopening[0][x] = mceilingclip[dc_x];
 	else
-		overlayopening[0][x] = max(cliptop>>FRACBITS, mceilingclip[dc_x]);
+		overlayopening[0][x] = std::max(static_cast<INT16>(cliptop>>FRACBITS), mceilingclip[dc_x]);
 
 	if (clipbottom == INT32_MAX)
 		overlayopening[1][x] = mfloorclip[dc_x];
 	else
-		overlayopening[1][x] = min(clipbottom>>FRACBITS, mfloorclip[dc_x]);
+		overlayopening[1][x] = std::min(static_cast<INT16>(clipbottom>>FRACBITS), mfloorclip[dc_x]);
 }
 
 static void R_StoreOverlayColumn(INT32 x, fixed_t textureoffset)
@@ -2579,7 +2583,7 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 		size_t newmax = maxdrawsegs ? maxdrawsegs*2 : 128;
 		if (firstseg)
 			firstseg = (drawseg_t *)(firstseg - drawsegs);
-		drawsegs = Z_Realloc(drawsegs, newmax*sizeof (*drawsegs), PU_STATIC, NULL);
+		drawsegs = static_cast<drawseg_t*>(Z_Realloc(drawsegs, newmax*sizeof (*drawsegs), PU_STATIC, NULL));
 		ds_p = drawsegs + pos;
 		maxdrawsegs = newmax;
 		curdrawsegs = drawsegs + curpos;
@@ -3101,10 +3105,10 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 			ds_p->thicksidecol = thicksidecol = curtexturecolumntable - rw_x;
 			curtexturecolumntable += rw_stopx - rw_x;
 
-			lowcut = max(worldbottom, worldlow) + viewz;
-			highcut = min(worldtop, worldhigh) + viewz;
-			lowcutslope = max(worldbottomslope, worldlowslope) + viewz;
-			highcutslope = min(worldtopslope, worldhighslope) + viewz;
+			lowcut = std::max(worldbottom, worldlow) + viewz;
+			highcut = std::min(worldtop, worldhigh) + viewz;
+			lowcutslope = std::max(worldbottomslope, worldlowslope) + viewz;
+			highcutslope = std::min(worldtopslope, worldhighslope) + viewz;
 
 			if (frontsector->ffloors && backsector->ffloors)
 			{
@@ -3295,9 +3299,9 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 				// use REAL front and back floors please, so midtexture rendering isn't mucked up
 				rw_midtextureslide = rw_midtexturebackslide = 0;
 				if (linedef->flags & ML_MIDPEG)
-					rw_midtexturemid = rw_midtextureback = max(curline->frontsector->floorheight, curline->backsector->floorheight) - viewz;
+					rw_midtexturemid = rw_midtextureback = std::max(curline->frontsector->floorheight, curline->backsector->floorheight) - viewz;
 				else
-					rw_midtexturemid = rw_midtextureback = min(curline->frontsector->ceilingheight, curline->backsector->ceilingheight) - viewz;
+					rw_midtexturemid = rw_midtextureback = std::min(curline->frontsector->ceilingheight, curline->backsector->ceilingheight) - viewz;
 			}
 			else
 			{
@@ -3307,9 +3311,9 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 					// Ignore slopes when texturing
 					rw_midtextureslide = rw_midtexturebackslide = 0;
 					if (linedef->flags & ML_MIDPEG)
-						rw_midtexturemid = rw_midtextureback = max(frontsector->floorheight, backsector->floorheight) - viewz;
+						rw_midtexturemid = rw_midtextureback = std::max(frontsector->floorheight, backsector->floorheight) - viewz;
 					else
-						rw_midtexturemid = rw_midtextureback = min(frontsector->ceilingheight, backsector->ceilingheight) - viewz;
+						rw_midtexturemid = rw_midtextureback = std::min(frontsector->ceilingheight, backsector->ceilingheight) - viewz;
 				}
 				else if (linedef->flags & ML_MIDPEG)
 				{
@@ -3488,7 +3492,9 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 		if (dc_numlights > dc_maxlights)
 		{
 			dc_maxlights = dc_numlights;
-			dc_lightlist = Z_Realloc(dc_lightlist, sizeof (*dc_lightlist) * dc_maxlights, PU_STATIC, NULL);
+			dc_lightlist = static_cast<r_lightlist_t*>(
+				Z_Realloc(dc_lightlist, sizeof (*dc_lightlist) * dc_maxlights, PU_STATIC, NULL)
+			);
 		}
 
 		for (i = p = 0; i < dc_numlights; i++)
@@ -3523,7 +3529,7 @@ void R_StoreWallRange(INT32 start, INT32 stop)
 			rlight->height = (centeryfrac>>4) - FixedMul(leftheight, rw_scale);
 			rlight->heightstep = (centeryfrac>>4) - FixedMul(rightheight, ds_p->scale2);
 			rlight->heightstep = (rlight->heightstep-rlight->height)/(range);
-			rlight->flags = light->flags;
+			rlight->flags = static_cast<ffloortype_e>(light->flags);
 
 			if (light->caster && light->caster->fofflags & FOF_CUTSOLIDS)
 			{

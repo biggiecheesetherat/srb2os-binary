@@ -11,6 +11,8 @@
 /// \file  r_bsp.c
 /// \brief BSP traversal, handling of LineSegs for rendering
 
+#include <algorithm>
+
 #include "doomdef.h"
 #include "g_game.h"
 #include "r_local.h"
@@ -232,13 +234,13 @@ static INT32 R_DoorClosed(void)
 
 static UINT8 R_FloorLightLevel(sector_t *sector, INT16 base_lightlevel)
 {
-	return max(0, min(255, sector->floorlightlevel +
+	return std::max(0, std::min(255, sector->floorlightlevel +
 		((sector->floorlightabsolute) ? 0 : base_lightlevel)));
 }
 
 static UINT8 R_CeilingLightLevel(sector_t *sector, INT16 base_lightlevel)
 {
-	return max(0, min(255, sector->ceilinglightlevel +
+	return std::max(0, std::min(255, sector->ceilinglightlevel +
 		((sector->ceilinglightabsolute) ? 0 : base_lightlevel)));
 }
 
@@ -255,11 +257,11 @@ sector_t *R_FakeFlat(sector_t *sec, sector_t *tempsec, INT32 *floorlightlevel,
 {
 	if (floorlightlevel)
 		*floorlightlevel = sec->floorlightsec == -1 ?
-			(sec->floorlightabsolute ? sec->floorlightlevel : max(0, min(255, sec->lightlevel + sec->floorlightlevel))) : sectors[sec->floorlightsec].lightlevel;
+			(sec->floorlightabsolute ? sec->floorlightlevel : std::max(0, std::min(255, sec->lightlevel + sec->floorlightlevel))) : sectors[sec->floorlightsec].lightlevel;
 
 	if (ceilinglightlevel)
 		*ceilinglightlevel = sec->ceilinglightsec == -1 ?
-			(sec->ceilinglightabsolute ? sec->ceilinglightlevel : max(0, min(255, sec->lightlevel + sec->ceilinglightlevel))) : sectors[sec->ceilinglightsec].lightlevel;
+			(sec->ceilinglightabsolute ? sec->ceilinglightlevel : std::max(0, std::min(255, sec->lightlevel + sec->ceilinglightlevel))) : sectors[sec->ceilinglightsec].lightlevel;
 
 	// if (sec->midmap != -1)
 	//	mapnum = sec->midmap;
@@ -324,11 +326,11 @@ sector_t *R_FakeFlat(sector_t *sec, sector_t *tempsec, INT32 *floorlightlevel,
 			tempsec->lightlevel = s->lightlevel;
 
 			if (floorlightlevel)
-			*floorlightlevel = s->floorlightsec == -1 ? (s->floorlightabsolute ? s->floorlightlevel : max(0, min(255, s->lightlevel + s->floorlightlevel)))
+			*floorlightlevel = s->floorlightsec == -1 ? (s->floorlightabsolute ? s->floorlightlevel : std::max(0, std::min(255, s->lightlevel + s->floorlightlevel)))
 					: sectors[s->floorlightsec].lightlevel;
 
 			if (ceilinglightlevel)
-			*ceilinglightlevel = s->ceilinglightsec == -1 ? (s->ceilinglightabsolute ? s->ceilinglightlevel : max(0, min(255, s->lightlevel + s->ceilinglightlevel)))
+			*ceilinglightlevel = s->ceilinglightsec == -1 ? (s->ceilinglightabsolute ? s->ceilinglightlevel : std::max(0, std::min(255, s->lightlevel + s->ceilinglightlevel)))
 					: sectors[s->ceilinglightsec].lightlevel;
 		}
 		else if (heightsec != -1 && viewz >= sectors[heightsec].ceilingheight
@@ -368,11 +370,11 @@ sector_t *R_FakeFlat(sector_t *sec, sector_t *tempsec, INT32 *floorlightlevel,
 			tempsec->lightlevel = s->lightlevel;
 
 			if (floorlightlevel)
-			*floorlightlevel = s->floorlightsec == -1 ? (s->floorlightabsolute ? s->floorlightlevel : max(0, min(255, s->lightlevel + s->floorlightlevel)))
+			*floorlightlevel = s->floorlightsec == -1 ? (s->floorlightabsolute ? s->floorlightlevel : std::max(0, std::min(255, s->lightlevel + s->floorlightlevel)))
 					: sectors[s->floorlightsec].lightlevel;
 
 			if (ceilinglightlevel)
-			*ceilinglightlevel = s->ceilinglightsec == -1 ? (s->ceilinglightabsolute ? s->ceilinglightlevel : max(0, min(255, s->lightlevel + s->ceilinglightlevel)))
+			*ceilinglightlevel = s->ceilinglightsec == -1 ? (s->ceilinglightabsolute ? s->ceilinglightlevel : std::max(0, std::min(255, s->lightlevel + s->ceilinglightlevel)))
 					: sectors[s->ceilinglightsec].lightlevel;
 		}
 		sec = tempsec;
@@ -748,8 +750,7 @@ void R_SortPolyObjects(subsector_t *sub)
 		{
 			// use free instead realloc since faster (thanks Lee ^_^)
 			free(po_ptrs);
-			po_ptrs = malloc((num_po_ptrs = numpolys*2)
-				* sizeof(*po_ptrs));
+			po_ptrs = static_cast<polyobj_t**>(malloc((num_po_ptrs = numpolys*2) * sizeof(*po_ptrs)));
 		}
 
 		po = sub->polyList;
@@ -793,8 +794,8 @@ static int R_PolysegCompare(const void *p1, const void *p2)
 	dist2v1 = vxdist(seg2->v1);
 	dist2v2 = vxdist(seg2->v2);
 
-	if (min(dist1v1, dist1v2) != min(dist2v1, dist2v2))
-		return min(dist1v1, dist1v2) - min(dist2v1, dist2v2);
+	if (std::min(dist1v1, dist1v2) != std::min(dist2v1, dist2v2))
+		return std::min(dist1v1, dist1v2) - std::min(dist2v1, dist2v2);
 
 	{ // That didn't work, so now let's try this.......
 		fixed_t delta1, delta2, x1, y1, x2, y2;
@@ -1163,12 +1164,12 @@ void R_CheckSectorLightLists(sector_t *sector, sector_t *fakeflat, INT32 *floorl
 
 		INT32 light = R_GetPlaneLight(fakeflat, floorcenterz, false);
 		if (fakeflat->floorlightsec == -1 && !fakeflat->floorlightabsolute)
-			*floorlightlevel = max(0, min(255, *fakeflat->lightlist[light].lightlevel + fakeflat->floorlightlevel));
+			*floorlightlevel = std::max(0, std::min(255, *fakeflat->lightlist[light].lightlevel + fakeflat->floorlightlevel));
 		*floorcolormap = *fakeflat->lightlist[light].extra_colormap;
 
 		light = R_GetPlaneLight(fakeflat, ceilingcenterz, false);
 		if (fakeflat->ceilinglightsec == -1 && !fakeflat->ceilinglightabsolute)
-			*ceilinglightlevel = max(0, min(255, *fakeflat->lightlist[light].lightlevel + fakeflat->ceilinglightlevel));
+			*ceilinglightlevel = std::max(0, std::min(255, *fakeflat->lightlist[light].lightlevel + fakeflat->ceilinglightlevel));
 		*ceilingcolormap = *fakeflat->lightlist[light].extra_colormap;
 	}
 }
@@ -1204,7 +1205,7 @@ void R_Prep3DFloors(sector_t *sector)
 	if (count != sector->numlights)
 	{
 		Z_Free(sector->lightlist);
-		sector->lightlist = Z_Calloc(sizeof (*sector->lightlist) * count, PU_LEVEL, NULL);
+		sector->lightlist = static_cast<lightlist_t*>(Z_Calloc(sizeof (*sector->lightlist) * count, PU_LEVEL, NULL));
 		sector->numlights = count;
 	}
 	else

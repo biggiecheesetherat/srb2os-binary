@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2022 by Sonic Team Junior.
+// Copyright (C) 1999-2023 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -108,6 +108,9 @@ static patch_t *sneakers;
 static patch_t *gravboots;
 static patch_t *nonicon;
 static patch_t *nonicon2;
+static patch_t *nightopianhelper;
+static patch_t *linkfreeze;
+static patch_t *superparaloop;
 static patch_t *bluestat;
 static patch_t *byelstat;
 static patch_t *orngstat;
@@ -164,7 +167,7 @@ hudinfo_t hudinfo[NUMHUDITEMS] =
 	{ 288, 176, V_SNAPTORIGHT|V_SNAPTOBOTTOM}, // HUD_POWERUPS
 };
 
-static huddrawlist_h luahuddrawlist_game;
+static huddrawlist_h luahuddrawlist_game[2];
 static huddrawlist_h luahuddrawlist_titlecard;
 
 //
@@ -313,6 +316,10 @@ void ST_LoadGraphics(void)
 	nonicon2 = W_CachePatchName("NONICON2", PU_HUDGFX);
 
 	// NiGHTS HUD things
+	nightopianhelper = W_CachePatchName("NHLPICON", PU_HUDGFX);
+	linkfreeze = W_CachePatchName("NLFZICON", PU_HUDGFX);
+	superparaloop = W_CachePatchName("NSPRICON", PU_HUDGFX);
+
 	bluestat = W_CachePatchName("BLUESTAT", PU_HUDGFX);
 	byelstat = W_CachePatchName("BYELSTAT", PU_HUDGFX);
 	orngstat = W_CachePatchName("ORNGSTAT", PU_HUDGFX);
@@ -427,7 +434,8 @@ void ST_Init(void)
 
 	ST_LoadGraphics();
 
-	luahuddrawlist_game = LUA_HUD_CreateDrawList();
+	luahuddrawlist_game[0] = LUA_HUD_CreateDrawList();
+	luahuddrawlist_game[1] = LUA_HUD_CreateDrawList();
 	luahuddrawlist_titlecard = LUA_HUD_CreateDrawList();
 }
 
@@ -1411,7 +1419,7 @@ void ST_drawTitleCard(void)
 	lt_lasttic = lt_ticker;
 
 luahook:
-	if (renderisnewtic)
+	//if (renderisnewtic)
 	{
 		LUA_HUD_ClearDrawList(luahuddrawlist_titlecard);
 		LUA_HUDHOOK(titlecard, luahuddrawlist_titlecard);
@@ -1447,6 +1455,21 @@ void ST_drawWipeTitleCard(void)
 	}
 }
 
+#define ICONSEP (16+4) // matches weapon rings HUD
+
+static INT32 ST_powerupHUDoffset(UINT16 timer)
+{
+	if (timer > 7)
+		return ICONSEP;
+	else
+	{
+		UINT8 a = ICONSEP, b = 7-timer;
+		while (b--)
+			a = 2*a/3;
+		return a;
+	}
+}
+
 static void ST_drawPowerupHUD(void)
 {
 	patch_t *p = NULL;
@@ -1454,7 +1477,6 @@ static void ST_drawPowerupHUD(void)
 	INT32 offs = hudinfo[HUD_POWERUPS].x;
 	const UINT8 q = ((splitscreen && stplyr == &players[secondarydisplayplayer]) ? 1 : 0);
 	static INT32 flagoffs[2] = {0, 0}, shieldoffs[2] = {0, 0}, finishoffs[2] = {0, 0};
-#define ICONSEP (16+4) // matches weapon rings HUD
 
 	if (F_GetPromptHideHud(hudinfo[HUD_POWERUPS].y))
 		return;
@@ -1566,15 +1588,7 @@ static void ST_drawPowerupHUD(void)
 		DRAWTIMERICON(invincibility, invulntime)
 	}
 
-	if (invulntime > 7)
-		offs -= ICONSEP;
-	else
-	{
-		UINT8 a = ICONSEP, b = 7-invulntime;
-		while (b--)
-			a = 2*a/3;
-		offs -= a;
-	}
+	offs -= ST_powerupHUDoffset(invulntime);
 
 	// Super Sneakers
 	if (stplyr->powers[pw_sneakers] > 3*TICRATE || (stplyr->powers[pw_sneakers] && leveltime & 1))
@@ -1582,21 +1596,43 @@ static void ST_drawPowerupHUD(void)
 		DRAWTIMERICON(sneakers, stplyr->powers[pw_sneakers])
 	}
 
-	if (stplyr->powers[pw_sneakers] > 7)
-		offs -= ICONSEP;
-	else
-	{
-		UINT8 a = ICONSEP, b = 7-stplyr->powers[pw_sneakers];
-		while (b--)
-			a = 2*a/3;
-		offs -= a;
-	}
+	offs -= ST_powerupHUDoffset(stplyr->powers[pw_sneakers]);
 
 	// Gravity Boots
 	if (stplyr->powers[pw_gravityboots] > 3*TICRATE || (stplyr->powers[pw_gravityboots] && leveltime & 1))
 	{
 		DRAWTIMERICON(gravboots, stplyr->powers[pw_gravityboots])
 	}
+
+	offs -= ST_powerupHUDoffset(stplyr->powers[pw_gravityboots]);
+
+// --------------------
+// NiGHTS timer-based powerups
+// --------------------
+
+	// Nightopian Helper
+	if (stplyr->powers[pw_nights_helper] > 3*TICRATE || (stplyr->powers[pw_nights_helper] && leveltime & 1))
+	{
+		DRAWTIMERICON(nightopianhelper, stplyr->powers[pw_nights_helper])
+	}
+
+	offs -= ST_powerupHUDoffset(stplyr->powers[pw_nights_helper]);
+
+	// Link Freeze
+	if (stplyr->powers[pw_nights_linkfreeze] > 3*TICRATE || (stplyr->powers[pw_nights_linkfreeze] && leveltime & 1))
+	{
+		DRAWTIMERICON(linkfreeze, stplyr->powers[pw_nights_linkfreeze])
+	}
+
+	offs -= ST_powerupHUDoffset(stplyr->powers[pw_nights_linkfreeze]);
+
+	// Super Paraloop
+	if (stplyr->powers[pw_nights_superloop] > 3*TICRATE || (stplyr->powers[pw_nights_superloop] && leveltime & 1))
+	{
+		DRAWTIMERICON(superparaloop, stplyr->powers[pw_nights_superloop])
+	}
+
+	//offs -= ST_powerupHUDoffset(stplyr->powers[pw_nights_superloop]);
 
 #undef DRAWTIMERICON
 #undef ICONSEP
@@ -1696,7 +1732,7 @@ static void ST_drawNightsRecords(void)
 			ST_DrawNightsOverlayNum((BASEVIDWIDTH/2 + 56)<<FRACBITS, 160<<FRACBITS, FRACUNIT, aflag, stplyr->lastmarescore, nightsnum, SKINCOLOR_AZURE);
 
 			// If new record, say so!
-			if (!(netgame || multiplayer) && G_GetBestNightsScore(gamemap, stplyr->lastmare + 1) <= stplyr->lastmarescore)
+			if (!(netgame || multiplayer) && G_GetBestNightsScore(gamemap, stplyr->lastmare + 1, clientGamedata) <= stplyr->lastmarescore)
 			{
 				if (stplyr->texttimer & 16)
 					V_DrawCenteredString(BASEVIDWIDTH/2, 184, V_YELLOWMAP|aflag, "* NEW RECORD *");
@@ -2544,7 +2580,7 @@ static void ST_doHuntIconsAndSound(void)
 		S_StartSound(NULL, sfx_emfind);
 }
 
-static void ST_doItemFinderIconsAndSound(void)
+static boolean ST_doItemFinderIconsAndSound(void)
 {
 	INT32 emblems[16];
 	thinker_t *th;
@@ -2555,6 +2591,12 @@ static void ST_doItemFinderIconsAndSound(void)
 	INT32 interval = 0, newinterval = 0;
 	INT32 soffset;
 
+	if (!(cv_itemfinder.value && M_SecretUnlocked(SECRET_ITEMFINDER, clientGamedata)))
+	{
+		// Not unlocked, or not enabled. Use emerald hunt radar.
+		return false;
+	}
+
 	for (i = 0; i < numemblems; ++i)
 	{
 		if (emblemlocations[i].type > ET_SKIN || emblemlocations[i].level != gamemap)
@@ -2562,15 +2604,21 @@ static void ST_doItemFinderIconsAndSound(void)
 
 		emblems[stemblems++] = i;
 
-		if (!emblemlocations[i].collected)
+		if (!P_EmblemWasCollected(i) && P_CanPickupEmblem(stplyr, i))
+		{
 			++stunfound;
+		}
 
 		if (stemblems >= 16)
 			break;
 	}
+
 	// Found all/none exist? Don't waste our time
 	if (!stunfound)
-		return;
+	{
+		// Allow emerald hunt radar to function after they're all collected.
+		return false;
+	}
 
 	// Scan thinkers to find emblem mobj with these ids
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
@@ -2590,6 +2638,9 @@ static void ST_doItemFinderIconsAndSound(void)
 		{
 			if (mo2->health == emblems[i] + 1)
 			{
+				if (P_EmblemWasCollected(emblems[i]) || !P_CanPickupEmblem(stplyr, emblems[i]))
+					break;
+
 				soffset = (i * 20) - ((stemblems - 1) * 10);
 
 				newinterval = ST_drawEmeraldHuntIcon(mo2, itemhoming, soffset);
@@ -2604,6 +2655,8 @@ static void ST_doItemFinderIconsAndSound(void)
 
 	if (!(P_AutoPause() || paused) && interval > 0 && leveltime && leveltime % interval == 0 && renderisnewtic)
 		S_StartSound(NULL, sfx_emfind);
+
+	return true;
 }
 
 //
@@ -2722,9 +2775,7 @@ static void ST_overlayDrawer(void)
 			ST_drawRaceHUD();
 
 		// Emerald Hunt Indicators
-		if (cv_itemfinder.value && M_SecretUnlocked(SECRET_ITEMFINDER))
-			ST_doItemFinderIconsAndSound();
-		else
+		if (!ST_doItemFinderIconsAndSound())
 			ST_doHuntIconsAndSound();
 
 		if(!P_IsLocalPlayer(stplyr))
@@ -2739,28 +2790,29 @@ static void ST_overlayDrawer(void)
 		}
 
 		// This is where we draw all the fun cheese if you have the chasecam off!
-		if (!(maptol & TOL_NIGHTS))
+		if ((stplyr == &players[displayplayer] && !camera.chase)
+		|| ((splitscreen && stplyr == &players[secondarydisplayplayer]) && !camera2.chase))
 		{
-			if ((stplyr == &players[displayplayer] && !camera.chase)
-			|| ((splitscreen && stplyr == &players[secondarydisplayplayer]) && !camera2.chase))
-			{
-				ST_drawFirstPersonHUD();
-				if (cv_powerupdisplay.value)
-					ST_drawPowerupHUD();  // same as it ever was...
-			}
-			else if (cv_powerupdisplay.value == 2)
+			ST_drawFirstPersonHUD();
+			if (cv_powerupdisplay.value)
 				ST_drawPowerupHUD();  // same as it ever was...
 		}
+		else if (cv_powerupdisplay.value == 2)
+			ST_drawPowerupHUD();  // same as it ever was...
+		
 	}
 	else if (!(netgame || multiplayer) && cv_powerupdisplay.value == 2)
 		ST_drawPowerupHUD(); // same as it ever was...
 
 	if (!(netgame || multiplayer) || !hu_showscores)
 	{
+		INT32 hooklistindex = splitscreen && stplyr == &players[secondarydisplayplayer] ? 1 : 0;
 		if (renderisnewtic)
 		{
-			LUA_HUDHOOK(game, luahuddrawlist_game);
+			LUA_HUD_ClearDrawList(luahuddrawlist_game[hooklistindex]);
+			LUA_HUDHOOK(game, luahuddrawlist_game[hooklistindex]);
 		}
+		LUA_HUD_DrawList(luahuddrawlist_game[hooklistindex]);
 	}
 
 	// draw level title Tails
@@ -2839,10 +2891,6 @@ void ST_Drawer(void)
 
 	if (st_overlay)
 	{
-		if (renderisnewtic)
-		{
-			LUA_HUD_ClearDrawList(luahuddrawlist_game);
-		}
 		// No deadview!
 		stplyr = &players[displayplayer];
 		ST_overlayDrawer();
@@ -2852,7 +2900,5 @@ void ST_Drawer(void)
 			stplyr = &players[secondarydisplayplayer];
 			ST_overlayDrawer();
 		}
-
-		LUA_HUD_DrawList(luahuddrawlist_game);
 	}
 }

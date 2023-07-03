@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2022 by Sonic Team Junior.
+// Copyright (C) 1999-2023 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -1758,14 +1758,14 @@ state_t states[NUMSTATES] =
 	// Metal Sonic
 	{SPR_PLAY, SPR2_STND, -1, {NULL}, 0, 0, S_METALSONIC_RACE}, // S_METALSONIC_RACE
 
-	{SPR_METL,  4, -1, {NULL},         0, 0, S_NULL},             // S_METALSONIC_FLOAT
+	{SPR_METL,  4, -1, {NULL},         0, 0, S_METALSONIC_FLOAT},             // S_METALSONIC_FLOAT
 	{SPR_METL, 16|FF_FULLBRIGHT, -1, {NULL}, 0, 0, S_METALSONIC_STUN}, // S_METALSONIC_VECTOR
 	{SPR_METL, 15, -1, {NULL},         0, 0, S_METALSONIC_FLOAT}, // S_METALSONIC_STUN
 	{SPR_METL, 17, 20, {NULL},         0, 0, S_METALSONIC_GATHER},// S_METALSONIC_RAISE
-	{SPR_METL, 18, -1, {NULL},         0, 0, S_NULL},             // S_METALSONIC_GATHER
+	{SPR_METL, 18, -1, {NULL},         0, 0, S_METALSONIC_FLOAT},             // S_METALSONIC_GATHER
 	{SPR_METL,  6|FF_FULLBRIGHT|FF_ANIMATE|FF_GLOBALANIM, -1, {NULL}, 1, 2, S_METALSONIC_BOUNCE},// S_METALSONIC_DASH
-	{SPR_METL, 18|FF_FULLBRIGHT|FF_ANIMATE|FF_GLOBALANIM, -1, {NULL}, 1, 2, S_NULL},             // S_METALSONIC_BOUNCE
-	{SPR_METL, 14, -1, {NULL},         0, 0, S_NULL},             // S_METALSONIC_BADBOUNCE
+	{SPR_METL, 18|FF_FULLBRIGHT|FF_ANIMATE|FF_GLOBALANIM, -1, {NULL}, 1, 2, S_METALSONIC_FLOAT},             // S_METALSONIC_BOUNCE
+	{SPR_METL, 14, -1, {NULL},         0, 0, S_METALSONIC_FLOAT},             // S_METALSONIC_BADBOUNCE
 	{SPR_METL, 17, -1, {NULL},         0, 0, S_METALSONIC_GATHER},// S_METALSONIC_SHOOT
 	{SPR_METL, 15, 40, {A_Pain},       0, 0, S_METALSONIC_FLOAT}, // S_METALSONIC_PAIN
 	{SPR_METL, 17,  2, {A_Fall},       0, 0, S_METALSONIC_DEATH2},// S_METALSONIC_DEATH1
@@ -3429,10 +3429,10 @@ state_t states[NUMSTATES] =
 	{SPR_LCKN, 2|FF_FULLBRIGHT, -1, {NULL}, 0, 0, S_NULL}, // S_LOCKONINF3
 	{SPR_LCKN, 3|FF_FULLBRIGHT, -1, {NULL}, 0, 0, S_NULL}, // S_LOCKONINF4
 
-	{SPR_TTAG, FF_FULLBRIGHT, 2, {NULL}, 0, 0, S_NULL}, // S_TTAG
+	{SPR_TTAG, FF_FULLBRIGHT, 1, {NULL}, 0, 0, S_NULL}, // S_TTAG
 
 	// CTF Sign
-	{SPR_GFLG, FF_FULLBRIGHT, 2, {NULL}, 0, 0, S_NULL}, // S_GOTFLAG
+	{SPR_GFLG, FF_FULLBRIGHT, 1, {NULL}, 0, 0, S_NULL}, // S_GOTFLAG
 
 	// Finish flag
 	{SPR_FNSF,    FF_TRANS30, -1, {NULL}, 0, 0, S_NULL}, // S_FINISHFLAG

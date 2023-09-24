@@ -8,8 +8,10 @@
 // terms of the GNU General Public License, version 2.
 // See the 'LICENSE' file for more details.
 //-----------------------------------------------------------------------------
-/// \file  r_things.c
+/// \file  r_things.cpp
 /// \brief Refresh of things, i.e. objects represented by sprites
+
+#include <algorithm>
 
 #include "doomdef.h"
 #include "console.h"
@@ -118,9 +120,9 @@ static INT32 drawsegs_xrange_count = 0;
 
 spritenum_t R_GetSpriteNumByName(const char *name)
 {
-	for (spritenum_t i = 0; i < NUMSPRITES; i++)
+	for (int i = 0; i < NUMSPRITES; i++)
 		if (!strcmp(name, sprnames[i]))
-			return i;
+			return static_cast<spritenum_t>(i);
 	return NUMSPRITES;
 }
 
@@ -581,7 +583,7 @@ boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef, UINT16
 	// allocate this sprite's frames
 	if (!spritedef->spriteframes)
 		spritedef->spriteframes =
-		 Z_Malloc(maxframe * sizeof (*spritedef->spriteframes), PU_STATIC, NULL);
+		 static_cast<spriteframe_t*>(Z_Malloc(maxframe * sizeof (*spritedef->spriteframes), PU_STATIC, NULL));
 
 	spritedef->numframes = maxframe;
 	M_Memcpy(spritedef->spriteframes, sprtemp, maxframe*sizeof (spriteframe_t));
@@ -758,7 +760,7 @@ void R_InitSprites(void)
 	if (!numsprites)
 		I_Error("R_AddSpriteDefs: no sprites in namelist\n");
 
-	sprites = Z_Calloc(numsprites * sizeof (*sprites), PU_STATIC, NULL);
+	sprites = static_cast<spritedef_t*>(Z_Calloc(numsprites * sizeof (*sprites), PU_STATIC, NULL));
 
 	// find sprites in each -file added pwad
 	for (i = 0; i < numwadfiles; i++)
@@ -887,7 +889,7 @@ void R_DrawFlippedPost(UINT8 *source, unsigned length, void (*drawcolfunc)(void)
 	if (!flippedcolsize || length > flippedcolsize)
 	{
 		flippedcolsize = length;
-		flippedcol = Z_Realloc(flippedcol, length, PU_STATIC, NULL);
+		flippedcol = static_cast<UINT8*>(Z_Realloc(flippedcol, length, PU_STATIC, NULL));
 	}
 
 	dc_source = flippedcol;
@@ -976,9 +978,9 @@ UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 trans
 	if (R_ThingIsFlashing(mobj)) // Bosses "flash"
 	{
 		if (mobj->type == MT_CYBRAKDEMON || mobj->colorized)
-			return R_GetTranslationColormap(TC_ALLWHITE, 0, GTC_CACHE);
+			return R_GetTranslationColormap(TC_ALLWHITE, static_cast<skincolornum_t>(0), GTC_CACHE);
 		else if (mobj->type == MT_METALSONIC_BATTLE)
-			return R_GetTranslationColormap(TC_METALSONIC, 0, GTC_CACHE);
+			return R_GetTranslationColormap(TC_METALSONIC, static_cast<skincolornum_t>(0), GTC_CACHE);
 		else
 			return R_GetTranslationColormap(TC_BOSS, color, GTC_CACHE);
 	}
@@ -999,7 +1001,7 @@ UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 trans
 // Based off of R_GetLinedefTransTable
 transnum_t R_GetThingTransTable(fixed_t alpha, transnum_t transmap)
 {
-	return (20*(FRACUNIT - ((alpha * (10 - transmap))/10) - 1) + FRACUNIT) >> (FRACBITS+1);
+	return static_cast<transnum_t>((20*(FRACUNIT - ((alpha * (10 - transmap))/10) - 1) + FRACUNIT) >> (FRACBITS+1));
 }
 
 //
@@ -1098,7 +1100,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 			vis->scale = FixedMul(vis->scale, this_scale);
 			vis->scalestep = FixedMul(vis->scalestep, this_scale);
 			vis->xiscale = FixedDiv(vis->xiscale, this_scale);
-			vis->cut |= SC_ISSCALED;
+			vis->cut = static_cast<spritecut_e>(vis->cut | SC_ISSCALED);
 		}
 		dc_texturemid = FixedDiv(dc_texturemid, this_scale);
 	}
@@ -1264,11 +1266,11 @@ static void R_SplitSprite(vissprite_t *sprite)
 
 		// Found a split! Make a new sprite, copy the old sprite to it, and
 		// adjust the heights.
-		newsprite = M_Memcpy(R_NewVisSprite(), sprite, sizeof (vissprite_t));
+		newsprite = static_cast<vissprite_t*>(M_Memcpy(R_NewVisSprite(), sprite, sizeof (vissprite_t)));
 
-		newsprite->cut |= (sprite->cut & SC_FLAGMASK);
+		newsprite->cut = static_cast<spritecut_e>(newsprite->cut | (sprite->cut & SC_FLAGMASK));
 
-		sprite->cut |= SC_BOTTOM;
+		sprite->cut = static_cast<spritecut_e>(sprite->cut | SC_BOTTOM);
 		sprite->gz = testheight;
 
 		newsprite->gzt = sprite->gz;
@@ -1286,7 +1288,7 @@ static void R_SplitSprite(vissprite_t *sprite)
 
 		newsprite->szt -= 8;
 
-		newsprite->cut |= SC_TOP;
+		newsprite->cut = static_cast<spritecut_e>(newsprite->cut | SC_TOP);
 		if (!(sector->lightlist[i].caster->fofflags & FOF_NOSHADE))
 		{
 			lightnum = (*sector->lightlist[i].lightlevel >> LIGHTSEGSHIFT);
@@ -1511,17 +1513,17 @@ static void R_ProjectDropShadow(mobj_t *thing, vissprite_t *vis, fixed_t scale, 
 	floordiff = abs((isflipped ? interp.height : 0) + interp.z - groundz);
 
 	trans = floordiff / (100*FRACUNIT) + 3;
-	trans = R_GetThingTransTable(thing->alpha, trans);
+	trans = R_GetThingTransTable(thing->alpha, static_cast<transnum_t>(trans));
 	if (trans >= 9) return;
 
 	scalemul = FixedMul(FRACUNIT - floordiff/640, scale);
 
-	patch = W_CachePatchName("DSHADOW", PU_SPRITE);
+	patch = static_cast<patch_t*>(W_CachePatchName("DSHADOW", PU_SPRITE));
 	xscale = FixedDiv(projection, tz);
 	yscale = FixedDiv(projectiony, tz);
 	shadowxscale = FixedMul(interp.radius*2, scalemul);
 	shadowyscale = FixedMul(FixedMul(interp.radius*2, scalemul), FixedDiv(abs(groundz - viewz), tz));
-	shadowyscale = min(shadowyscale, shadowxscale) / patch->height;
+	shadowyscale = std::min(shadowyscale, shadowxscale) / patch->height;
 	shadowxscale /= patch->width;
 	shadowskew = 0;
 
@@ -1560,7 +1562,7 @@ static void R_ProjectDropShadow(mobj_t *thing, vissprite_t *vis, fixed_t scale, 
 	shadow->shear.tan = shadowskew; // repurposed variable
 
 	shadow->mobj = thing; // Easy access! Tails 06-07-2002
-	shadow->color = thing->color;
+	shadow->color = static_cast<skincolornum_t>(thing->color);
 	shadow->translation = 0;
 
 	shadow->x1 = x1 < portalclipstart ? portalclipstart : x1;
@@ -1572,7 +1574,7 @@ static void R_ProjectDropShadow(mobj_t *thing, vissprite_t *vis, fixed_t scale, 
 	shadow->sector = vis->sector;
 	shadow->szt = (INT16)((centeryfrac - FixedMul(shadow->gzt - viewz, yscale))>>FRACBITS);
 	shadow->sz = (INT16)((centeryfrac - FixedMul(shadow->gz - viewz, yscale))>>FRACBITS);
-	shadow->cut = SC_ISSCALED|SC_SHADOW; //check this
+	shadow->cut = static_cast<spritecut_e>(SC_ISSCALED|SC_SHADOW); //check this
 
 	shadow->startfrac = 0;
 	//shadow->xiscale = 0x7ffffff0 / (shadow->xscale/2);
@@ -1676,7 +1678,7 @@ static void R_ProjectBoundingBox(mobj_t *thing, vissprite_t *vis)
 		box->sortscale = vis->sortscale; // link sorting to sprite
 		box->dispoffset = vis->dispoffset + 5;
 
-		box->cut |= SC_LINKDRAW;
+		box->cut = static_cast<spritecut_e>(box->cut | SC_LINKDRAW);
 	}
 	else
 	{
@@ -1825,9 +1827,9 @@ static void R_ProjectSprite(mobj_t *thing)
 	//Fab : 02-08-98: 'skin' override spritedef currently used for skin
 	if (thing->skin && thing->sprite == SPR_PLAY)
 	{
-		sprdef = P_GetSkinSpritedef(thing->skin, thing->sprite2);
+		sprdef = P_GetSkinSpritedef(static_cast<skin_t*>(thing->skin), thing->sprite2);
 #ifdef ROTSPRITE
-		sprinfo = P_GetSkinSpriteInfo(thing->skin, thing->sprite2);
+		sprinfo = P_GetSkinSpriteInfo(static_cast<skin_t*>(thing->skin), thing->sprite2);
 #endif
 
 		if (frame >= sprdef->numframes)
@@ -1922,7 +1924,7 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	//Fab: lumppat is the lump number of the patch to use, this is different
 	//     than lumpid for sprites-in-pwad : the graphics are patched
-	patch = W_CachePatchNum(sprframe->lumppat[rot], PU_SPRITE);
+	patch = static_cast<patch_t*>(W_CachePatchNum(sprframe->lumppat[rot], PU_SPRITE));
 
 #ifdef ROTSPRITE
 	spriterotangle = R_SpriteRotationAngle(&interp);
@@ -1945,7 +1947,7 @@ static void R_ProjectSprite(mobj_t *thing)
 		if (rotsprite != NULL)
 		{
 			patch = rotsprite;
-			cut |= SC_ISROTATED;
+			cut = static_cast<spritecut_e>(cut | SC_ISROTATED);
 
 			spr_width = rotsprite->width << FRACBITS;
 			spr_height = rotsprite->height << FRACBITS;
@@ -2035,7 +2037,7 @@ static void R_ProjectSprite(mobj_t *thing)
 
 		tx2 = FixedMul(tr_x, viewsin) - FixedMul(tr_y, viewcos);
 
-		if (max(tz, tz2) < FixedMul(MINZ, this_scale)) // non-papersprite clipping is handled earlier
+		if (std::max(tz, tz2) < FixedMul(MINZ, this_scale)) // non-papersprite clipping is handled earlier
 			return;
 
 		// Needs partially clipped
@@ -2158,7 +2160,7 @@ static void R_ProjectSprite(mobj_t *thing)
 		//sortscale = linkscale; // now make sure it's linked
 		// No need to do that, linkdraw already excludes it from regular sorting.
 
-		cut |= SC_LINKDRAW;
+		cut = static_cast<spritecut_e>(cut | SC_LINKDRAW);
 	}
 	else
 	{
@@ -2202,11 +2204,11 @@ static void R_ProjectSprite(mobj_t *thing)
 	}
 	else
 		trans = 0;
-	
+
 	if ((oldthing->flags2 & MF2_LINKDRAW) && oldthing->tracer)
-		trans = R_GetThingTransTable(oldthing->tracer->alpha, trans);
+		trans = R_GetThingTransTable(oldthing->tracer->alpha, static_cast<transnum_t>(trans));
 	else
-		trans = R_GetThingTransTable(oldthing->alpha, trans);
+		trans = R_GetThingTransTable(oldthing->alpha, static_cast<transnum_t>(trans));
 
 	// Check if this sprite needs to be rendered like a shadow
 	shadowdraw = (!!(thing->renderflags & RF_SHADOWDRAW) && !(papersprite || splat));
@@ -2257,7 +2259,7 @@ static void R_ProjectSprite(mobj_t *thing)
 			spritexscale = FixedMul(radius * 2, FixedMul(shadowscale, spritexscale));
 			spriteyscale = FixedMul(radius * 2, FixedMul(shadowscale, spriteyscale));
 			spriteyscale = FixedMul(spriteyscale, FixedDiv(abs(groundz - viewz), tz));
-			spriteyscale = min(spriteyscale, spritexscale) / patch->height;
+			spriteyscale = std::min(spriteyscale, spritexscale) / patch->height;
 			spritexscale /= patch->width;
 		}
 		else
@@ -2273,7 +2275,7 @@ static void R_ProjectSprite(mobj_t *thing)
 			gzt = (isflipped ? (interp.z + height) : interp.z) + patch->height * spriteyscale / 2;
 			gz = gzt - patch->height * spriteyscale;
 
-			cut |= SC_SHEAR;
+			cut = static_cast<spritecut_e>(cut | SC_SHEAR);
 		}
 	}
 
@@ -2369,9 +2371,9 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	vis->mobj = thing; // Easy access! Tails 06-07-2002
 	if ((oldthing->flags2 & MF2_LINKDRAW) && oldthing->tracer && oldthing->color == SKINCOLOR_NONE)
-		vis->color = oldthing->tracer->color;
+		vis->color = static_cast<skincolornum_t>(oldthing->tracer->color);
 	else
-		vis->color = oldthing->color;
+		vis->color = static_cast<skincolornum_t>(oldthing->color);
 
 	if ((oldthing->flags2 & MF2_LINKDRAW) && oldthing->tracer && oldthing->translation == 0)
 		vis->translation = oldthing->tracer->translation;
@@ -2436,11 +2438,11 @@ static void R_ProjectSprite(mobj_t *thing)
 		vis->transmap = NULL;
 
 	if (R_ThingIsFullBright(oldthing) || oldthing->flags2 & MF2_SHADOW || thing->flags2 & MF2_SHADOW)
-		vis->cut |= SC_FULLBRIGHT;
+		vis->cut = static_cast<spritecut_e>(vis->cut | SC_FULLBRIGHT);
 	else if (R_ThingIsSemiBright(oldthing))
-		vis->cut |= SC_SEMIBRIGHT;
+		vis->cut = static_cast<spritecut_e>(vis->cut | SC_SEMIBRIGHT);
 	else if (R_ThingIsFullDark(oldthing))
-		vis->cut |= SC_FULLDARK;
+		vis->cut = static_cast<spritecut_e>(vis->cut | SC_FULLDARK);
 
 	//
 	// determine the colormap (lightlevel & special effects)
@@ -2468,9 +2470,9 @@ static void R_ProjectSprite(mobj_t *thing)
 	}
 
 	if (vflip)
-		vis->cut |= SC_VFLIP;
+		vis->cut = static_cast<spritecut_e>(vis->cut | SC_VFLIP);
 	if (splat)
-		vis->cut |= SC_SPLAT; // I like ya cut g
+		vis->cut = static_cast<spritecut_e>(vis->cut | SC_SPLAT); // I like ya cut g
 
 	vis->patch = patch;
 
@@ -2634,7 +2636,7 @@ static void R_ProjectPrecipitationSprite(precipmobj_t *thing)
 
 	//Fab: lumppat is the lump number of the patch to use, this is different
 	//     than lumpid for sprites-in-pwad : the graphics are patched
-	vis->patch = W_CachePatchNum(sprframe->lumppat[0], PU_SPRITE);
+	vis->patch = static_cast<patch_t*>(W_CachePatchNum(sprframe->lumppat[0], PU_SPRITE));
 
 	// specific translucency
 	if (thing->frame & FF_TRANSMASK)
@@ -2841,7 +2843,7 @@ static void R_SortVisSprites(vissprite_t* vsprsortedhead, UINT32 start, UINT32 e
 
 			// If the object isn't visible, then the bounding box isn't either
 			if (ds->cut & SC_BBOX && dsfirst->cut & SC_NOTVISIBLE)
-				ds->cut |= SC_NOTVISIBLE;
+				ds->cut = static_cast<spritecut_e>(ds->cut | SC_NOTVISIBLE);
 
 			break;
 		}
@@ -3275,7 +3277,7 @@ static drawnode_t *R_CreateDrawNode(drawnode_t *link)
 
 	if (node == &nodebankhead)
 	{
-		node = malloc(sizeof (*node));
+		node = static_cast<drawnode_t*>(malloc(sizeof (*node)));
 		if (!node)
 			I_Error("No more free memory to CreateDrawNode");
 	}
@@ -3417,7 +3419,7 @@ static boolean R_CheckSpriteVisible(vissprite_t *spr, INT32 x1, INT32 x2)
 		scalestep = FixedMul(scalestep, spr->spriteyscale);
 
 		if (spr->thingscale != FRACUNIT)
-			texturemid = FixedDiv(spr->texturemid, max(spr->thingscale, 1));
+			texturemid = FixedDiv(spr->texturemid, std::max(spr->thingscale, 1));
 		else
 			texturemid = spr->texturemid;
 	}
@@ -3585,8 +3587,8 @@ static void R_ClipVisSprite(vissprite_t *spr, INT32 x1, INT32 x2, portal_t* port
 
 	if (portal)
 	{
-		INT32 start_index = max(portal->start, x1);
-		INT32 end_index = min(portal->start + portal->end - portal->start, x2);
+		INT32 start_index = std::max(portal->start, x1);
+		INT32 end_index = std::min(portal->start + portal->end - portal->start, x2);
 		for (x = x1; x < start_index; x++)
 		{
 			spr->clipbot[x] = -1;
@@ -3611,7 +3613,7 @@ static void R_ClipVisSprite(vissprite_t *spr, INT32 x1, INT32 x2, portal_t* port
 	if (cv_spriteclip.value && (spr->cut & SC_SPLAT) == 0)
 	{
 		if (!R_CheckSpriteVisible(spr, x1, x2))
-			spr->cut |= SC_NOTVISIBLE;
+			spr->cut = static_cast<spritecut_e>(spr->cut | SC_NOTVISIBLE);
 	}
 }
 
@@ -3642,11 +3644,11 @@ void R_ClipSprites(drawseg_t* dsstart, portal_t* portal)
 
 		for (i = 0; i < DS_RANGES_COUNT; i++)
 		{
-			drawsegs_xranges[i].items = Z_Realloc(
+			drawsegs_xranges[i].items = static_cast<drawseg_xrange_item_t*>(Z_Realloc(
 				drawsegs_xranges[i].items,
 				drawsegs_xrange_size * sizeof(drawsegs_xranges[i].items[0]),
 				PU_STATIC, NULL
-			);
+			));
 		}
 	}
 
@@ -3685,7 +3687,7 @@ void R_ClipSprites(drawseg_t* dsstart, portal_t* portal)
 		&& (spr->szt > vid.height || spr->sz < 0)
 		&& !((spr->cut & SC_SPLAT) || spr->scalestep))
 		{
-			spr->cut |= SC_NOTVISIBLE;
+			spr->cut = static_cast<spritecut_e>(spr->cut | SC_NOTVISIBLE);
 			continue;
 		}
 
@@ -3728,7 +3730,7 @@ boolean R_ThingVisible (mobj_t *thing)
 		(thing->sprite == SPR_NULL) || // Don't draw null-sprites
 		(thing->flags2 & MF2_DONTDRAW) || // Don't draw MF2_LINKDRAW objects
 		(thing->drawonlyforplayer && thing->drawonlyforplayer != viewplayer) || // Don't draw other players' personal objects
-		(!R_BlendLevelVisible(thing->blendmode, R_GetThingTransTable(thing->alpha, 0))) ||
+		(!R_BlendLevelVisible(thing->blendmode, R_GetThingTransTable(thing->alpha, static_cast<transnum_t>(0)))) ||
 		(!P_MobjWasRemoved(r_viewmobj) && (
 		  (r_viewmobj == thing) || // Don't draw first-person players or awayviewmobj objects
 		  (r_viewmobj->player && r_viewmobj->player->followmobj == thing) || // Don't draw first-person players' followmobj
@@ -3931,7 +3933,7 @@ void R_DrawMasked(maskcount_t* masks, INT32 nummasks)
 	drawnode_t *heads;	/**< Drawnode lists; as many as number of views/portals. */
 	INT32 i;
 
-	heads = calloc(nummasks, sizeof(drawnode_t));
+	heads = static_cast<drawnode_t*>(calloc(nummasks, sizeof(drawnode_t)));
 
 	for (i = 0; i < nummasks; i++)
 	{

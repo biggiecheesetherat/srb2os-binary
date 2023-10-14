@@ -5,7 +5,7 @@ target_sources(SRB2SDL2 PRIVATE
 	ogl_sdl.c
 	i_threads.c
 	i_net.c
-	i_system.c
+	i_system.cpp
 	i_main.cpp
 	i_video.cpp
 	dosstr.c
@@ -85,6 +85,9 @@ if(TARGET SDL2::SDL2main)
 else()
 	message(STATUS "No SDL2main Found")
 endif()
+
+# NOMUMBLE till WRITE* macros are fixed for C++ or mumble integration is rewritten
+target_compile_definitions(SRB2SDL2 PRIVATE -DNOMUMBLE)
 
 #### Installation ####
 if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)

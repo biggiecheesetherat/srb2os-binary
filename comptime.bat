@@ -1,6 +1,7 @@
 @echo off
 set BRA=Unknown
 set REV=illegal
+set SUBJECT=null
 
 copy nul: /b +%1\comptime.c tmp.$$$ > nul
 move tmp.$$$ %1\comptime.c > nul
@@ -30,3 +31,4 @@ echo // by the %0 batch file >> %1\comptime.h
 echo // >> %1\comptime.h
 echo const char* compbranch = "%BRA%"; >> %1\comptime.h
 echo const char* comprevision = "%REV%"; >> %1\comptime.h
+echo const char* compnote = = "%SUBJECT%"; >> %1\comptime.h

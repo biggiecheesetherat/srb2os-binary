@@ -12,24 +12,26 @@ version() {
 //
 const char* compbranch = "$1";
 const char* comprevision = "$2";
+const char* compnote = "$3";
 EOF
 }
 
 versiongit() {
-	gitbranch="$(git rev-parse --abbrev-ref HEAD)"
-	gitversion="$(git rev-parse HEAD | cut -c -8)"
-	version "$gitbranch" "$gitversion";
+	gitbranch="$(git branch --show-current)"
+	gitversion="$(git log -n 1 --pretty=format:%h)"
+	gitsubject="$(git log -n 1 --pretty=format:%s)"
+	version "$gitbranch" "$gitversion" "$gitsubject";
 	exit 0
 }
 
 versionsvn() {
 	svnrevision="$(svnversion -n "$1")"
-	version "Subversion" "r$svnrevision";
+	version "Subversion" "r$svnrevision" "NULL";
 	exit 0
 }
 
 versionfake() {
-	version "Unknown" "illegal";
+	version "Unknown" "illegal" "NULL";
 }
 
 compversion() {

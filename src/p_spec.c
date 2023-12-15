@@ -557,7 +557,7 @@ static inline sector_t *getSector(INT32 currentSector, INT32 line, INT32 side)
   */
 static inline boolean twoSided(INT32 sector, INT32 line)
 {
-	return (sectors[sector].lines[line])->sidenum[1] != 0xffff;
+	return (sectors[sector].lines[line])->sidenum[1] != NO_SIDEDEF;
 }
 #endif
 
@@ -1796,7 +1796,7 @@ void P_RunTriggerLinedef(line_t *triggerline, mobj_t *actor, sector_t *caller)
 
 				if (trigid < 0 || trigid > 31) // limited by 32 bit variable
 				{
-					CONS_Debug(DBG_GAMELOGIC, "Unlockable trigger (sidedef %hu): bad trigger ID %d\n", triggerline->sidenum[0], trigid);
+					CONS_Debug(DBG_GAMELOGIC, "Unlockable trigger (sidedef %u): bad trigger ID %d\n", triggerline->sidenum[0], trigid);
 					return;
 				}
 				else if (!(unlocktriggers & (1 << trigid)))
@@ -1809,7 +1809,7 @@ void P_RunTriggerLinedef(line_t *triggerline, mobj_t *actor, sector_t *caller)
 
 				if (unlockid <= 0 || unlockid > MAXUNLOCKABLES) // limited by unlockable count
 				{
-					CONS_Debug(DBG_GAMELOGIC, "Unlockable check (sidedef %hu): bad unlockable ID %d\n", triggerline->sidenum[0], unlockid);
+					CONS_Debug(DBG_GAMELOGIC, "Unlockable check (sidedef %u): bad unlockable ID %d\n", triggerline->sidenum[0], unlockid);
 					return;
 				}
 				else if (!(serverGamedata->unlocked[unlockid-1]))
@@ -2607,7 +2607,15 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 				if (lumpnum == LUMPERROR || W_LumpLength(lumpnum) == 0)
 					CONS_Debug(DBG_SETUP, "Line type 415 Executor: script lump %s not found/not valid.\n", line->stringargs[0]);
 				else
-					COM_BufInsertText(W_CacheLumpNum(lumpnum, PU_CACHE));
+				{
+					void *lump = W_CacheLumpNum(lumpnum, PU_CACHE);
+					size_t len = W_LumpLength(lumpnum);
+					char *text = Z_Malloc(len + 1, PU_CACHE, NULL);
+					memcpy(text, lump, len);
+					text[len] = '\0';
+					COM_BufInsertText(text);
+					Z_Free(text);
+				}
 			}
 			break;
 
@@ -2661,7 +2669,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 					titlemapcameraref = altview;
 				else if (!mo->player->awayviewtics || mo->player->awayviewmobj != altview) {
 					P_SetTarget(&mo->player->awayviewmobj, altview);
-					
+
 					if (mo->player == &players[displayplayer])
 						P_ResetCamera(mo->player, &camera); // reset p1 camera on p1 getting an awayviewmobj
 					else if (splitscreen && mo->player == &players[secondarydisplayplayer])
@@ -2897,7 +2905,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 			{
 				size_t linenum;
 				side_t *setfront = &sides[line->sidenum[0]];
-				side_t *setback = (line->args[3] && line->sidenum[1] != 0xffff) ? &sides[line->sidenum[1]] : setfront;
+				side_t *setback = (line->args[3] && line->sidenum[1] != NO_SIDEDEF) ? &sides[line->sidenum[1]] : setfront;
 				side_t *this;
 				boolean always = !(line->args[2]); // If args[2] is set: Only change mid texture if mid texture already exists on tagged lines, etc.
 
@@ -2919,7 +2927,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 					}
 
 					// Back side
-					if (line->args[1] != TMSD_FRONT && lines[linenum].sidenum[1] != 0xffff)
+					if (line->args[1] != TMSD_FRONT && lines[linenum].sidenum[1] != NO_SIDEDEF)
 					{
 						this = &sides[lines[linenum].sidenum[1]];
 						if (always || this->toptexture) this->toptexture = setback->toptexture;
@@ -2940,7 +2948,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 				INT32 trigid = line->args[0];
 
 				if (trigid < 0 || trigid > 31) // limited by 32 bit variable
-					CONS_Debug(DBG_GAMELOGIC, "Unlockable trigger (sidedef %hu): bad trigger ID %d\n", line->sidenum[0], trigid);
+					CONS_Debug(DBG_GAMELOGIC, "Unlockable trigger (sidedef %u): bad trigger ID %d\n", line->sidenum[0], trigid);
 				else
 				{
 					unlocktriggers |= 1 << trigid;
@@ -3153,7 +3161,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 
 				if (line->args[2] & TMCF_RELATIVE)
 				{
-					extracolormap_t *target = (!udmf && (line->flags & ML_TFERLINE) && line->sidenum[1] != 0xFFFF) ?
+					extracolormap_t *target = (!udmf && (line->flags & ML_TFERLINE) && line->sidenum[1] != NO_SIDEDEF) ?
 						sides[line->sidenum[1]].colormap_data : sectors[secnum].extra_colormap; // use back colormap instead of target sector
 
 						extracolormap_t *exc = R_AddColormaps(
@@ -3482,7 +3490,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 				}
 
 				if (!udmf && (line->flags & ML_TFERLINE)) // use back colormap instead of target sector
-					sectors[secnum].extra_colormap = (line->sidenum[1] != 0xFFFF) ?
+					sectors[secnum].extra_colormap = (line->sidenum[1] != NO_SIDEDEF) ?
 					sides[line->sidenum[1]].colormap_data : NULL;
 
 				exc = sectors[secnum].extra_colormap;
@@ -4178,6 +4186,7 @@ sector_t *P_MobjTouchingSectorSpecial(mobj_t *mo, INT32 section, INT32 number)
 	return NULL;
 }
 
+// TODO: 2.3: Delete
 // Deprecated in favor of P_MobjTouchingSectorSpecial
 // Kept for Lua backwards compatibility only
 sector_t *P_ThingOnSpecial3DFloor(mobj_t *mo)
@@ -5596,6 +5605,8 @@ static ffloor_t *P_AddFakeFloor(sector_t *sec, sector_t *sec2, line_t *master, I
 	fflr->bottompic = &sec2->floorpic;
 	fflr->bottomxoffs = &sec2->floorxoffset;
 	fflr->bottomyoffs = &sec2->flooryoffset;
+	fflr->bottomxscale = &sec2->floorxscale;
+	fflr->bottomyscale = &sec2->flooryscale;
 	fflr->bottomangle = &sec2->floorangle;
 
 	// Add the ceiling
@@ -5604,6 +5615,8 @@ static ffloor_t *P_AddFakeFloor(sector_t *sec, sector_t *sec2, line_t *master, I
 	fflr->toplightlevel = &sec2->lightlevel;
 	fflr->topxoffs = &sec2->ceilingxoffset;
 	fflr->topyoffs = &sec2->ceilingyoffset;
+	fflr->topxscale = &sec2->ceilingxscale;
+	fflr->topyscale = &sec2->ceilingyscale;
 	fflr->topangle = &sec2->ceilingangle;
 
 	// Add slopes
@@ -6229,6 +6242,7 @@ void P_SpawnSpecials(boolean fromnetsave)
 			sector->flags |= MSF_TRIGGERSPECIAL_TOUCH;
 		}
 
+		// TODO: 2.3: Delete everything below
 		// Process deprecated binary sector specials
 		if (udmf || !sector->special)
 			continue;
@@ -7598,7 +7612,7 @@ static void P_SpawnScrollers(void)
 					{
 						if (l->args[1] != TMSD_BACK)
 							Add_Scroller(sc_side, l->args[2] << (FRACBITS - SCROLL_SHIFT), l->args[3] << (FRACBITS - SCROLL_SHIFT), control, lines[s].sidenum[0], accel, 0);
-						if (l->args[1] != TMSD_FRONT && lines[s].sidenum[1] != 0xffff)
+						if (l->args[1] != TMSD_FRONT && lines[s].sidenum[1] != NO_SIDEDEF)
 							Add_Scroller(sc_side, l->args[2] << (FRACBITS - SCROLL_SHIFT), l->args[3] << (FRACBITS - SCROLL_SHIFT), control, lines[s].sidenum[1], accel, 0);
 					}
 				break;
@@ -7609,7 +7623,7 @@ static void P_SpawnScrollers(void)
 					Add_Scroller(sc_side, -l->args[1] << FRACBITS, l->args[2] << FRACBITS, -1, l->sidenum[0], accel, 0);
 				if (l->args[0] != TMSD_FRONT)
 				{
-					if (l->sidenum[1] != 0xffff)
+					if (l->sidenum[1] != NO_SIDEDEF)
 						Add_Scroller(sc_side, -l->args[1] << FRACBITS, l->args[2] << FRACBITS, -1, l->sidenum[1], accel, 0);
 					else
 						CONS_Debug(DBG_GAMELOGIC, "Line special 500 (line #%s) missing back side!\n", sizeu1(i));

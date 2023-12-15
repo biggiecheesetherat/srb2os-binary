@@ -17,21 +17,21 @@ EOF
 }
 
 versiongit() {
-	gitbranch="$(git branch --show-current)"
-	gitversion="$(git log -n 1 --pretty=format:%h)"
-	gitsubject="$(git log -n 1 --pretty=format:%s)"
+	gitbranch="$(git rev-parse --abbrev-ref HEAD)"
+	gitversion="$(git rev-parse HEAD | cut -c -8)"
+	gitsubject="$(git log -1 --format=%s)"
 	version "$gitbranch" "$gitversion" "$gitsubject";
 	exit 0
 }
 
 versionsvn() {
 	svnrevision="$(svnversion -n "$1")"
-	version "Subversion" "r$svnrevision" "NULL";
+	version "Subversion" "r$svnrevision" "dummy";
 	exit 0
 }
 
 versionfake() {
-	version "Unknown" "illegal" "NULL";
+	version "Unknown" "illegal" "dummy";
 }
 
 compversion() {

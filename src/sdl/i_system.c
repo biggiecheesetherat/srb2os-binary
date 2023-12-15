@@ -608,6 +608,7 @@ void I_GetConsoleEvents(void)
 		return;
 
 	ev.type = ev_console;
+	ev.key = 0;
 	if (read(STDIN_FILENO, &key, 1) == -1 || !key)
 		return;
 
@@ -634,7 +635,7 @@ void I_GetConsoleEvents(void)
 		}
 		else return;
 	}
-	else
+	else if (tty_con.cursor < sizeof (tty_con.buffer))
 	{
 		// push regular character
 		ev.key = tty_con.buffer[tty_con.cursor] = key;
@@ -3035,11 +3036,11 @@ size_t I_GetFreeMem(size_t *total)
 #ifdef FREEBSD
 	u_int v_free_count, v_page_size, v_page_count;
 	size_t size = sizeof(v_free_count);
-	sysctlbyname("vm.stat.vm.v_free_count", &v_free_count, &size, NULL, 0);
-	size_t size = sizeof(v_page_size);
-	sysctlbyname("vm.stat.vm.v_page_size", &v_page_size, &size, NULL, 0);
-	size_t size = sizeof(v_page_count);
-	sysctlbyname("vm.stat.vm.v_page_count", &v_page_count, &size, NULL, 0);
+	sysctlbyname("vm.stats.vm.v_free_count", &v_free_count, &size, NULL, 0);
+	size = sizeof(v_page_size);
+	sysctlbyname("vm.stats.vm.v_page_size", &v_page_size, &size, NULL, 0);
+	size = sizeof(v_page_count);
+	sysctlbyname("vm.stats.vm.v_page_count", &v_page_count, &size, NULL, 0);
 
 	if (total)
 		*total = v_page_count * v_page_size;

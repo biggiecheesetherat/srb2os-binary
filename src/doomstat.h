@@ -289,6 +289,7 @@ typedef struct
 typedef struct
 {
 	mapname_t name;
+	UINT32 lumpnum;
 	char *thumbnail;
 	char *thumbnail_wide;
 	char *music;

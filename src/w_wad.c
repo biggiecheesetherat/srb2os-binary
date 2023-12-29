@@ -1175,6 +1175,7 @@ UINT16 W_InitFolder(const char *path, boolean mainfile, boolean startup)
 
 	W_ReadFileShaders(wadfile);
 	W_LoadTrnslateLumps(numwadfiles - 1);
+	P_LoadMapsFromFile(numwadfiles - 1, !startup);
 	W_LoadDehackedLumpsPK3(numwadfiles - 1, mainfile);
 
 	lua_lumploading++;

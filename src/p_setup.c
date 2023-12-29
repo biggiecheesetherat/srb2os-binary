@@ -366,8 +366,7 @@ static void P_ClearSingleMapHeaderInfo(INT16 i)
 	mapheaderinfo[num]->ssspheres = 1;
 	mapheaderinfo[num]->gravity = FRACUNIT/2;
 	mapheaderinfo[num]->keywords[0] = '\0';
-	snprintf(mapheaderinfo[num]->musname, 7, "%sM", G_BuildMapName(i));
-	mapheaderinfo[num]->musname[6] = 0;
+	snprintf(mapheaderinfo[num]->musname, MAX_MUSIC_NAME+1, "%s", G_GetDefaultMapMusic(i));
 	mapheaderinfo[num]->mustrack = 0;
 	mapheaderinfo[num]->muspos = 0;
 	mapheaderinfo[num]->musinterfadeout = 0;
@@ -7520,14 +7519,15 @@ static void P_ResetSpawnpoints(void)
 
 static void P_LoadRecordGhosts(void)
 {
-	const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen("MAPXX")+1;
+	const char *mapname = G_BuildMapName(gamemap);
+	const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen(mapname)+1;
 	char *gpath = malloc(glen);
 	INT32 i;
 
 	if (!gpath)
 		return;
 
-	sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, G_BuildMapName(gamemap));
+	sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, mapname);
 
 	// Best Score ghost
 	if (cv_ghost_bestscore.value)
@@ -7590,14 +7590,15 @@ static void P_LoadRecordGhosts(void)
 
 static void P_LoadNightsGhosts(void)
 {
-	const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen("MAPXX")+1;
+	const char *mapname = G_BuildMapName(gamemap);
+	const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen(mapname)+1;
 	char *gpath = malloc(glen);
 	INT32 i;
 
 	if (!gpath)
 		return;
 
-	sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, G_BuildMapName(gamemap));
+	sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, mapname);
 
 	// Best Score ghost
 	if (cv_ghost_bestscore.value)
@@ -7771,7 +7772,7 @@ static void P_RunSpecialStageWipe(void)
 	// Fade music! Time it to S3KAF: 0.25 seconds is snappy.
 	if (RESETMUSIC ||
 		strnicmp(S_MusicName(),
-		(mapmusflags & MUSIC_RELOADRESET) ? mapheaderinfo[gamemap - 1]->musname : mapmusname, 7))
+		(mapmusflags & MUSIC_RELOADRESET) ? mapheaderinfo[gamemap - 1]->musname : mapmusname, MAX_MUSIC_NAME))
 		S_FadeOutStopMusic(MUSICRATE/4); //FixedMul(FixedDiv(F_GetWipeLength(wipedefs[wipe_speclevel_towhite])*NEWTICRATERATIO, NEWTICRATE), MUSICRATE)
 
 	F_WipeStartScreen();
@@ -8043,7 +8044,7 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 	// But don't halt the music! S_Start will take care of that. This dodges a MIDI crash bug.
 	if (!(reloadinggamestate || titlemapinaction) && (RESETMUSIC ||
 		strnicmp(S_MusicName(),
-			(mapmusflags & MUSIC_RELOADRESET) ? mapheaderinfo[gamemap-1]->musname : mapmusname, 7)))
+			(mapmusflags & MUSIC_RELOADRESET) ? mapheaderinfo[gamemap-1]->musname : mapmusname, MAX_MUSIC_NAME)))
 	{
 		S_FadeMusic(0, FixedMul(
 			FixedDiv((F_GetWipeLength(wipedefs[wipe_level_toblack])-2)*NEWTICRATERATIO, NEWTICRATE), MUSICRATE));
@@ -8368,6 +8369,80 @@ static lumpinfo_t* FindFolder(const char *folName, UINT16 *start, UINT16 *end, l
 	return lumpinfo;
 }
 
+void P_LoadMapsFromFile(UINT16 wadnum, boolean is_pwad)
+{
+	boolean mapsadded = false;
+
+	lumpinfo_t *lumpinfo = wadfiles[wadnum]->lumpinfo;
+
+	INT16 num;
+	const char *name;
+
+	if (W_FileHasFolders(wadfiles[wadnum]))
+	{
+		UINT16 posStart = W_CheckNumForFolderStartPK3("Maps/", wadnum, 0);
+		if (posStart == INT16_MAX)
+			return;
+
+		UINT16 posEnd = W_CheckNumForFolderEndPK3("Maps/", wadnum, posStart);
+
+		lumpinfo += posStart;
+
+		for (; posStart < posEnd; posStart++, lumpinfo++)
+		{
+			name = M_GetFilenameFromPath(lumpinfo->fullname); // Full lump name, with its extension
+
+			if (!M_CheckFilenameExtension(name, "wad"))
+			{
+				// Extension must be .wad
+				continue;
+			}
+
+			name = lumpinfo->longname; // Name without the extension
+
+			num = G_AddMap(name);
+
+			if (num == 0)
+			{
+				CONS_Alert(CONS_ERROR, "Too many maps loaded!\n");
+				break;
+			}
+			//If you replaced the map you're on, end the level when done.
+			else if (num == gamemap)
+				replacedcurrentmap = true;
+
+			if (is_pwad)
+				CONS_Printf("%s\n", name);
+			mapsadded = true;
+		}
+	}
+	else
+	{
+		UINT16 numlumps = wadfiles[wadnum]->numlumps;
+		for (size_t i = 0; i < numlumps; i++, lumpinfo++)
+		{
+			name = lumpinfo->name;
+			if (name[0] == 'M' && name[1] == 'A' && name[2] == 'P') // Ignore the headers
+			{
+				if (name[5]!='\0')
+					continue;
+				num = (INT16)M_MapNumber(name[3], name[4]);
+
+				//If you replaced the map you're on, end the level when done.
+				if (num == gamemap)
+					replacedcurrentmap = true;
+
+				if (is_pwad)
+					CONS_Printf("%s\n", name);
+				mapsadded = true;
+			}
+		}
+	}
+
+	if (!mapsadded && is_pwad)
+		CONS_Printf(M_GetText("No maps added\n"));
+}
+
 //
 // Add a wadfile to the active wad files,
 // replace sounds, musics, patches, textures, sprites and maps
@@ -8381,8 +8456,6 @@ static boolean P_LoadAddon(UINT16 numlumps)
 	lumpinfo_t *lumpinfo;
 
 	//boolean texturechange = false; ///\todo Useless; broken when back-frontporting PK3 changes?
-	boolean mapsadded = false;
-	boolean replacedcurrentmap = false;
 
 	// Vars to help us with the position start and amount of each resource type.
 	// Useful for PK3s since they use folders.
@@ -8524,32 +8597,7 @@ static boolean P_LoadAddon(UINT16 numlumps)
 	//
 	S_LoadMusicDefs(wadnum);
 
-	//
-	// search for maps
-	//
-	lumpinfo = wadfiles[wadnum]->lumpinfo;
-	for (i = 0; i < numlumps; i++, lumpinfo++)
-	{
-		name = lumpinfo->name;
-		if (name[0] == 'M' && name[1] == 'A' && name[2] == 'P') // Ignore the headers
-		{
-			INT16 num;
-			if (name[5]!='\0')
-				continue;
-			num = (INT16)M_MapNumber(name[3], name[4]);
-
-			//If you replaced the map you're on, end the level when done.
-			if (num == gamemap)
-				replacedcurrentmap = true;
-
-			CONS_Printf("%s\n", name);
-			mapsadded = true;
-		}
-	}
-	if (!mapsadded)
-		CONS_Printf(M_GetText("No maps added\n"));
-
-	R_LoadSpriteInfoLumps(wadnum, numlumps);
+	R_LoadSpriteInfoLumps(wadnum);
 
 #ifdef HWRENDER
 	HWR_ReloadModels();
@@ -8563,11 +8611,16 @@ static boolean P_LoadAddon(UINT16 numlumps)
 	if (modifiedgame && (cursaveslot > 0))
 		cursaveslot = 0;
 
-	if (replacedcurrentmap && gamestate == GS_LEVEL && (netgame || multiplayer))
+	if (replacedcurrentmap)
 	{
-		CONS_Printf(M_GetText("Current map %d replaced by added file, ending the level to ensure consistency.\n"), gamemap);
-		if (server)
-			SendNetXCmd(XD_EXITLEVEL, NULL, 0);
+		replacedcurrentmap = false;
+
+		if (gamestate == GS_LEVEL && (netgame || multiplayer))
+		{
+			CONS_Printf(M_GetText("Current map %d replaced by added file, ending the level to ensure consistency.\n"), gamemap);
+			if (server)
+				SendNetXCmd(XD_EXITLEVEL, NULL, 0);
+		}
 	}
 
 	return true;

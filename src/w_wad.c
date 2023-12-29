@@ -987,6 +987,8 @@ UINT16 W_InitFile(const char *filename, boolean mainfile, boolean startup)
 
 	// The below hack makes me load this here.
 	W_LoadTrnslateLumps(numwadfiles - 1);
+	// Load maps from file
+	P_LoadMapsFromFile(numwadfiles - 1, !startup);
 
 	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
 	switch (wadfile->type)

@@ -8,8 +8,10 @@
 // terms of the GNU General Public License, version 2.
 // See the 'LICENSE' file for more details.
 //-----------------------------------------------------------------------------
-/// \file  p_setup.c
+/// \file  p_setup.cpp
 /// \brief Do all the WAD I/O, get map description, set up initial state and misc. LUTs
+
+#include <algorithm>
 
 #include "doomdef.h"
 #include "d_main.h"
@@ -316,7 +318,7 @@ FUNCNORETURN static ATTRNORETURN void CorruptMapError(const char *msg)
 void P_SetDemoFlickies(INT16 i)
 {
 	mapheaderinfo[i]->numFlickies = 5;
-	mapheaderinfo[i]->flickies = Z_Realloc(mapheaderinfo[i]->flickies, 5*sizeof(mobjtype_t), PU_STATIC, NULL);
+	mapheaderinfo[i]->flickies = static_cast<mobjtype_t*>(Z_Realloc(mapheaderinfo[i]->flickies, 5*sizeof(mobjtype_t), PU_STATIC, NULL));
 	mapheaderinfo[i]->flickies[0] = MT_FLICKY_02/*MT_BUNNY*/;
 	mapheaderinfo[i]->flickies[1] = MT_FLICKY_01/*MT_BIRD*/;
 	mapheaderinfo[i]->flickies[2] = MT_FLICKY_12/*MT_MOUSE*/;
@@ -411,7 +413,7 @@ void P_AllocMapHeader(INT16 i)
 {
 	if (!mapheaderinfo[i])
 	{
-		mapheaderinfo[i] = Z_Malloc(sizeof(mapheader_t), PU_STATIC, NULL);
+		mapheaderinfo[i] = static_cast<mapheader_t*>(Z_Malloc(sizeof(mapheader_t), PU_STATIC, NULL));
 		mapheaderinfo[i]->flickies = NULL;
 		mapheaderinfo[i]->grades = NULL;
 	}
@@ -435,7 +437,7 @@ void P_AddGradesForMare(INT16 i, UINT8 mare, char *gtext)
 	if (mapheaderinfo[i]->numGradedMares < mare+1)
 	{
 		mapheaderinfo[i]->numGradedMares = mare+1;
-		mapheaderinfo[i]->grades = Z_Realloc(mapheaderinfo[i]->grades, sizeof(nightsgrades_t) * mapheaderinfo[i]->numGradedMares, PU_STATIC, NULL);
+		mapheaderinfo[i]->grades = static_cast<nightsgrades_t*>(Z_Realloc(mapheaderinfo[i]->grades, sizeof(nightsgrades_t) * mapheaderinfo[i]->numGradedMares, PU_STATIC, NULL));
 	}
 
 	for (g = 0; g < 6; ++g)
@@ -529,7 +531,7 @@ UINT32 P_GetScoreForGradeOverall(INT16 map, UINT8 grade)
 void P_AddNiGHTSTimes(INT16 i, char *gtext)
 {
 	char *spos = gtext;
-	
+
 	for (UINT8 n = 0; n < 8; n++)
 	{
 		if (spos != NULL)
@@ -590,7 +592,7 @@ Ploadflat (levelflat_t *levelflat, const char *flatname, boolean resize)
 	if (resize)
 	{
 		// allocate new flat memory
-		levelflats = Z_Realloc(levelflats, (numlevelflats + 1) * sizeof(*levelflats), PU_LEVEL, NULL);
+		levelflats = static_cast<levelflat_t*>(Z_Realloc(levelflats, (numlevelflats + 1) * sizeof(*levelflats), PU_LEVEL, NULL));
 		levelflat  = levelflats + numlevelflats;
 	}
 	else
@@ -773,7 +775,7 @@ static void P_SpawnEmeraldHunt(void)
 	for (i = 0; i < numhuntemeralds; i++)
 		num[i] = i;
 
-	amount = min(numhuntemeralds, 3);
+	amount = std::min(numhuntemeralds, 3);
 
 	for (i = 0; i < amount; i++)
 	{
@@ -788,7 +790,7 @@ static void P_SpawnEmeraldHunt(void)
 		y = huntemeralds[emer[i]]->y<<FRACBITS;
 		z = P_GetMapThingSpawnHeight(MT_EMERHUNT, huntemeralds[emer[i]], x, y);
 		P_SetMobjStateNF(P_SpawnMobj(x, y, z, MT_EMERHUNT),
-			mobjinfo[MT_EMERHUNT].spawnstate+i);
+			static_cast<statenum_t>(mobjinfo[MT_EMERHUNT].spawnstate+i));
 	}
 }
 
@@ -1007,7 +1009,7 @@ static void P_LoadSectors(UINT8 *data)
 		ss->gravity = FRACUNIT;
 
 		ss->flags = MSF_FLIPSPECIAL_FLOOR;
-		ss->specialflags = 0;
+		ss->specialflags = static_cast<sectorspecialflags_t>(0);
 		ss->damagetype = SD_NONE;
 		ss->triggertag = 0;
 		ss->triggerer = TO_PLAYER;
@@ -1029,10 +1031,10 @@ static void P_InitializeLinedef(line_t *ld)
 
 	ld->angle = R_PointToAngle2(0, 0, ld->dx, ld->dy);
 
-	ld->bbox[BOXLEFT] = min(v1->x, v2->x);
-	ld->bbox[BOXRIGHT] = max(v1->x, v2->x);
-	ld->bbox[BOXBOTTOM] = min(v1->y, v2->y);
-	ld->bbox[BOXTOP] = max(v1->y, v2->y);
+	ld->bbox[BOXLEFT] = std::min(v1->x, v2->x);
+	ld->bbox[BOXRIGHT] = std::max(v1->x, v2->x);
+	ld->bbox[BOXBOTTOM] = std::min(v1->y, v2->y);
+	ld->bbox[BOXTOP] = std::max(v1->y, v2->y);
 
 	if (!ld->dx)
 		ld->slopetype = ST_VERTICAL;
@@ -1203,7 +1205,7 @@ static void P_WriteConstant(INT32 constant, char **target, const char *desc, UIN
 
 	sprintf(buffer, "%d", constant);
 	len = strlen(buffer) + 1;
-	*target = Z_Malloc(len, PU_LEVEL, NULL);
+	*target = static_cast<char*>(Z_Malloc(len, PU_LEVEL, NULL));
 	M_Memcpy(*target, buffer, len);
 }
 
@@ -1213,7 +1215,7 @@ static void P_WriteDuplicateText(const char *text, char **target)
 		return;
 
 	size_t len = strlen(text) + 1;
-	*target = Z_Malloc(len, PU_LEVEL, NULL);
+	*target = static_cast<char*>(Z_Malloc(len, PU_LEVEL, NULL));
 	M_Memcpy(*target, text, len);
 }
 
@@ -1364,7 +1366,7 @@ static void P_LoadSidedefs(UINT8 *data)
 
 				if (msd->toptexture[0] != '-' && msd->toptexture[1] != '\0')
 				{
-					sd->line->stringargs[0] = Z_Malloc(7, PU_LEVEL, NULL);
+					sd->line->stringargs[0] = static_cast<char*>(Z_Malloc(7, PU_LEVEL, NULL));
 
 					M_Memcpy(process,msd->toptexture,8);
 					process[8] = '\0';
@@ -1794,67 +1796,67 @@ static void ParseTextmapSectorParameter(UINT32 i, const char *param, const char 
 	else if (fastcmp(param, "colormapprotected") && fastcmp("true", val))
 		sectors[i].colormap_protected = true;
 	else if (fastcmp(param, "flipspecial_nofloor") && fastcmp("true", val))
-		sectors[i].flags &= ~MSF_FLIPSPECIAL_FLOOR;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags & ~MSF_FLIPSPECIAL_FLOOR);
 	else if (fastcmp(param, "flipspecial_ceiling") && fastcmp("true", val))
-		sectors[i].flags |= MSF_FLIPSPECIAL_CEILING;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_FLIPSPECIAL_CEILING);
 	else if (fastcmp(param, "triggerspecial_touch") && fastcmp("true", val))
-		sectors[i].flags |= MSF_TRIGGERSPECIAL_TOUCH;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERSPECIAL_TOUCH);
 	else if (fastcmp(param, "triggerspecial_headbump") && fastcmp("true", val))
-		sectors[i].flags |= MSF_TRIGGERSPECIAL_HEADBUMP;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERSPECIAL_HEADBUMP);
 	else if (fastcmp(param, "triggerline_plane") && fastcmp("true", val))
-		sectors[i].flags |= MSF_TRIGGERLINE_PLANE;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_PLANE);
 	else if (fastcmp(param, "triggerline_mobj") && fastcmp("true", val))
-		sectors[i].flags |= MSF_TRIGGERLINE_MOBJ;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_MOBJ);
 	else if (fastcmp(param, "invertprecip") && fastcmp("true", val))
-		sectors[i].flags |= MSF_INVERTPRECIP;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_INVERTPRECIP);
 	else if (fastcmp(param, "gravityflip") && fastcmp("true", val))
-		sectors[i].flags |= MSF_GRAVITYFLIP;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_GRAVITYFLIP);
 	else if (fastcmp(param, "heatwave") && fastcmp("true", val))
-		sectors[i].flags |= MSF_HEATWAVE;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_HEATWAVE);
 	else if (fastcmp(param, "noclipcamera") && fastcmp("true", val))
-		sectors[i].flags |= MSF_NOCLIPCAMERA;
+		sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_NOCLIPCAMERA);
 	else if (fastcmp(param, "outerspace") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_OUTERSPACE;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_OUTERSPACE);
 	else if (fastcmp(param, "doublestepup") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_DOUBLESTEPUP;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_DOUBLESTEPUP);
 	else if (fastcmp(param, "nostepdown") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_NOSTEPDOWN;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_NOSTEPDOWN);
 	else if (fastcmp(param, "speedpad") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_SPEEDPAD;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_SPEEDPAD);
 	else if (fastcmp(param, "starpostactivator") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_STARPOSTACTIVATOR;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_STARPOSTACTIVATOR);
 	else if (fastcmp(param, "exit") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_EXIT;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_EXIT);
 	else if (fastcmp(param, "specialstagepit") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_SPECIALSTAGEPIT;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_SPECIALSTAGEPIT);
 	else if (fastcmp(param, "returnflag") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_RETURNFLAG;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_RETURNFLAG);
 	else if (fastcmp(param, "redteambase") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_REDTEAMBASE;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_REDTEAMBASE);
 	else if (fastcmp(param, "blueteambase") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_BLUETEAMBASE;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_BLUETEAMBASE);
 	else if (fastcmp(param, "fan") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_FAN;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_FAN);
 	else if (fastcmp(param, "supertransform") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_SUPERTRANSFORM;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_SUPERTRANSFORM);
 	else if (fastcmp(param, "forcespin") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_FORCESPIN;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_FORCESPIN);
 	else if (fastcmp(param, "zoomtubestart") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_ZOOMTUBESTART;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_ZOOMTUBESTART);
 	else if (fastcmp(param, "zoomtubeend") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_ZOOMTUBEEND;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_ZOOMTUBEEND);
 	else if (fastcmp(param, "finishline") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_FINISHLINE;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_FINISHLINE);
 	else if (fastcmp(param, "ropehang") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_ROPEHANG;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_ROPEHANG);
 	else if (fastcmp(param, "jumpflip") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_JUMPFLIP;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_JUMPFLIP);
 	else if (fastcmp(param, "gravityoverride") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_GRAVITYOVERRIDE;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_GRAVITYOVERRIDE);
 	else if (fastcmp(param, "nophysics_floor") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_NOPHYSICSFLOOR;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_NOPHYSICSFLOOR);
 	else if (fastcmp(param, "nophysics_ceiling") && fastcmp("true", val))
-		sectors[i].specialflags |= SSF_NOPHYSICSCEILING;
+		sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].flags | SSF_NOPHYSICSCEILING);
 	else if (fastcmp(param, "friction"))
 		sectors[i].friction = FLOAT_TO_FIXED(atof(val));
 	else if (fastcmp(param, "gravity"))
@@ -2038,7 +2040,7 @@ static void ParseTextmapLinedefParameter(UINT32 i, const char *param, const char
 		size_t argnum = atol(param + 9);
 		if (argnum >= NUMLINESTRINGARGS)
 			return;
-		lines[i].stringargs[argnum] = Z_Malloc(strlen(val) + 1, PU_LEVEL, NULL);
+		lines[i].stringargs[argnum] = static_cast<char*>(Z_Malloc(strlen(val) + 1, PU_LEVEL, NULL));
 		M_Memcpy(lines[i].stringargs[argnum], val, strlen(val) + 1);
 	}
 	else if (fastncmp(param, "arg", 3) && strlen(param) > 3)
@@ -2166,7 +2168,7 @@ static void ParseTextmapThingParameter(UINT32 i, const char *param, const char *
 		size_t argnum = atol(param + 9);
 		if (argnum >= NUMMAPTHINGSTRINGARGS)
 			return;
-		mapthings[i].stringargs[argnum] = Z_Malloc(strlen(val) + 1, PU_LEVEL, NULL);
+		mapthings[i].stringargs[argnum] = static_cast<char*>(Z_Malloc(strlen(val) + 1, PU_LEVEL, NULL));
 		M_Memcpy(mapthings[i].stringargs[argnum], val, strlen(val) + 1);
 	}
 	else if (fastncmp(param, "arg", 3) && strlen(param) > 3)
@@ -2399,12 +2401,12 @@ static void P_WriteTextmap(void)
 		return;
 	}
 
-	wmapthings = Z_Calloc(nummapthings * sizeof(*mapthings), PU_LEVEL, NULL);
-	wvertexes = Z_Calloc(numvertexes * sizeof(*vertexes), PU_LEVEL, NULL);
-	wsectors = Z_Calloc(numsectors * sizeof(*sectors), PU_LEVEL, NULL);
-	wlines = Z_Calloc(numlines * sizeof(*lines), PU_LEVEL, NULL);
-	wsides = Z_Calloc(numsides * sizeof(*sides), PU_LEVEL, NULL);
-	specialthings = Z_Calloc(numsectors * sizeof(*sectors), PU_LEVEL, NULL);
+	wmapthings = static_cast<mapthing_t*>(Z_Calloc(nummapthings * sizeof(*mapthings), PU_LEVEL, NULL));
+	wvertexes = static_cast<vertex_t*>(Z_Calloc(numvertexes * sizeof(*vertexes), PU_LEVEL, NULL));
+	wsectors = static_cast<sector_t*>(Z_Calloc(numsectors * sizeof(*sectors), PU_LEVEL, NULL));
+	wlines = static_cast<line_t*>(Z_Calloc(numlines * sizeof(*lines), PU_LEVEL, NULL));
+	wsides = static_cast<side_t*>(Z_Calloc(numsides * sizeof(*sides), PU_LEVEL, NULL));
+	specialthings = static_cast<sectorspecialthings_t*>(Z_Calloc(numsectors * sizeof(*sectors), PU_LEVEL, NULL));
 
 	memcpy(wmapthings, mapthings, nummapthings * sizeof(*mapthings));
 	memcpy(wvertexes, vertexes, numvertexes * sizeof(*vertexes));
@@ -2414,15 +2416,15 @@ static void P_WriteTextmap(void)
 
 	for (i = 0; i < nummapthings; i++)
 		if (mapthings[i].tags.count)
-			wmapthings[i].tags.tags = memcpy(Z_Malloc(mapthings[i].tags.count * sizeof(mtag_t), PU_LEVEL, NULL), mapthings[i].tags.tags, mapthings[i].tags.count * sizeof(mtag_t));
+			wmapthings[i].tags.tags = static_cast<mtag_t*>(memcpy(Z_Malloc(mapthings[i].tags.count * sizeof(mtag_t), PU_LEVEL, NULL), mapthings[i].tags.tags, mapthings[i].tags.count * sizeof(mtag_t)));
 
 	for (i = 0; i < numsectors; i++)
 		if (sectors[i].tags.count)
-			wsectors[i].tags.tags = memcpy(Z_Malloc(sectors[i].tags.count*sizeof(mtag_t), PU_LEVEL, NULL), sectors[i].tags.tags, sectors[i].tags.count*sizeof(mtag_t));
+			wsectors[i].tags.tags = static_cast<mtag_t*>(memcpy(Z_Malloc(sectors[i].tags.count*sizeof(mtag_t), PU_LEVEL, NULL), sectors[i].tags.tags, sectors[i].tags.count*sizeof(mtag_t)));
 
 	for (i = 0; i < numlines; i++)
 		if (lines[i].tags.count)
-			wlines[i].tags.tags = memcpy(Z_Malloc(lines[i].tags.count * sizeof(mtag_t), PU_LEVEL, NULL), lines[i].tags.tags, lines[i].tags.count * sizeof(mtag_t));
+			wlines[i].tags.tags = static_cast<mtag_t*>(memcpy(Z_Malloc(lines[i].tags.count * sizeof(mtag_t), PU_LEVEL, NULL), lines[i].tags.tags, lines[i].tags.count * sizeof(mtag_t)));
 
 	freetag = Tag_NextUnused(0);
 
@@ -3144,7 +3146,7 @@ static void P_LoadTextmap(void)
 		sc->gravity = FRACUNIT;
 
 		sc->flags = MSF_FLIPSPECIAL_FLOOR;
-		sc->specialflags = 0;
+		sc->specialflags = static_cast<sectorspecialflags_t>(0);
 		sc->damagetype = SD_NONE;
 		sc->triggertag = 0;
 		sc->triggerer = TO_PLAYER;
@@ -3172,7 +3174,7 @@ static void P_LoadTextmap(void)
 			// TODO: remove this limitation in a backwards-compatible way (UDMF versioning?)
 			UINT8 lightalpha = (textmap_colormap.lightalpha * 102) / 10;
 			UINT8 fadealpha = (textmap_colormap.fadealpha * 102) / 10;
-			
+
 			INT32 rgba = P_ColorToRGBA(textmap_colormap.lightcolor, lightalpha);
 			INT32 fadergba = P_ColorToRGBA(textmap_colormap.fadecolor, fadealpha);
 			sc->extra_colormap = sc->spawn_extra_colormap = R_CreateColormap(rgba, fadergba, textmap_colormap.fadestart, textmap_colormap.fadeend, textmap_colormap.flags);
@@ -3275,7 +3277,7 @@ static void P_LoadTextmap(void)
 static void P_ProcessLinedefsAfterSidedefs(void)
 {
 	size_t i = numlines;
-	register line_t *ld = lines;
+	line_t *ld = lines;
 	for (; i--; ld++)
 	{
 		ld->frontsector = sides[ld->sidenum[0]].sector; //e6y: Can't be -1 here
@@ -3299,7 +3301,7 @@ static void P_ProcessLinedefsAfterSidedefs(void)
 
 				if (len[1])
 				{
-					ld->stringargs[0] = Z_Realloc(ld->stringargs[0], len[0] + len[1] + 1, PU_LEVEL, NULL);
+					ld->stringargs[0] = static_cast<char*>(Z_Realloc(ld->stringargs[0], len[0] + len[1] + 1, PU_LEVEL, NULL));
 					M_Memcpy(ld->stringargs[0] + len[0] + 1, ld->stringargs[1], len[1] + 1);
 				}
 
@@ -3312,8 +3314,8 @@ static void P_ProcessLinedefsAfterSidedefs(void)
 			if (ld->flags & ML_DONTPEGBOTTOM) // alternate alpha (by texture offsets)
 			{
 				extracolormap_t *exc = R_CopyColormap(sides[ld->sidenum[0]].colormap_data, false);
-				INT16 alpha = max(min(sides[ld->sidenum[0]].textureoffset >> FRACBITS, 25), -25);
-				INT16 fadealpha = max(min(sides[ld->sidenum[0]].rowoffset >> FRACBITS, 25), -25);
+				INT16 alpha = std::max(std::min(sides[ld->sidenum[0]].textureoffset >> FRACBITS, 25), -25);
+				INT16 fadealpha = std::max(std::min(sides[ld->sidenum[0]].rowoffset >> FRACBITS, 25), -25);
 
 				// If alpha is negative, set "subtract alpha" flag and store absolute value
 				if (alpha < 0)
@@ -3400,15 +3402,15 @@ static boolean P_LoadMapData(const virtres_t *virt)
 	if (numlines <= 0)
 		I_Error("Level has no linedefs");
 
-	vertexes  = Z_Calloc(numvertexes * sizeof (*vertexes), PU_LEVEL, NULL);
-	sectors   = Z_Calloc(numsectors * sizeof (*sectors), PU_LEVEL, NULL);
-	sides     = Z_Calloc(numsides * sizeof (*sides), PU_LEVEL, NULL);
-	lines     = Z_Calloc(numlines * sizeof (*lines), PU_LEVEL, NULL);
-	mapthings = Z_Calloc(nummapthings * sizeof (*mapthings), PU_LEVEL, NULL);
+	vertexes  = static_cast<vertex_t*>(Z_Calloc(numvertexes * sizeof (*vertexes), PU_LEVEL, NULL));
+	sectors   = static_cast<sector_t*>(Z_Calloc(numsectors * sizeof (*sectors), PU_LEVEL, NULL));
+	sides     = static_cast<side_t*>(Z_Calloc(numsides * sizeof (*sides), PU_LEVEL, NULL));
+	lines     = static_cast<line_t*>(Z_Calloc(numlines * sizeof (*lines), PU_LEVEL, NULL));
+	mapthings = static_cast<mapthing_t*>(Z_Calloc(nummapthings * sizeof (*mapthings), PU_LEVEL, NULL));
 
 	// Allocate a big chunk of memory as big as our MAXLEVELFLATS limit.
 	//Fab : FIXME: allocate for whatever number of flats - 512 different flats per level should be plenty
-	foundflats = calloc(MAXLEVELFLATS, sizeof (*foundflats));
+	foundflats = static_cast<levelflat_t*>(calloc(MAXLEVELFLATS, sizeof (*foundflats)));
 	if (foundflats == NULL)
 		I_Error("Ran out of memory while loading sectors\n");
 
@@ -3437,7 +3439,7 @@ static boolean P_LoadMapData(const virtres_t *virt)
 	skyflatnum = P_AddLevelFlat(SKYFLATNAME, foundflats);
 
 	// copy table for global usage
-	levelflats = M_Memcpy(Z_Calloc(numlevelflats * sizeof (*levelflats), PU_LEVEL, NULL), foundflats, numlevelflats * sizeof (levelflat_t));
+	levelflats = static_cast<levelflat_t*>(M_Memcpy(Z_Calloc(numlevelflats * sizeof (*levelflats), PU_LEVEL, NULL), foundflats, numlevelflats * sizeof (levelflat_t)));
 	free(foundflats);
 
 	return true;
@@ -3705,7 +3707,7 @@ static boolean P_LoadExtraVertices(UINT8 **data)
 
 	// If extra vertexes were generated, reallocate the vertex array and fix the pointers.
 	numvertexes += xtrvrtx;
-	vertexes = Z_Realloc(vertexes, numvertexes*sizeof(*vertexes), PU_LEVEL, NULL);
+	vertexes = static_cast<vertex_t*>(Z_Realloc(vertexes, numvertexes*sizeof(*vertexes), PU_LEVEL, NULL));
 
 	for (i = 0, ld = lines; i < numlines; i++, ld++)
 	{
@@ -3731,14 +3733,14 @@ static boolean P_LoadExtendedSubsectorsAndSegs(UINT8 **data, nodetype_t nodetype
 
 	// Subsectors
 	numsubsectors = READUINT32((*data));
-	subsectors = Z_Calloc(numsubsectors*sizeof(*subsectors), PU_LEVEL, NULL);
+	subsectors = static_cast<subsector_t*>(Z_Calloc(numsubsectors*sizeof(*subsectors), PU_LEVEL, NULL));
 
 	for (i = 0; i < numsubsectors; i++)
 		subsectors[i].numlines = READUINT32((*data));
 
 	// Segs
 	numsegs = READUINT32((*data));
-	segs = Z_Calloc(numsegs*sizeof(*segs), PU_LEVEL, NULL);
+	segs = static_cast<seg_t*>(Z_Calloc(numsegs*sizeof(*segs), PU_LEVEL, NULL));
 
 	for (i = 0, k = 0; i < numsubsectors; i++)
 	{
@@ -3848,7 +3850,7 @@ static void P_LoadExtendedNodes(UINT8 **data, nodetype_t nodetype)
 	boolean xgl3 = (nodetype == NT_XGL3);
 
 	numnodes = READINT32((*data));
-	nodes = Z_Calloc(numnodes*sizeof(*nodes), PU_LEVEL, NULL);
+	nodes = static_cast<node_t*>(Z_Calloc(numnodes*sizeof(*nodes), PU_LEVEL, NULL));
 
 	for (i = 0, mn = nodes; i < numnodes; i++, mn++)
 	{
@@ -3894,9 +3896,9 @@ static void P_LoadMapBSP(const virtres_t *virt)
 		if (numsegs <= 0)
 			I_Error("Level has no segs");
 
-		subsectors = Z_Calloc(numsubsectors * sizeof(*subsectors), PU_LEVEL, NULL);
-		nodes      = Z_Calloc(numnodes * sizeof(*nodes), PU_LEVEL, NULL);
-		segs       = Z_Calloc(numsegs * sizeof(*segs), PU_LEVEL, NULL);
+		subsectors = static_cast<subsector_t*>(Z_Calloc(numsubsectors * sizeof(*subsectors), PU_LEVEL, NULL));
+		nodes      = static_cast<node_t*>(Z_Calloc(numnodes * sizeof(*nodes), PU_LEVEL, NULL));
+		segs       = static_cast<seg_t*>(Z_Calloc(numsegs * sizeof(*segs), PU_LEVEL, NULL));
 
 		P_LoadSubsectors(virtssectors->data);
 		P_LoadNodes(virtnodes->data);
@@ -3928,7 +3930,7 @@ static void P_LoadMapBSP(const virtres_t *virt)
 static void P_ReadBlockMapLump(INT16 *wadblockmaplump, size_t count)
 {
 	size_t i;
-	blockmaplump = Z_Calloc(sizeof (*blockmaplump) * count, PU_LEVEL, NULL);
+	blockmaplump = static_cast<INT32*>(Z_Calloc(sizeof (*blockmaplump) * count, PU_LEVEL, NULL));
 
 	// killough 3/1/98: Expand wad blockmap into larger internal one,
 	// by treating all offsets except -1 as unsigned and zero-extending
@@ -3969,12 +3971,12 @@ static boolean P_LoadBlockMap(UINT8 *data, size_t count)
 
 	// clear out mobj chains
 	count = sizeof (*blocklinks)* bmapwidth*bmapheight;
-	blocklinks = Z_Calloc(count, PU_LEVEL, NULL);
+	blocklinks = static_cast<blocknode_t**>(Z_Calloc(count, PU_LEVEL, NULL));
 	blockmap = blockmaplump+4;
 
 	// haleyjd 2/22/06: setup polyobject blockmap
 	count = sizeof(*polyblocklinks) * bmapwidth * bmapheight;
-	polyblocklinks = Z_Calloc(count, PU_LEVEL, NULL);
+	polyblocklinks = static_cast<polymaplink_t**>(Z_Calloc(count, PU_LEVEL, NULL));
 	return true;
 }
 
@@ -4042,7 +4044,7 @@ static boolean LineInBlock(fixed_t cx1, fixed_t cy1, fixed_t cx2, fixed_t cy2, f
 // code which attempts to fix the same problem.
 static void P_CreateBlockMap(void)
 {
-	register size_t i;
+	size_t i;
 	fixed_t minx = INT32_MAX, miny = INT32_MAX, maxx = INT32_MIN, maxy = INT32_MIN;
 	// First find limits of map
 
@@ -4089,7 +4091,7 @@ static void P_CreateBlockMap(void)
 		} bmap_t; // blocklist structure
 
 		size_t tot = bmapwidth * bmapheight; // size of blockmap
-		bmap_t *bmap = calloc(tot, sizeof (*bmap)); // array of blocklists
+		bmap_t *bmap = static_cast<bmap_t*>(calloc(tot, sizeof (*bmap))); // array of blocklists
 		boolean straight;
 
 		if (bmap == NULL) I_Error("%s: Out of memory making blockmap", "P_CreateBlockMap");
@@ -4168,7 +4170,7 @@ static void P_CreateBlockMap(void)
 						bmap[b].nalloc = 8;
 					else
 						bmap[b].nalloc *= 2;
-					bmap[b].list = Z_Realloc(bmap[b].list, bmap[b].nalloc * sizeof (*bmap->list), PU_CACHE, &bmap[b].list);
+					bmap[b].list = static_cast<INT32*>(Z_Realloc(bmap[b].list, bmap[b].nalloc * sizeof (*bmap->list), PU_CACHE, &bmap[b].list));
 					if (!bmap[b].list)
 						I_Error("Out of Memory in P_CreateBlockMap");
 				}
@@ -4192,7 +4194,7 @@ static void P_CreateBlockMap(void)
 					count += bmap[i].n + 2; // 1 header word + 1 trailer word + blocklist
 
 			// Allocate blockmap lump with computed count
-			blockmaplump = Z_Calloc(sizeof (*blockmaplump) * count, PU_LEVEL, NULL);
+			blockmaplump = static_cast<INT32*>(Z_Calloc(sizeof (*blockmaplump) * count, PU_LEVEL, NULL));
 		}
 
 		// Now compress the blockmap.
@@ -4222,12 +4224,12 @@ static void P_CreateBlockMap(void)
 	{
 		size_t count = sizeof (*blocklinks) * bmapwidth * bmapheight;
 		// clear out mobj chains (copied from from P_LoadBlockMap)
-		blocklinks = Z_Calloc(count, PU_LEVEL, NULL);
+		blocklinks = static_cast<blocknode_t**>(Z_Calloc(count, PU_LEVEL, NULL));
 		blockmap = blockmaplump + 4;
 
 		// haleyjd 2/22/06: setup polyobject blockmap
 		count = sizeof(*polyblocklinks) * bmapwidth * bmapheight;
-		polyblocklinks = Z_Calloc(count, PU_LEVEL, NULL);
+		polyblocklinks = static_cast<polymaplink_t**>(Z_Calloc(count, PU_LEVEL, NULL));
 	}
 }
 
@@ -4242,7 +4244,7 @@ static void P_LoadReject(UINT8 *data, size_t count)
 	}
 	else
 	{
-		rejectmatrix = Z_Malloc(count, PU_LEVEL, NULL); // allocate memory for the reject matrix
+		rejectmatrix = static_cast<UINT8*>(Z_Malloc(count, PU_LEVEL, NULL)); // allocate memory for the reject matrix
 		M_Memcpy(rejectmatrix, data, count); // copy the data into it
 	}
 }
@@ -4319,7 +4321,7 @@ static void P_LinkMapData(void)
 		}
 		else
 		{
-			sector->lines = Z_Calloc(sector->linecount * sizeof(line_t*), PU_LEVEL, NULL);
+			sector->lines = static_cast<line_t**>(Z_Calloc(sector->linecount * sizeof(line_t*), PU_LEVEL, NULL));
 
 			// zero the count, since we'll later use this to track how many we've recorded
 			sector->linecount = 0;
@@ -4642,19 +4644,19 @@ static void P_ConvertBinaryLinedefTypes(void)
 			{
 				if (lines[i].flags & ML_NOCLIMB)
 				{
-					sectors[s].flags &= ~MSF_FLIPSPECIAL_FLOOR;
-					sectors[s].flags |= MSF_FLIPSPECIAL_CEILING;
+					sectors[s].flags = static_cast<sectorflags_t>(sectors[s].flags & ~MSF_FLIPSPECIAL_FLOOR);
+					sectors[s].flags = static_cast<sectorflags_t>(sectors[s].flags | MSF_FLIPSPECIAL_CEILING);
 				}
 				else if (lines[i].flags & ML_MIDSOLID)
-					sectors[s].flags |= MSF_FLIPSPECIAL_BOTH;
+					sectors[s].flags = static_cast<sectorflags_t>(sectors[s].flags | MSF_FLIPSPECIAL_BOTH);
 
 				if (lines[i].flags & ML_MIDPEG)
-					sectors[s].flags |= MSF_TRIGGERSPECIAL_TOUCH;
+					sectors[s].flags = static_cast<sectorflags_t>(sectors[s].flags | MSF_TRIGGERSPECIAL_TOUCH);
 				if (lines[i].flags & ML_NOSKEW)
-					sectors[s].flags |= MSF_TRIGGERSPECIAL_HEADBUMP;
+					sectors[s].flags = static_cast<sectorflags_t>(sectors[s].flags | MSF_TRIGGERSPECIAL_HEADBUMP);
 
 				if (lines[i].flags & ML_SKEWTD)
-					sectors[s].flags |= MSF_INVERTPRECIP;
+					sectors[s].flags = static_cast<sectorflags_t>(sectors[s].flags | MSF_INVERTPRECIP);
 			}
 
 			if (GETSECSPECIAL(lines[i].frontsector->special, 4) != 12)
@@ -4676,7 +4678,7 @@ static void P_ConvertBinaryLinedefTypes(void)
 			INT32 s;
 
 			TAG_ITER_SECTORS(tag, s)
-				sectors[s].flags |= MSF_HEATWAVE;
+				sectors[s].flags = static_cast<sectorflags_t>(sectors[s].flags | MSF_HEATWAVE);
 
 			break;
 		}
@@ -5615,7 +5617,7 @@ static void P_ConvertBinaryLinedefTypes(void)
 		{
 			INT32 scrnum;
 
-			lines[i].stringargs[0] = Z_Malloc(9, PU_LEVEL, NULL);
+			lines[i].stringargs[0] = static_cast<char*>(Z_Malloc(9, PU_LEVEL, NULL));
 			strcpy(lines[i].stringargs[0], G_BuildMapName(gamemap));
 			lines[i].stringargs[0][0] = 'S';
 			lines[i].stringargs[0][1] = 'C';
@@ -5670,12 +5672,12 @@ static void P_ConvertBinaryLinedefTypes(void)
 			lines[i].args[0] = tag;
 			if (lines[i].flags & ML_DONTPEGBOTTOM)
 			{
-				lines[i].args[1] = max(sides[lines[i].sidenum[0]].textureoffset >> FRACBITS, 0);
+				lines[i].args[1] = std::max(sides[lines[i].sidenum[0]].textureoffset >> FRACBITS, 0);
 				// failsafe: if user specifies Back Y Offset and NOT Front Y Offset, use the Back Offset
 				// to be consistent with other light and fade specials
 				lines[i].args[2] = ((lines[i].sidenum[1] != NO_SIDEDEF && !(sides[lines[i].sidenum[0]].rowoffset >> FRACBITS)) ?
-					max(min(sides[lines[i].sidenum[1]].rowoffset >> FRACBITS, 255), 0)
-					: max(min(sides[lines[i].sidenum[0]].rowoffset >> FRACBITS, 255), 0));
+					std::max(std::min(sides[lines[i].sidenum[1]].rowoffset >> FRACBITS, 255), 0)
+					: std::max(std::min(sides[lines[i].sidenum[0]].rowoffset >> FRACBITS, 255), 0));
 			}
 			else
 			{
@@ -6423,13 +6425,13 @@ static void P_ConvertBinarySectorTypes(void)
 				sectors[i].damagetype = SD_SPECIALSTAGE;
 				break;
 			case 12: //Space countdown
-				sectors[i].specialflags |= SSF_OUTERSPACE;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_OUTERSPACE);
 				break;
 			case 13: //Ramp sector
-				sectors[i].specialflags |= SSF_DOUBLESTEPUP;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_DOUBLESTEPUP);
 				break;
 			case 14: //Non-ramp sector
-				sectors[i].specialflags |= SSF_NOSTEPDOWN;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_NOSTEPDOWN);
 				break;
 			// TODO: 2.3: Delete
 			case 15: //Bouncy FOF
@@ -6443,45 +6445,45 @@ static void P_ConvertBinarySectorTypes(void)
 		{
 			case 1: //Trigger linedef executor (pushable objects)
 				sectors[i].triggertag = tag;
-				sectors[i].flags |= MSF_TRIGGERLINE_PLANE;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_PLANE);
 				sectors[i].triggerer = TO_MOBJ;
 				break;
 			case 2: //Trigger linedef executor (Anywhere in sector, all players)
 				sectors[i].triggertag = tag;
-				sectors[i].flags &= ~MSF_TRIGGERLINE_PLANE;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags & ~MSF_TRIGGERLINE_PLANE);
 				sectors[i].triggerer = TO_ALLPLAYERS;
 				break;
 			case 3: //Trigger linedef executor (Floor touch, all players)
 				sectors[i].triggertag = tag;
-				sectors[i].flags |= MSF_TRIGGERLINE_PLANE;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_PLANE);
 				sectors[i].triggerer = TO_ALLPLAYERS;
 				break;
 			case 4: //Trigger linedef executor (Anywhere in sector)
 				sectors[i].triggertag = tag;
-				sectors[i].flags &= ~MSF_TRIGGERLINE_PLANE;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags & ~MSF_TRIGGERLINE_PLANE);
 				sectors[i].triggerer = TO_PLAYER;
 				break;
 			case 5: //Trigger linedef executor (Floor touch)
 				sectors[i].triggertag = tag;
-				sectors[i].flags |= MSF_TRIGGERLINE_PLANE;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_PLANE);
 				sectors[i].triggerer = TO_PLAYER;
 				break;
 			// TODO: 2.3: Delete
 			case 6: //Trigger linedef executor (Emerald check)
 				CONS_Alert(CONS_WARNING, M_GetText("Deprecated emerald check sector type detected. Please use linedef types 337-339 instead.\n"));
 				sectors[i].triggertag = tag;
-				sectors[i].flags &= ~MSF_TRIGGERLINE_PLANE;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_PLANE);
 				sectors[i].triggerer = TO_PLAYEREMERALDS;
 				break;
 			// TODO: 2.3: Delete
 			case 7: //Trigger linedef executor (NiGHTS mare)
 				CONS_Alert(CONS_WARNING, M_GetText("Deprecated NiGHTS mare sector type detected. Please use linedef types 340-342 instead.\n"));
 				sectors[i].triggertag = tag;
-				sectors[i].flags &= ~MSF_TRIGGERLINE_PLANE;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_PLANE);
 				sectors[i].triggerer = TO_PLAYERNIGHTS;
 				break;
 			case 8: //Check for linedef executor on FOFs
-				sectors[i].flags |= MSF_TRIGGERLINE_MOBJ;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_TRIGGERLINE_MOBJ);
 				break;
 			// TODO: 2.3: Delete
 			case 10: //Special stage time/spheres requirements
@@ -6498,10 +6500,10 @@ static void P_ConvertBinarySectorTypes(void)
 		switch(GETSECSPECIAL(sectors[i].special, 3))
 		{
 			case 5: //Speed pad
-				sectors[i].specialflags |= SSF_SPEEDPAD;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_SPEEDPAD);
 				break;
 			case 6: //Gravity flip on jump (think VVVVVV)
-				sectors[i].specialflags |= SSF_JUMPFLIP;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_JUMPFLIP);
 				break;
 			default:
 				break;
@@ -6510,40 +6512,40 @@ static void P_ConvertBinarySectorTypes(void)
 		switch(GETSECSPECIAL(sectors[i].special, 4))
 		{
 			case 1: //Star post activator
-				sectors[i].specialflags |= SSF_STARPOSTACTIVATOR;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_STARPOSTACTIVATOR);
 				break;
 			case 2: //Exit/Special Stage pit/Return flag
-				sectors[i].specialflags |= SSF_EXIT|SSF_SPECIALSTAGEPIT|SSF_RETURNFLAG;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | (SSF_EXIT|SSF_SPECIALSTAGEPIT|SSF_RETURNFLAG));
 				break;
 			case 3: //Red team base
-				sectors[i].specialflags |= SSF_REDTEAMBASE;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_REDTEAMBASE);
 				break;
 			case 4: //Blue team base
-				sectors[i].specialflags |= SSF_BLUETEAMBASE;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_BLUETEAMBASE);
 				break;
 			case 5: //Fan sector
-				sectors[i].specialflags |= SSF_FAN;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_FAN);
 				break;
 			case 6: //Super Sonic transform
-				sectors[i].specialflags |= SSF_SUPERTRANSFORM;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_SUPERTRANSFORM);
 				break;
 			case 7: //Force spin
-				sectors[i].specialflags |= SSF_FORCESPIN;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_FORCESPIN);
 				break;
 			case 8: //Zoom tube start
-				sectors[i].specialflags |= SSF_ZOOMTUBESTART;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_ZOOMTUBESTART);
 				break;
 			case 9: //Zoom tube end
-				sectors[i].specialflags |= SSF_ZOOMTUBEEND;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_ZOOMTUBEEND);
 				break;
 			case 10: //Circuit finish line
-				sectors[i].specialflags |= SSF_FINISHLINE;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_FINISHLINE);
 				break;
 			case 11: //Rope hang
-				sectors[i].specialflags |= SSF_ROPEHANG;
+				sectors[i].specialflags = static_cast<sectorspecialflags_t>(sectors[i].specialflags | SSF_ROPEHANG);
 				break;
 			case 12: //Intangible to the camera
-				sectors[i].flags |= MSF_NOCLIPCAMERA;
+				sectors[i].flags = static_cast<sectorflags_t>(sectors[i].flags | MSF_NOCLIPCAMERA);
 				break;
 			default:
 				break;
@@ -6554,7 +6556,7 @@ static void P_ConvertBinarySectorTypes(void)
 static void P_ConvertBinaryThingTypes(void)
 {
 	size_t i;
-	mobjtype_t mobjtypeofthing[4096] = {0};
+	mobjtype_t mobjtypeofthing[4096] {};
 	mobjtype_t mobjtype;
 
 	for (i = 0; i < NUMMOBJTYPES; i++)
@@ -7264,9 +7266,9 @@ static boolean P_LoadMapFromFile(lumpnum_t lumpnum)
 		P_ConvertBinaryMap();
 
 	// Copy relevant map data for NetArchive purposes.
-	spawnsectors = Z_Calloc(numsectors * sizeof(*sectors), PU_LEVEL, NULL);
-	spawnlines = Z_Calloc(numlines * sizeof(*lines), PU_LEVEL, NULL);
-	spawnsides = Z_Calloc(numsides * sizeof(*sides), PU_LEVEL, NULL);
+	spawnsectors = static_cast<sector_t*>(Z_Calloc(numsectors * sizeof(*sectors), PU_LEVEL, NULL));
+	spawnlines = static_cast<line_t*>(Z_Calloc(numlines * sizeof(*lines), PU_LEVEL, NULL));
+	spawnsides = static_cast<side_t*>(Z_Calloc(numsides * sizeof(*sides), PU_LEVEL, NULL));
 
 	memcpy(spawnsectors, sectors, numsectors * sizeof(*sectors));
 	memcpy(spawnlines, lines, numlines * sizeof(*lines));
@@ -7274,7 +7276,7 @@ static boolean P_LoadMapFromFile(lumpnum_t lumpnum)
 
 	for (i = 0; i < numsectors; i++)
 		if (sectors[i].tags.count)
-			spawnsectors[i].tags.tags = memcpy(Z_Malloc(sectors[i].tags.count*sizeof(mtag_t), PU_LEVEL, NULL), sectors[i].tags.tags, sectors[i].tags.count*sizeof(mtag_t));
+			spawnsectors[i].tags.tags = static_cast<mtag_t*>(memcpy(Z_Malloc(sectors[i].tags.count*sizeof(mtag_t), PU_LEVEL, NULL), sectors[i].tags.tags, sectors[i].tags.count*sizeof(mtag_t)));
 
 	P_MakeMapMD5(virt, &mapmd5);
 
@@ -7404,7 +7406,7 @@ static void P_InitLevelSettings(void)
 		players[i].drillmeter = 40*20;
 
 		// hit these too
-		players[i].pflags &= ~(PF_GAMETYPEOVER);
+		players[i].pflags = static_cast<pflags_t>(players[i].pflags & ~(PF_GAMETYPEOVER));
 	}
 
 	if (botingame)
@@ -7466,7 +7468,7 @@ static void P_RunLevelScript(const char *scriptname)
 			return;
 		}
 
-		COM_BufInsertText(W_CacheLumpNum(lumpnum, PU_CACHE));
+		COM_BufInsertText(static_cast<const char*>(W_CacheLumpNum(lumpnum, PU_CACHE)));
 	}
 	else
 	{
@@ -7521,13 +7523,13 @@ static void P_LoadRecordGhosts(void)
 {
 	const char *mapname = G_BuildMapName(gamemap);
 	const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen(mapname)+1;
-	char *gpath = malloc(glen);
+	char *gpath = static_cast<char*>(malloc(glen));
 	INT32 i;
 
 	if (!gpath)
 		return;
 
-	sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, mapname);
+	sprintf(gpath,"%s" PATHSEP "replay" PATHSEP "%s" PATHSEP "%s", srb2home, timeattackfolder, mapname);
 
 	// Best Score ghost
 	if (cv_ghost_bestscore.value)
@@ -7592,13 +7594,13 @@ static void P_LoadNightsGhosts(void)
 {
 	const char *mapname = G_BuildMapName(gamemap);
 	const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen(mapname)+1;
-	char *gpath = malloc(glen);
+	char *gpath = static_cast<char*>(malloc(glen));
 	INT32 i;
 
 	if (!gpath)
 		return;
 
-	sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, mapname);
+	sprintf(gpath,"%s" PATHSEP "replay" PATHSEP "%s" PATHSEP "%s", srb2home, timeattackfolder, mapname);
 
 	// Best Score ghost
 	if (cv_ghost_bestscore.value)
@@ -7674,7 +7676,7 @@ static void P_InitTagGametype(void)
 	}
 
 	i = P_RandomKey(realnumplayers);
-	players[playersactive[i]].pflags |= PF_TAGIT; //choose our initial tagger before map starts.
+	players[playersactive[i]].pflags = static_cast<pflags_t>(players[playersactive[i]].pflags | PF_TAGIT); //choose our initial tagger before map starts.
 
 	// Taken and modified from G_DoReborn()
 	// Remove the player so he can respawn elsewhere.
@@ -7776,7 +7778,7 @@ static void P_RunSpecialStageWipe(void)
 		S_FadeOutStopMusic(MUSICRATE/4); //FixedMul(FixedDiv(F_GetWipeLength(wipedefs[wipe_speclevel_towhite])*NEWTICRATERATIO, NEWTICRATE), MUSICRATE)
 
 	F_WipeStartScreen();
-	wipestyleflags |= (WSF_FADEOUT|WSF_TOWHITE);
+	wipestyleflags = static_cast<wipestyleflags_t>(wipestyleflags | (WSF_FADEOUT|WSF_TOWHITE));
 
 #ifdef HWRENDER
 	// uh..........
@@ -7813,7 +7815,7 @@ static void P_RunSpecialStageWipe(void)
 static void P_RunLevelWipe(void)
 {
 	F_WipeStartScreen();
-	wipestyleflags |= WSF_FADEOUT;
+	wipestyleflags = static_cast<wipestyleflags_t>(wipestyleflags | WSF_FADEOUT);
 
 #ifdef HWRENDER
 	// uh..........
@@ -7882,7 +7884,7 @@ static void P_WriteLetter(void)
 	if (textprompts[199]->page[1].backcolor == 259)
 		return;
 
-	buf = W_CacheLumpName("WATERMAP", PU_STATIC);
+	buf = static_cast<char*>(W_CacheLumpName("WATERMAP", PU_STATIC));
 	b = buf;
 
 	while ((*b != 65) && (b - buf < 256))
@@ -8014,8 +8016,8 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 	if (reloadinggamestate)
 		wipegamestate = gamestate; // Don't fade if reloading the gamestate
 	else
-		wipegamestate = FORCEWIPEOFF;
-	wipestyleflags = 0;
+		wipegamestate = static_cast<gamestate_t>(FORCEWIPEOFF);
+	wipestyleflags = static_cast<wipestyleflags_t>(0);
 
 	// Special stage & record attack retry fade to white
 	// This is handled BEFORE sounds are stopped.
@@ -8024,7 +8026,7 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 		if (modeattacking && !demoplayback)
 		{
 			ranspecialwipe = 2;
-			wipestyleflags |= (WSF_FADEOUT|WSF_TOWHITE);
+			wipestyleflags = static_cast<wipestyleflags_t>(wipestyleflags | (WSF_FADEOUT|WSF_TOWHITE));
 		}
 		G_ClearModeAttackRetryFlag();
 	}

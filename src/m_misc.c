@@ -2301,7 +2301,7 @@ boolean M_StringToDecimal(const char *input, double *out)
 
 const char *M_GetFilenameFromPath(const char *path)
 {
-	const char *slash = strrchr(path, '/');
+	const char *slash = strrchr(path, PATHSEP[0]);
 	if (slash)
 		return slash + 1;
 	return path;

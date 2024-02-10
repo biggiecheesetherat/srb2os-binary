@@ -83,6 +83,10 @@
 	#undef ETIMEDOUT
 	#endif
 	#define ETIMEDOUT WSAETIMEDOUT
+	#ifdef EHOSTUNREACH
+	#undef EHOSTUNREACH
+	#endif
+	#define EHOSTUNREACH WSAEHOSTUNREACH
 	#ifndef IOC_VENDOR
 	#define IOC_VENDOR 0x18000000
 	#endif
@@ -109,16 +113,18 @@ typedef union
 #endif
 } mysockaddr_t;
 
-#ifdef HAVE_MINIUPNPC
-	#ifdef STATIC_MINIUPNPC
-		#define STATICLIB
+	#ifdef HAVE_MINIUPNPC
+	#ifdef MINIUPNP_STATICLIB
+		#include "miniwget.h"
+		#include "miniupnpc.h"
+		#include "upnpcommands.h"
+	#else
+		#include "miniupnpc/miniwget.h"
+		#include "miniupnpc/miniupnpc.h"
+		#include "miniupnpc/upnpcommands.h"
 	#endif
-	#include "miniupnpc/miniwget.h"
-	#include "miniupnpc/miniupnpc.h"
-	#include "miniupnpc/upnpcommands.h"
-	#undef STATICLIB
-	static UINT8 UPNP_support = TRUE;
-#endif // HAVE_MINIUPNC
+		static boolean UPNP_support = true;
+	#endif // HAVE_MINIUPNC
 
 #define MAXBANS 100
 
@@ -128,6 +134,7 @@ typedef union
 #include "d_netfil.h"
 #include "i_tcp.h"
 #include "../m_argv.h"
+#include "../i_threads.h"
 
 #include "../doomstat.h"
 
@@ -256,21 +263,45 @@ static const char* inet_ntopA(short af, const void *cp, char *buf, socklen_t len
 #endif
 
 #ifdef HAVE_MINIUPNPC // based on old XChat patch
+static void I_ShutdownUPnP(void);
+static void I_InitUPnP(void);
+I_mutex upnp_mutex;
 static struct UPNPUrls urls;
 static struct IGDdatas data;
 static char lanaddr[64];
-
-static void I_ShutdownUPnP(void)
+struct upnpdata
 {
-	FreeUPNPUrls(&urls);
+	int upnpc_started;
+};
+static struct upnpdata *upnpuser;
+static void init_upnpc_once(struct upnpdata *upnpdata);
+
+static void I_InitUPnP(void)
+{
+	upnpuser = malloc(sizeof *upnpuser);
+	upnpuser->upnpc_started = 0;
+	I_spawn_thread("init_upnpc_once", (I_thread_fn)init_upnpc_once, upnpuser);
 }
 
-static inline void I_InitUPnP(void)
+static void
+init_upnpc_once(struct upnpdata *upnpuserdata)
 {
+
+	if (upnpuserdata->upnpc_started != 0)
+		return;
+
+	I_lock_mutex(&upnp_mutex);
+	const char * const deviceTypes[] = {
+		"urn:schemas-upnp-org:device:InternetGatewayDevice:2",
+		"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+		0
+	};
 	struct UPNPDev * devlist = NULL;
 	int upnp_error = -2;
+	int scope_id = 0;
+	int status_code = 0;
 	CONS_Printf(M_GetText("Looking for UPnP Internet Gateway Device\n"));
-	devlist = upnpDiscover(2000, NULL, NULL, 0, false, &upnp_error);
+	devlist = upnpDiscoverDevices(deviceTypes, 500, NULL, NULL, 0, false, 2, &upnp_error, 0);
 	if (devlist)
 	{
 		struct UPNPDev *dev = devlist;
@@ -290,7 +321,7 @@ static inline void I_InitUPnP(void)
 
 		UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr));
 		CONS_Printf(M_GetText("Local LAN IP address: %s\n"), lanaddr);
-		descXML = miniwget(dev->descURL, &descXMLsize);
+		descXML = miniwget(dev->descURL, &descXMLsize, scope_id, &status_code);
 		if (descXML)
 		{
 			parserootdesc(descXML, descXMLsize, &data);
@@ -298,33 +329,47 @@ static inline void I_InitUPnP(void)
 			descXML = NULL;
 			memset(&urls, 0, sizeof(struct UPNPUrls));
 			memset(&data, 0, sizeof(struct IGDdatas));
-			GetUPNPUrls(&urls, &data, dev->descURL);
+			GetUPNPUrls(&urls, &data, dev->descURL, status_code);
 			I_AddExitFunc(I_ShutdownUPnP);
 		}
 		freeUPNPDevlist(devlist);
+		I_unlock_mutex(upnp_mutex);
 	}
 	else if (upnp_error == UPNPDISCOVER_SOCKET_ERROR)
 	{
 		CONS_Printf(M_GetText("No UPnP devices discovered\n"));
 	}
+	upnpuserdata->upnpc_started =1;
 }
 
 static inline void I_UPnP_add(const char * addr, const char *port, const char * servicetype)
 {
+	I_lock_mutex(&upnp_mutex);
 	if (addr == NULL)
 		addr = lanaddr;
 	if (!urls.controlURL || urls.controlURL[0] == '\0')
 		return;
 	UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
 	                    port, port, addr, "SRB2", servicetype, NULL, NULL);
+	I_unlock_mutex(upnp_mutex);
 }
 
 static inline void I_UPnP_rem(const char *port, const char * servicetype)
 {
+	I_lock_mutex(&upnp_mutex);
 	if (!urls.controlURL || urls.controlURL[0] == '\0')
 		return;
 	UPNP_DeletePortMapping(urls.controlURL, data.first.servicetype,
 	                       port, servicetype, NULL);
+	I_unlock_mutex(upnp_mutex);
+}
+
+static void I_ShutdownUPnP(void)
+{
+	I_UPnP_rem(serverport_name, "UDP");
+	I_lock_mutex(&upnp_mutex);
+	FreeUPNPUrls(&urls);
+	I_unlock_mutex(upnp_mutex);
 }
 #endif
 
@@ -404,9 +449,26 @@ static const char *SOCK_GetBanMask(size_t ban)
 	return NULL;
 }
 
+#ifdef HAVE_IPV6
+static boolean SOCK_cmpipv6(mysockaddr_t *a, mysockaddr_t *b, UINT8 mask)
+{
+	UINT8 bitmask;
+	I_Assert(mask <= 128);
+	if (memcmp(&a->ip6.sin6_addr.s6_addr, &b->ip6.sin6_addr.s6_addr, mask / 8) != 0)
+		return false;
+	if (mask % 8 == 0)
+		return true;
+	bitmask = 255 << (mask % 8);
+	return (a->ip6.sin6_addr.s6_addr[mask / 8] & bitmask) == (b->ip6.sin6_addr.s6_addr[mask / 8] & bitmask);
+}
+#endif
+
 static boolean SOCK_cmpaddr(mysockaddr_t *a, mysockaddr_t *b, UINT8 mask)
 {
 	UINT32 bitmask = INADDR_NONE;
+
+	if (a->any.sa_family != b->any.sa_family)
+		return false;
 
 	if (mask && mask < 32)
 		bitmask = htonl((UINT32)(-1) << (32 - mask));
@@ -416,7 +478,7 @@ static boolean SOCK_cmpaddr(mysockaddr_t *a, mysockaddr_t *b, UINT8 mask)
 			&& (b->ip4.sin_port == 0 || (a->ip4.sin_port == b->ip4.sin_port));
 #ifdef HAVE_IPV6
 	else if (b->any.sa_family == AF_INET6)
-		return !memcmp(&a->ip6.sin6_addr, &b->ip6.sin6_addr, sizeof(b->ip6.sin6_addr))
+		return SOCK_cmpipv6(a, b, mask)
 			&& (b->ip6.sin6_port == 0 || (a->ip6.sin6_port == b->ip6.sin6_port));
 #endif
 	else
@@ -678,7 +740,7 @@ static void SOCK_Send(void)
 	if (c == ERRSOCKET)
 	{
 		int e = errno; // save error code so it can't be modified later
-		if (e != ECONNREFUSED && e != EWOULDBLOCK)
+		if (e != ECONNREFUSED && e != EWOULDBLOCK && e != EHOSTUNREACH)
 			I_Error("SOCK_Send, error sending to node %d (%s) #%u: %s", doomcom->remotenode,
 				SOCK_GetNodeAddress(doomcom->remotenode), e, strerror(e));
 	}
@@ -1070,10 +1132,10 @@ boolean I_InitTcpDriver(void)
 	{
 		I_AddExitFunc(I_ShutdownTcpDriver);
 #ifdef HAVE_MINIUPNPC
-		if (M_CheckParm("-useUPnP"))
-			I_InitUPnP();
-		else
+		if (M_CheckParm("-noUPnP"))
 			UPNP_support = false;
+		else
+			I_InitUPnP();
 #endif
 	}
 	return init_tcp_driver;

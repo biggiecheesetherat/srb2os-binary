@@ -9,6 +9,8 @@
 /// \file  y_inter.c
 /// \brief Tally screens, or "Intermissions" as they were formally called in Doom
 
+#include <algorithm>
+
 #include "doomdef.h"
 #include "doomstat.h"
 #include "d_main.h"
@@ -242,31 +244,31 @@ void Y_LoadIntermissionData(void)
 			for (i = 0; i < 4; ++i)
 			{
 				if (strlen(data.coop.bonuses[i].patch))
-					data.coop.bonuspatches[i] = W_CachePatchName(data.coop.bonuses[i].patch, PU_PATCH);
+					data.coop.bonuspatches[i] = static_cast<patch_t*>(W_CachePatchName(data.coop.bonuses[i].patch, PU_PATCH));
 			}
-			data.coop.ptotal = W_CachePatchName("YB_TOTAL", PU_PATCH);
+			data.coop.ptotal = static_cast<patch_t*>(W_CachePatchName("YB_TOTAL", PU_PATCH));
 
 
 			// grab an interscreen if appropriate
 			if (mapheaderinfo[gamemap-1]->interscreen[0] != '#')
-				interpic = W_CachePatchName(mapheaderinfo[gamemap-1]->interscreen, PU_PATCH);
+				interpic = static_cast<patch_t*>(W_CachePatchName(mapheaderinfo[gamemap-1]->interscreen, PU_PATCH));
 			else // no interscreen? use default background
-				bgpatch = W_CachePatchName("INTERSCR", PU_PATCH);
+				bgpatch = static_cast<patch_t*>(W_CachePatchName("INTERSCR", PU_PATCH));
 			break;
 		}
 		case int_spec:
 		{
 			for (i = 0; i < 2; ++i)
-				data.spec.bonuspatches[i] = W_CachePatchName(data.spec.bonuses[i].patch, PU_PATCH);
+				data.spec.bonuspatches[i] = static_cast<patch_t*>(W_CachePatchName(data.spec.bonuses[i].patch, PU_PATCH));
 
-			data.spec.pscore = W_CachePatchName("YB_SCORE", PU_PATCH);
-			data.spec.pcontinues = W_CachePatchName("YB_CONTI", PU_PATCH);
+			data.spec.pscore = static_cast<patch_t*>(W_CachePatchName("YB_SCORE", PU_PATCH));
+			data.spec.pcontinues = static_cast<patch_t*>(W_CachePatchName("YB_CONTI", PU_PATCH));
 
 			// grab an interscreen if appropriate
 			if (mapheaderinfo[gamemap-1]->interscreen[0] != '#')
-				interpic = W_CachePatchName(mapheaderinfo[gamemap-1]->interscreen, PU_PATCH);
+				interpic = static_cast<patch_t*>(W_CachePatchName(mapheaderinfo[gamemap-1]->interscreen, PU_PATCH));
 			else // no interscreen? use default background
-				bgtile = W_CachePatchName("SPECTILE", PU_PATCH);
+				bgtile = static_cast<patch_t*>(W_CachePatchName("SPECTILE", PU_PATCH));
 			break;
 		}
 		case int_ctf:
@@ -274,10 +276,10 @@ void Y_LoadIntermissionData(void)
 		{
 			if (!rflagico) //prevent a crash if we haven't cached our team graphics yet
 			{
-				rflagico = W_CachePatchName("RFLAGICO", PU_HUDGFX);
-				bflagico = W_CachePatchName("BFLAGICO", PU_HUDGFX);
-				rmatcico = W_CachePatchName("RMATCICO", PU_HUDGFX);
-				bmatcico = W_CachePatchName("BMATCICO", PU_HUDGFX);
+				rflagico = static_cast<patch_t*>(W_CachePatchName("RFLAGICO", PU_HUDGFX));
+				bflagico = static_cast<patch_t*>(W_CachePatchName("BFLAGICO", PU_HUDGFX));
+				rmatcico = static_cast<patch_t*>(W_CachePatchName("RMATCICO", PU_HUDGFX));
+				bmatcico = static_cast<patch_t*>(W_CachePatchName("BMATCICO", PU_HUDGFX));
 			}
 
 			data.match.redflag = (intertype == int_ctf) ? rflagico : rmatcico;
@@ -291,11 +293,11 @@ void Y_LoadIntermissionData(void)
 			if (intertype == int_match || intertype == int_race)
 			{
 				// get RESULT header
-				data.match.result = W_CachePatchName("RESULT", PU_PATCH);
+				data.match.result = static_cast<patch_t*>(W_CachePatchName("RESULT", PU_PATCH));
 			}
 
 			// get background tile
-			bgtile = W_CachePatchName("SRB2BACK", PU_PATCH);
+			bgtile = static_cast<patch_t*>(W_CachePatchName("SRB2BACK", PU_PATCH));
 			break;
 		}
 		case int_none:
@@ -315,7 +317,7 @@ void Y_ConsiderScreenBuffer(void)
 		return;
 
 	if (y_buffer == NULL)
-		y_buffer = Z_Calloc(sizeof(y_buffer_t), PU_STATIC, NULL);
+		y_buffer = static_cast<y_buffer_t*>(Z_Calloc(sizeof(y_buffer_t), PU_STATIC, NULL));
 	else
 		return;
 
@@ -323,7 +325,7 @@ void Y_ConsiderScreenBuffer(void)
 	y_buffer->source_height = vid.height;
 	y_buffer->source_bpp = vid.bpp;
 	y_buffer->source_rowbytes = vid.rowbytes;
-	y_buffer->source_picture = ZZ_Alloc(y_buffer->source_width*vid.bpp * y_buffer->source_height);
+	y_buffer->source_picture = static_cast<UINT8*>(ZZ_Alloc(y_buffer->source_width*vid.bpp * y_buffer->source_height));
 	VID_BlitLinearScreen(screens[1], y_buffer->source_picture, vid.width*vid.bpp, vid.height, vid.width*vid.bpp, vid.rowbytes);
 
 	// Make the rescaled screen buffer
@@ -354,7 +356,7 @@ static void Y_RescaleScreenBuffer(void)
 	y_buffer->target_height = vid.height;
 	y_buffer->target_rowbytes = vid.rowbytes;
 	y_buffer->target_bpp = vid.bpp;
-	y_buffer->target_picture = ZZ_Alloc(y_buffer->target_width*vid.bpp * y_buffer->target_height);
+	y_buffer->target_picture = static_cast<UINT8*>(ZZ_Alloc(y_buffer->target_width*vid.bpp * y_buffer->target_height));
 	dest = y_buffer->target_picture;
 
 	scalefac = FixedDiv(y_buffer->target_width*FRACUNIT, y_buffer->source_width*FRACUNIT);
@@ -751,7 +753,7 @@ void Y_IntermissionDrawer(void)
 					V_DrawSmallScaledPatch(x+16, y-4, 0,faceprefix[*data.match.character[i]]);
 				else
 				{
-					UINT8 *colormap = R_GetTranslationColormap(*data.match.character[i], *data.match.color[i], GTC_CACHE);
+					UINT8 *colormap = R_GetTranslationColormap(*data.match.character[i], static_cast<skincolornum_t>(*data.match.color[i]), GTC_CACHE);
 					V_DrawSmallMappedPatch(x+16, y-4, 0,faceprefix[*data.match.character[i]], colormap);
 				}
 
@@ -847,7 +849,7 @@ void Y_IntermissionDrawer(void)
 		{
 			if (playeringame[data.match.num[i]] && !(data.match.spectator[i]))
 			{
-				UINT8 *colormap = R_GetTranslationColormap(*data.match.character[i], *data.match.color[i], GTC_CACHE);
+				UINT8 *colormap = R_GetTranslationColormap(*data.match.character[i], static_cast<skincolornum_t>(*data.match.color[i]), GTC_CACHE);
 
 				if (*data.match.color[i] == SKINCOLOR_RED) //red
 				{
@@ -934,7 +936,7 @@ void Y_IntermissionDrawer(void)
 					V_DrawSmallScaledPatch(x+16, y-4, 0,faceprefix[*data.competition.character[i]]);
 				else
 				{
-					UINT8 *colormap = R_GetTranslationColormap(*data.competition.character[i], *data.competition.color[i], GTC_CACHE);
+					UINT8 *colormap = R_GetTranslationColormap(*data.competition.character[i], static_cast<skincolornum_t>(*data.competition.color[i]), GTC_CACHE);
 					V_DrawSmallMappedPatch(x+16, y-4, 0,faceprefix[*data.competition.character[i]], colormap);
 				}
 
@@ -1724,10 +1726,10 @@ static void Y_CalculateCompetitionWinners(void)
 			players[i].rings = 0;
 
 		times[i]    = players[i].realtime;
-		rings[i]    = (UINT32)max(players[i].rings, 0);
+		rings[i]    = (UINT32)std::max<INT16>(players[i].rings, 0);
 		maxrings[i] = (UINT32)players[i].totalring;
 		monitors[i] = (UINT32)players[i].numboxes;
-		scores[i]   = (UINT32)min(players[i].score, MAXSCORE);
+		scores[i]   = (UINT32)std::min<UINT32>(players[i].score, MAXSCORE);
 
 		for (j = 0; j < MAXPLAYERS; j++)
 		{
@@ -1739,7 +1741,7 @@ static void Y_CalculateCompetitionWinners(void)
 			else
 				bestat[0] = false;
 
-			if (max(players[i].rings, 0) >= max(players[j].rings, 0))
+			if (std::max<INT16>(players[i].rings, 0) >= std::max<INT16>(players[j].rings, 0))
 				points[i]++;
 			else
 				bestat[1] = false;
@@ -1870,7 +1872,7 @@ static void Y_SetRingBonus(player_t *player, y_bonus_t *bstruct)
 {
 	strncpy(bstruct->patch, "YB_RING", sizeof(bstruct->patch));
 	bstruct->display = true;
-	bstruct->points = max(0, (player->rings) * 100);
+	bstruct->points = std::max(0, (player->rings) * 100);
 }
 
 //
@@ -1890,7 +1892,7 @@ static void Y_SetLapBonus(player_t *player, y_bonus_t *bstruct)
 {
 	strncpy(bstruct->patch, "YB_LAP", sizeof(bstruct->patch));
 	bstruct->display = true;
-	bstruct->points = max(0, player->totalmarebonuslap * 1000);
+	bstruct->points = std::max(0, player->totalmarebonuslap * 1000);
 }
 
 //
@@ -1900,7 +1902,7 @@ static void Y_SetLinkBonus(player_t *player, y_bonus_t *bstruct)
 {
 	strncpy(bstruct->patch, "YB_LINK", sizeof(bstruct->patch));
 	bstruct->display = true;
-	bstruct->points = max(0, (player->maxlink - 1) * 100);
+	bstruct->points = std::max(0, (player->maxlink - 1) * 100);
 }
 
 //
@@ -1976,7 +1978,7 @@ static void Y_SetSpecialRingBonus(player_t *player, y_bonus_t *bstruct)
 		if (!playeringame[i]) continue;
 		sharedringtotal += players[i].rings;
 	}
-	bstruct->points = max(0, (sharedringtotal) * 100);
+	bstruct->points = std::max(0, (sharedringtotal) * 100);
 }
 
 // This list can be extended in the future with SOC/Lua, perhaps.
@@ -2055,7 +2057,7 @@ static void Y_AwardCoopBonuses(void)
 				(bonuses_list[bonusnum][j])(&players[i], &localbonuses[j]);
 			else
 				Y_SetNullBonus(&players[i], &localbonuses[j]);
-			
+
 			players[i].score += localbonuses[j].points;
 			if (players[i].score > MAXSCORE)
 				players[i].score = MAXSCORE;
@@ -2064,8 +2066,8 @@ static void Y_AwardCoopBonuses(void)
 				players[i].recordscore = MAXSCORE;
 		}
 
-		ptlives = min(
-			(INT32)((!ultimatemode && !modeattacking && players[i].lives != INFLIVES) ? max((INT32)((players[i].score/50000) - (oldscore/50000)), (INT32)0) : 0),
+		ptlives = std::min(
+			(INT32)((!ultimatemode && !modeattacking && players[i].lives != INFLIVES) ? std::max((INT32)((players[i].score/50000) - (oldscore/50000)), (INT32)0) : 0),
 			(INT32)(mapheaderinfo[prevmap]->maxbonuslives < 0 ? INT32_MAX : mapheaderinfo[prevmap]->maxbonuslives));
 		if (ptlives)
 			P_GivePlayerLives(&players[i], ptlives);
@@ -2124,8 +2126,8 @@ static void Y_AwardSpecialStageBonus(void)
 			players[i].recordscore = MAXSCORE;
 
 		// grant extra lives right away since tally is faked
-		ptlives = min(
-			(INT32)((!ultimatemode && !modeattacking && players[i].lives != INFLIVES) ? max((INT32)((players[i].score/50000) - (oldscore/50000)), (INT32)0) : 0),
+		ptlives = std::min(
+			(INT32)((!ultimatemode && !modeattacking && players[i].lives != INFLIVES) ? std::max((INT32)((players[i].score/50000) - (oldscore/50000)), (INT32)0) : 0),
 			(INT32)(mapheaderinfo[prevmap]->maxbonuslives < 0 ? INT32_MAX : mapheaderinfo[prevmap]->maxbonuslives));
 		P_GivePlayerLives(&players[i], ptlives);
 
@@ -2135,7 +2137,7 @@ static void Y_AwardSpecialStageBonus(void)
 			M_Memcpy(&data.spec.bonuses, &localbonuses, sizeof(data.spec.bonuses));
 
 			// Continues related
-			data.spec.continues = min(players[i].continues, 8);
+			data.spec.continues = std::min<INT8>(players[i].continues, 8);
 			if (players[i].gotcontinue)
 				data.spec.continues |= 0x80;
 			data.spec.playercolor = &players[i].skincolor;

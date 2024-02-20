@@ -11,6 +11,8 @@
 /// \file  g_demo.c
 /// \brief Demo recording and playback
 
+#include <algorithm>
+
 #include "doomdef.h"
 #include "console.h"
 #include "d_main.h"
@@ -329,7 +331,7 @@ void G_GhostAddHit(mobj_t *victim)
 		return;
 	ghostext.flags |= EZT_HIT;
 	ghostext.hits++;
-	ghostext.hitlist = Z_Realloc(ghostext.hitlist, ghostext.hits * sizeof(mobj_t *), PU_LEVEL, NULL);
+	ghostext.hitlist = static_cast<mobj_t**>(Z_Realloc(ghostext.hitlist, ghostext.hits * sizeof(mobj_t *), PU_LEVEL, NULL));
 	ghostext.hitlist[ghostext.hits-1] = victim;
 }
 
@@ -876,7 +878,7 @@ void G_GhostTicker(void)
 				}
 			}
 			if (xziptic & EZT_SPRITE)
-				g->mo->sprite = READUINT16(g->p);
+				g->mo->sprite = static_cast<spritenum_t>(READUINT16(g->p));
 			if (xziptic & EZT_HEIGHT)
 			{
 				fixed_t temp = (g->version < 0x000e) ? READINT16(g->p)<<FRACBITS : READFIXED(g->p);
@@ -952,7 +954,7 @@ void G_GhostTicker(void)
 					follow->sprite2 = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
 				else
 					follow->sprite2 = 0;
-				follow->sprite = READUINT16(g->p);
+				follow->sprite = static_cast<spritenum_t>(READUINT16(g->p));
 				follow->frame = (READUINT8(g->p)) | (g->mo->frame & FF_TRANSMASK);
 				follow->angle = g->mo->angle;
 				follow->color = (g->version==0x000c) ? READUINT8(g->p) : READUINT16(g->p);
@@ -1154,7 +1156,7 @@ void G_ReadMetalTic(mobj_t *metal)
 			}
 		}
 		if (xziptic & EZT_SPRITE)
-			metal->sprite = READUINT16(metal_p);
+			metal->sprite = static_cast<spritenum_t>(READUINT16(metal_p));
 		if (xziptic & EZT_HEIGHT)
 		{
 			fixed_t temp = (metalversion < 0x000e) ? READINT16(metal_p)<<FRACBITS : READFIXED(metal_p);
@@ -1210,7 +1212,7 @@ void G_ReadMetalTic(mobj_t *metal)
 					follow->sprite2 = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
 				else
 					follow->sprite2 = 0;
-				follow->sprite = READUINT16(metal_p);
+				follow->sprite = static_cast<spritenum_t>(READUINT16(metal_p));
 				follow->frame = READUINT32(metal_p); // NOT & FF_FRAMEMASK here, so 32 bits
 				if (metalversion < 0x000f)
 					follow->frame = G_ConvertOldFrameFlags(follow->frame);
@@ -1426,7 +1428,7 @@ void G_RecordDemo(const char *name)
 		maxsize = atoi(M_GetNextParm()) * 1024;
 
 	demo_p = NULL;
-	demobuffer = malloc(maxsize);
+	demobuffer = static_cast<UINT8*>(malloc(maxsize));
 	demoend = demobuffer + maxsize;
 
 	demorecording = true;
@@ -1439,7 +1441,7 @@ void G_RecordMetal(void)
 	if (M_CheckParm("-maxdemo") && M_IsNextParm())
 		maxsize = atoi(M_GetNextParm()) * 1024;
 	demo_p = NULL;
-	demobuffer = malloc(maxsize);
+	demobuffer = static_cast<UINT8*>(malloc(maxsize));
 	demoend = demobuffer + maxsize;
 	metalrecording = true;
 }
@@ -1572,26 +1574,26 @@ void G_BeginRecording(void)
 	// Save pflag data - see SendWeaponPref()
 	{
 		UINT8 buf = 0;
-		pflags_t pflags = 0;
+		pflags_t pflags = static_cast<pflags_t>(0);
 		if (cv_flipcam.value)
 		{
 			buf |= 0x01;
-			pflags |= PF_FLIPCAM;
+			pflags = static_cast<pflags_t>(pflags | PF_FLIPCAM);
 		}
 		if (cv_analog[0].value)
 		{
 			buf |= 0x02;
-			pflags |= PF_ANALOGMODE;
+			pflags = static_cast<pflags_t>(pflags | PF_ANALOGMODE);
 		}
 		if (cv_directionchar[0].value)
 		{
 			buf |= 0x04;
-			pflags |= PF_DIRECTIONCHAR;
+			pflags = static_cast<pflags_t>(pflags | PF_DIRECTIONCHAR);
 		}
 		if (cv_autobrake.value)
 		{
 			buf |= 0x08;
-			pflags |= PF_AUTOBRAKE;
+			pflags = static_cast<pflags_t>(pflags | PF_AUTOBRAKE);
 		}
 		if (cv_usejoystick.value)
 			buf |= 0x10;
@@ -2015,7 +2017,7 @@ void G_DoPlayDemo(char *defdemoname)
 		n--;
 	if (n != defdemoname)
 		n++;
-	pdemoname = ZZ_Alloc(strlen(n)+1);
+	pdemoname = static_cast<char*>(ZZ_Alloc(strlen(n)+1));
 	strcpy(pdemoname,n);
 
 	// Internal if no extension, external if one exists
@@ -2042,7 +2044,7 @@ void G_DoPlayDemo(char *defdemoname)
 		return;
 	}
 	else // it's an internal demo
-		demobuffer = demo_p = W_CacheLumpNum(l, PU_STATIC);
+		demobuffer = demo_p = static_cast<UINT8*>(W_CacheLumpNum(l, PU_STATIC));
 
 	// read demo header
 	gameaction = ga_nothing;
@@ -2220,15 +2222,15 @@ void G_DoPlayDemo(char *defdemoname)
 	// pflag data
 	{
 		UINT8 buf = READUINT8(demo_p);
-		pflags = 0;
+		pflags = static_cast<pflags_t>(0);
 		if (buf & 0x01)
-			pflags |= PF_FLIPCAM;
+			pflags = static_cast<pflags_t>(pflags | PF_FLIPCAM);
 		if (buf & 0x02)
-			pflags |= PF_ANALOGMODE;
+			pflags = static_cast<pflags_t>(pflags | PF_ANALOGMODE);
 		if (buf & 0x04)
-			pflags |= PF_DIRECTIONCHAR;
+			pflags = static_cast<pflags_t>(pflags | PF_DIRECTIONCHAR);
 		if (buf & 0x08)
-			pflags |= PF_AUTOBRAKE;
+			pflags = static_cast<pflags_t>(pflags | PF_AUTOBRAKE);
 		CV_SetValue(&cv_showinputjoy, !!(buf & 0x10));
 	}
 
@@ -2308,7 +2310,7 @@ void G_DoPlayDemo(char *defdemoname)
 	players[0].height = height;
 	players[0].spinheight = spinheight;
 	players[0].jumpfactor = jumpfactor;
-	players[0].followitem = followitem;
+	players[0].followitem = static_cast<mobjtype_t>(followitem);
 	players[0].pflags = pflags;
 
 	demo_start = true;
@@ -2334,7 +2336,7 @@ UINT8 G_CheckDemoForError(char *defdemoname)
 		n--;
 	if (n != defdemoname)
 		n++;
-	pdemoname = ZZ_Alloc(strlen(n)+1);
+	pdemoname = static_cast<char*>(ZZ_Alloc(strlen(n)+1));
 	strcpy(pdemoname,n);
 
 	// Internal if no extension, external if one exists
@@ -2354,7 +2356,7 @@ UINT8 G_CheckDemoForError(char *defdemoname)
 	}
 	else // it's an internal demo
 	{
-		demobuffer = demo_p = W_CacheLumpNum(l, PU_STATIC);
+		demobuffer = demo_p = static_cast<UINT8*>(W_CacheLumpNum(l, PU_STATIC));
 	}
 
 	// read demo header
@@ -2410,7 +2412,7 @@ void G_AddGhost(char *defdemoname)
 		n--;
 	if (n != defdemoname)
 		n++;
-	pdemoname = ZZ_Alloc(strlen(n)+1);
+	pdemoname = static_cast<char*>(ZZ_Alloc(strlen(n)+1));
 	strcpy(pdemoname,n);
 
 	// Internal if no extension, external if one exists
@@ -2433,7 +2435,7 @@ void G_AddGhost(char *defdemoname)
 		return;
 	}
 	else // it's an internal demo
-		buffer = p = W_CacheLumpNum(l, PU_LEVEL);
+		buffer = p = static_cast<UINT8*>(W_CacheLumpNum(l, PU_LEVEL));
 
 	// read demo header
 	if (memcmp(p, DEMOHEADER, 12))
@@ -2555,7 +2557,7 @@ void G_AddGhost(char *defdemoname)
 		return;
 	}
 
-	gh = Z_Calloc(sizeof(demoghost), PU_LEVEL, NULL);
+	gh = static_cast<demoghost*>(Z_Calloc(sizeof(demoghost), PU_LEVEL, NULL));
 	gh->next = ghosts;
 	gh->buffer = buffer;
 	M_Memcpy(gh->checksum, md5, 16);
@@ -2671,7 +2673,7 @@ void G_DoPlayMetal(void)
 		return;
 	}
 	else
-		metalbuffer = metal_p = W_CacheLumpNum(l, PU_STATIC);
+		metalbuffer = metal_p = static_cast<UINT8*>(W_CacheLumpNum(l, PU_STATIC));
 
 	// find metal sonic
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
@@ -2821,7 +2823,7 @@ static void G_StopTimingDemo(void)
 	if (timedemo_csv)
 	{
 		FILE *f;
-		const char *csvpath = va("%s"PATHSEP"%s", srb2home, "timedemo.csv");
+		const char *csvpath = va("%s" PATHSEP "%s", srb2home, "timedemo.csv");
 		const char *header = "id,demoname,seconds,avgfps,leveltime,demotime,framecount,ticrate,rendermode,vidmode,vidwidth,vidheight,procbits\n";
 		const char *rowformat = "\"%s\",\"%s\",%f,%f,%u,%d,%u,%u,%u,%u,%u,%u,%u\n";
 		boolean headerrow = !FIL_FileExists(csvpath);

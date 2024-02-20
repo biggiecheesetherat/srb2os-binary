@@ -13,7 +13,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	z_zone.c
 	f_finale.c
 	f_wipe.c
-	g_demo.c
+	g_demo.cpp
 	g_game.c
 	g_input.c
 	am_map.c

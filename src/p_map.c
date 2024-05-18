@@ -1986,8 +1986,12 @@ static boolean PIT_CheckLine(line_t *ld)
 	{
 		if (ld->flags & ML_IMPASSIBLE) // block objects from moving through this linedef.
 			return false;
+
 		if ((tmthing->flags & (MF_ENEMY|MF_BOSS)) && ld->flags & ML_BLOCKMONSTERS)
 			return false; // block monsters only
+
+		if (P_OneWayBlocking(tmthing, ld)) // block objects from the front side
+			return false;
 	}
 
 	// set openrange, opentop, openbottom
@@ -3399,6 +3403,9 @@ boolean P_LineIsBlocking(mobj_t *mo, line_t *li)
 
 		if ((mo->flags & (MF_ENEMY|MF_BOSS)) && li->flags & ML_BLOCKMONSTERS)
 			return true;
+
+		if (P_OneWayBlocking(mo, li))
+			return true;
 	}
 
 	// set openrange, opentop, openbottom
@@ -3418,6 +3425,30 @@ boolean P_LineIsBlocking(mobj_t *mo, line_t *li)
 		&& !P_PlayerCanEnterSpinGaps(mo->player))
 			return true; // nonspin character should not take this path
 
+	return false;
+}
+
+boolean P_OneWayBlocking(mobj_t *mo, line_t *li)
+{
+	// Doesn't have the appropriate flag
+	if ((li->flags & ML_ONEWAY) == 0)
+		return false;
+
+	// Reduces the chances of the object getting stuck because it casually waltzed up
+	if (mo->momx || mo->momy)
+	{
+		angle_t moveangle = R_PointToAngle2(0, 0, mo->momx, mo->momy);
+
+		if (abs((signed)(moveangle - ANGLE_90 - li->angle)) < ANGLE_90)
+			return true;
+	}
+	else
+	{
+		// Not actually moving somehow; just check which side the object is.
+		return !P_PointOnLineSide(mo->x, mo->y, li);
+	}
+
+	// Not blocking the object
 	return false;
 }
 

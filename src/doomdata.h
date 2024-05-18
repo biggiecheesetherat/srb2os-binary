@@ -146,6 +146,9 @@ typedef struct
 
 #define ML_TFERLINE         32768
 
+// Line is blocking from the front side
+#define ML_ONEWAY           65536
+
 // Sector definition, from editing.
 typedef struct
 {

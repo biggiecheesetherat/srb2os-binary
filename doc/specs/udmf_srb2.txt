@@ -1,5 +1,5 @@
 ===============================================================================
-Universal Doom Map Format Sonic Robo Blast 2 extensions v1.0 19.02.2024
+Universal Doom Map Format Sonic Robo Blast 2 extensions v1.1 18.05.2024
 
     Copyright (c) 2024 Sonic Team Junior
        uses Universal Doom Map Format Specification v1.1 as a template,
@@ -85,6 +85,7 @@ Sonic Robo Blast 2 defines the following standardized fields:
       netonly       = <bool>;     // Special only takes effect in multiplayer games.
       bouncy        = <bool>;     // Line is bouncy.
       transfer      = <bool>;     // In 3D floor sides, uses the sidedef properties of the control sector.
+      oneway        = <bool>;     // Line blocks things from the front side only.
 
       alpha       = <float>;      // Translucency of this line. Default is 1.0
       renderstyle = <string>;     // Render style. Can be:
@@ -304,6 +305,9 @@ Sonic Robo Blast 2 defines the following standardized fields:
 =======================================
 Changelog
 =======================================
+
+1.1: 18.05.2024
+Added oneway line property.
 
 1.0: 19.02.2024
 Initial version.

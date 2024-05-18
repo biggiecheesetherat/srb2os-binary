@@ -2037,6 +2037,8 @@ static void ParseTextmapLinedefParameter(UINT32 i, const char *param, const char
 		lines[i].flags |= ML_BOUNCY;
 	else if (fastcmp(param, "transfer") && fastcmp("true", val))
 		lines[i].flags |= ML_TFERLINE;
+	else if (fastcmp(param, "oneway") && fastcmp("true", val))
+		lines[i].flags |= ML_ONEWAY;
 }
 
 static void ParseTextmapThingParameter(UINT32 i, const char *param, const char *val)
@@ -2625,6 +2627,8 @@ static void P_WriteTextmap(void)
 			fprintf(f, "bouncy = true;\n");
 		if (wlines[i].flags & ML_TFERLINE)
 			fprintf(f, "transfer = true;\n");
+		if (wlines[i].flags & ML_ONEWAY)
+			fprintf(f, "oneway = true;\n");
 		fprintf(f, "}\n");
 		fprintf(f, "\n");
 	}

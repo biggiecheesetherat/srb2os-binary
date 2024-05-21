@@ -2037,6 +2037,18 @@ static void ParseTextmapLinedefParameter(UINT32 i, const char *param, const char
 		lines[i].flags |= ML_BOUNCY;
 	else if (fastcmp(param, "transfer") && fastcmp("true", val))
 		lines[i].flags |= ML_TFERLINE;
+	else if (fastcmp(param, "oneway"))
+	{
+		UINT8 flags = atol(val);
+		if (flags & 1)
+			lines[i].flags |= ML_ONEWAYPLAYERS;
+		if (flags & 2)
+			lines[i].flags |= ML_ONEWAYMONSTERS;
+		if (flags & 4)
+			lines[i].flags |= ML_ONEWAYMISSILES;
+		if (flags & 8)
+			lines[i].flags |= ML_ONEWAY;
+	}
 }
 
 static void ParseTextmapThingParameter(UINT32 i, const char *param, const char *val)
@@ -2625,6 +2637,19 @@ static void P_WriteTextmap(void)
 			fprintf(f, "bouncy = true;\n");
 		if (wlines[i].flags & ML_TFERLINE)
 			fprintf(f, "transfer = true;\n");
+		if (wlines[i].flags & (ML_ONEWAY | ML_ONEWAYMONSTERS | ML_ONEWAYPLAYERS | ML_ONEWAYMISSILES))
+		{
+			UINT8 flags = 0;
+			if (wlines[i].flags & ML_ONEWAYPLAYERS)
+				flags |= 1;
+			if (wlines[i].flags & ML_ONEWAYMONSTERS)
+				flags |= 2;
+			if (wlines[i].flags & ML_ONEWAYMISSILES)
+				flags |= 4;
+			if (wlines[i].flags & ML_ONEWAY)
+				flags |= 8;
+			fprintf(f, "oneway = %d;\n", flags);
+		}
 		fprintf(f, "}\n");
 		fprintf(f, "\n");
 	}

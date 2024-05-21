@@ -4540,6 +4540,10 @@ const char *const ML_LIST[] = {
 	"EFFECT6",
 	"BOUNCY",
 	"TFERLINE",
+	"ONEWAY",
+	"ONEWAYPLAYERS",
+	"ONEWAYMONSTERS",
+	"ONEWAYMISSILES",
 	NULL
 };
 

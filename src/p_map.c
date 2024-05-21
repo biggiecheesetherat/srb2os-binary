@@ -1986,9 +1986,13 @@ static boolean PIT_CheckLine(line_t *ld)
 	{
 		if (ld->flags & ML_IMPASSIBLE) // block objects from moving through this linedef.
 			return false;
+
 		if ((tmthing->flags & (MF_ENEMY|MF_BOSS)) && ld->flags & ML_BLOCKMONSTERS)
 			return false; // block monsters only
 	}
+
+	if (P_OneWayBlocking(tmthing, ld)) // block objects from the front side
+		return false;
 
 	// set openrange, opentop, openbottom
 	P_LineOpening(ld, tmthing);
@@ -3401,6 +3405,9 @@ boolean P_LineIsBlocking(mobj_t *mo, line_t *li)
 			return true;
 	}
 
+	if (P_OneWayBlocking(mo, li))
+		return true;
+
 	// set openrange, opentop, openbottom
 	P_LineOpening(li, mo);
 
@@ -3417,6 +3424,33 @@ boolean P_LineIsBlocking(mobj_t *mo, line_t *li)
 		&& openrange < P_GetPlayerHeight(mo->player)
 		&& !P_PlayerCanEnterSpinGaps(mo->player))
 			return true; // nonspin character should not take this path
+
+	return false;
+}
+
+boolean P_OneWayBlocking(mobj_t *mo, line_t *li)
+{
+	if ((li->flags & ML_ONEWAY) != 0 // Blocks everything
+	|| (mo->player != NULL && (li->flags & ML_ONEWAYPLAYERS) != 0) // Blocks players
+	|| ((mo->flags & (MF_ENEMY | MF_BOSS)) && (li->flags & ML_ONEWAYMONSTERS) != 0) // Blocks monsters
+	|| ((mo->flags & MF_MISSILE) && (li->flags & ML_ONEWAYMISSILES) != 0)) // Blocks missiles
+	{
+		// This function used to call P_PointOnLineSide, but it was problematic with enemies that use P_Move.
+		angle_t moveangle;
+
+		if (mo->momx || mo->momy)
+		{
+			// Reduces the chances of the object getting stuck because it casually waltzed up the line
+			moveangle = R_PointToAngle2(0, 0, mo->momx, mo->momy);
+		}
+		else
+		{
+			// Not actually moving. Check if the object is facing the wall instead.
+			moveangle = mo->angle;
+		}
+
+		return abs((signed)(moveangle - ANGLE_90 - li->angle)) < ANGLE_90;
+	}
 
 	return false;
 }

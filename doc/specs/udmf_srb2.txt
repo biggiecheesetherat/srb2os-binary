@@ -1,5 +1,5 @@
 ===============================================================================
-Universal Doom Map Format Sonic Robo Blast 2 extensions v1.0 19.02.2024
+Universal Doom Map Format Sonic Robo Blast 2 extensions v1.1 18.05.2024
 
     Copyright (c) 2024 Sonic Team Junior
        uses Universal Doom Map Format Specification v1.1 as a template,
@@ -70,21 +70,23 @@ Sonic Robo Blast 2 defines the following standardized fields:
       v1 = <integer>;             // Index of first vertex. No valid default.
       v2 = <integer>;             // Index of second vertex. No valid default.
 
-      blocking      = <bool>;     // Line blocks things.
-      blockmonsters = <bool>;     // Line blocks enemies.
-      twosided      = <bool>;     // Line is 2S.
-      dontpegtop    = <bool>;     // Upper texture unpegged.
-      dontpegbottom = <bool>;     // Lower texture unpegged.
-      skewtd        = <bool>;     // Upper and lower textures are skewed.
-      noclimb       = <bool>;     // Line is not climbable.
-      noskew        = <bool>;     // Middle texture is not skewed.
-      midpeg        = <bool>;     // Middle texture is pegged.
-      midsolid      = <bool>;     // Middle texture is solid.
-      wrapmidtex    = <bool>;     // Line's mid textures are wrapped.
-      nonet         = <bool>;     // Special only takes effect in singleplayer games.
-      netonly       = <bool>;     // Special only takes effect in multiplayer games.
-      bouncy        = <bool>;     // Line is bouncy.
-      transfer      = <bool>;     // In 3D floor sides, uses the sidedef properties of the control sector.
+      blocking       = <bool>;    // Line blocks things.
+      blockmonsters  = <bool>;    // Line blocks enemies.
+      twosided       = <bool>;    // Line is 2S.
+      dontpegtop     = <bool>;    // Upper texture unpegged.
+      dontpegbottom  = <bool>;    // Lower texture unpegged.
+      skewtd         = <bool>;    // Upper and lower textures are skewed.
+      noclimb        = <bool>;    // Line is not climbable.
+      noskew         = <bool>;    // Middle texture is not skewed.
+      midpeg         = <bool>;    // Middle texture is pegged.
+      midsolid       = <bool>;    // Middle texture is solid.
+      wrapmidtex     = <bool>;    // Line's mid textures are wrapped.
+      nonet          = <bool>;    // Special only takes effect in singleplayer games.
+      netonly        = <bool>;    // Special only takes effect in multiplayer games.
+      bouncy         = <bool>;    // Line is bouncy.
+      transfer       = <bool>;    // In 3D floor sides, uses the sidedef properties of the control sector.
+      oneway         = <integer>; // Line blocks things from the front side only.
+                                  // Bitfield with (1 = block players, 2 = block enemies, 4 = block projectiles, 8 = block everything)
 
       alpha       = <float>;      // Translucency of this line. Default is 1.0
       renderstyle = <string>;     // Render style. Can be:
@@ -304,6 +306,9 @@ Sonic Robo Blast 2 defines the following standardized fields:
 =======================================
 Changelog
 =======================================
+
+1.1: 18.05.2024
+Added oneway line property.
 
 1.0: 19.02.2024
 Initial version.

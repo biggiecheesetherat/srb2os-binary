@@ -483,13 +483,15 @@ static void parse_anim_frame(animation_frame_s *frame, json& entry)
 {
 	UINT8 frame_num = 0;
 	tic_t duration = 1;
-	boolean mirrored = false;
+	boolean flip_x = false;
+	boolean flip_y = false;
 
 	if (entry.is_object() == true)
 	{
 		frame_num = entry.value("frame", 0);
 		duration = entry.value("duration", 1);
-		mirrored = entry.value("mirrored", false);
+		flip_x = entry.value("flip_x", false);
+		flip_y = entry.value("flip_y", false);
 	}
 	else
 	{
@@ -500,9 +502,13 @@ static void parse_anim_frame(animation_frame_s *frame, json& entry)
 	frame->frame_flags = 0;
 	frame->duration = duration;
 
-	if (mirrored == true)
+	if (flip_x == true)
 	{
 		frame->frame_flags |= FF_HORIZONTALFLIP;
+	}
+	if (flip_y == true)
+	{
+		frame->frame_flags |= FF_VERTICALFLIP;
 	}
 }
 

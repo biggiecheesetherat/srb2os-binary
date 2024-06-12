@@ -14,16 +14,15 @@
 #include "nlohmann/json.hpp"
 
 #include "doomdef.h"
-#include "m_fixed.h"
 #include "p_pspr.h"
 #include "w_wad.h"
 #include "z_zone.h"
 
 using nlohmann::json;
 
-static std::vector<struct animation_list_s*> animation_defs;
+static std::vector<animation_list_s*> animation_defs;
 
-static struct animation_list_s *find_animation_by_name(const char *name)
+static animation_list_s *find_animation_by_name(const char *name)
 {
 	for (size_t i = 0; i < animation_defs.size(); i++)
 	{
@@ -45,7 +44,7 @@ static UINT16 get_animation_id(const char *name)
 	return 0;
 }
 
-static struct animation_list_s *get_animation_by_id(UINT16 id)
+static animation_list_s *get_animation_by_id(UINT16 id)
 {
 	if (id == 0 || id > animation_defs.size())
 	{
@@ -55,7 +54,7 @@ static struct animation_list_s *get_animation_by_id(UINT16 id)
 	return animation_defs[id - 1];
 }
 
-static UINT16 get_animation_entry_id(struct animation_list_s *animation, const char *name)
+static UINT16 get_animation_entry_id(animation_list_s *animation, const char *name)
 {
 	if (animation)
 	{
@@ -70,42 +69,47 @@ static UINT16 get_animation_entry_id(struct animation_list_s *animation, const c
 }
 
 // Animation playback
-static void P_UpdateAnimationFrame(mobj_t *mobj, struct animation_frame_s *frame)
+static void P_UpdateMobjAnimationFrame(mobj_t *mobj, animation_frame_s *frame)
 {
 	mobj->frame &= ~FF_FRAMEMASK;
 	mobj->frame |= (frame->frame_num & FF_FRAMEMASK) | (frame->frame_flags & ~FF_FRAMEMASK);
-	mobj->anim_frame_duration = frame->duration * FRACUNIT;
 }
 
-static void P_SetupMobjAnimation(mobj_t *mobj, struct animation_s *entry)
+static void P_SetupMobjAnimation(mobj_t *mobj, animation_s *entry)
 {
-	if (mobj->anim_direction == ANIM_DIR_OSCILLATE && mobj->anim_speed_mul < 0)
-		mobj->anim_speed_mul = -mobj->anim_speed_mul;
+	animator_s *animator = &mobj->animator;
 
-	mobj->anim_timer = 0;
-	mobj->anim_direction = entry->direction;
+	if (animator->direction == ANIM_DIR_OSCILLATE && animator->speed_mul < 0)
+		animator->speed_mul = -animator->speed_mul;
+
+	animator->timer = 0;
+	animator->direction = entry->direction;
 
 	if (entry->num_frames == 0)
 	{
 		return;
 	}
 
-	if (mobj->anim_frame == UINT16_MAX)
+	if (animator->frame == UINT16_MAX)
 	{
-		if (mobj->anim_direction == ANIM_DIR_REVERSE)
-			mobj->anim_frame = entry->num_frames - 1;
+		if (animator->direction == ANIM_DIR_REVERSE)
+			animator->frame = entry->num_frames - 1;
 		else
-			mobj->anim_frame = 0;
+			animator->frame = 0;
 	}
 	else
-		mobj->anim_frame %= entry->num_frames;
+		animator->frame %= entry->num_frames;
 
-	P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+	animation_frame_s *frame = &entry->frames[animator->frame];
+
+	P_UpdateMobjAnimationFrame(mobj, frame);
+
+	animator->frame_duration = frame->duration * FRACUNIT;
 }
 
 boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 entry_id, UINT16 start_frame)
 {
-	struct animation_list_s *animation = get_animation_by_id(animation_id);
+	animation_list_s *animation = get_animation_by_id(animation_id);
 	if (animation == nullptr)
 	{
 		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid animation ID %d\n", animation_id);
@@ -121,14 +125,14 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 entry_id, U
 	{
 		entry_id = 0;
 
-		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid animation entry %d for animation ID %d\n", entry_id, animation_id);
+		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid subanimation %d for animation ID %d\n", entry_id, animation_id);
 	}
 
-	mobj->animation = animation_id;
-	mobj->anim_entry = entry_id;
-	mobj->anim_frame = start_frame;
+	mobj->animator.animation = animation_id;
+	mobj->animator.subanimation = entry_id;
+	mobj->animator.frame = start_frame;
 
-	P_SetupMobjAnimation(mobj, animation->animations[mobj->anim_entry]);
+	P_SetupMobjAnimation(mobj, animation->animations[mobj->animator.subanimation]);
 
 	return true;
 }
@@ -142,7 +146,7 @@ boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const 
 		return false;
 	}
 
-	struct animation_list_s *animation = animation_defs[id];
+	animation_list_s *animation = animation_defs[id];
 	if (animation->count == 0)
 	{
 		return false;
@@ -153,33 +157,33 @@ boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const 
 	{
 		entry_id = 0;
 
-		CONS_Alert(CONS_ERROR, "P_SetNamedMobjAnimation: No animation entry named '%s' in animation '%s'\n", entry_name, animation_name);
+		CONS_Alert(CONS_ERROR, "P_SetNamedMobjAnimation: No subanimation named '%s' in animation '%s'\n", entry_name, animation_name);
 	}
 
-	mobj->animation = id;
-	mobj->anim_entry = entry_id;
-	mobj->anim_frame = start_frame;
+	mobj->animator.animation = id;
+	mobj->animator.subanimation = entry_id;
+	mobj->animator.frame = start_frame;
 
-	P_SetupMobjAnimation(mobj, animation->animations[mobj->anim_entry]);
+	P_SetupMobjAnimation(mobj, animation->animations[mobj->animator.subanimation]);
 
 	return true;
 }
 
-void P_UpdateAnimation(mobj_t *mobj)
+void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 {
-	if (mobj->animation == 0 || mobj->animation > animation_defs.size())
+	if (animator->animation == 0 || animator->animation > animation_defs.size())
 	{
 		return;
 	}
 
-	struct animation_list_s *animation = animation_defs[mobj->animation - 1];
-	if (mobj->anim_entry >= animation->count)
+	animation_list_s *animation = animation_defs[animator->animation - 1];
+	if (animator->subanimation >= animation->count)
 	{
 		return;
 	}
 
-	struct animation_s *entry = animation->animations[mobj->anim_entry];
-	if (mobj->anim_frame >= entry->num_frames)
+	animation_s *entry = animation->animations[animator->subanimation];
+	if (animator->frame >= entry->num_frames)
 	{
 		return;
 	}
@@ -190,23 +194,24 @@ void P_UpdateAnimation(mobj_t *mobj)
 	}
 
 	unsigned i = 0;
+	animation_frame_s *anim_frame;
 
-	fixed_t anim_speed = FixedMul(entry->speed, mobj->anim_speed_mul);
+	fixed_t anim_speed = FixedMul(entry->speed, animator->speed_mul);
 	if (anim_speed == 0)
 		return;
 
-	mobj->anim_timer += anim_speed;
+	animator->timer += anim_speed;
 
 	// Oscillating animation
-	if (mobj->anim_direction == ANIM_DIR_OSCILLATE)
+	if (animator->direction == ANIM_DIR_OSCILLATE)
 	{
-		while (mobj->anim_timer < 0 || mobj->anim_timer > mobj->anim_frame_duration)
+		while (animator->timer < 0 || animator->timer > animator->frame_duration)
 		{
-			UINT16 frame = mobj->anim_frame;
+			UINT16 frame = animator->frame;
 
 			if (anim_speed > 0)
 			{
-				mobj->anim_timer -= mobj->anim_frame_duration;
+				animator->timer -= animator->frame_duration;
 
 				frame++;
 
@@ -217,13 +222,13 @@ void P_UpdateAnimation(mobj_t *mobj)
 					else
 						frame = entry->num_frames - 1;
 
-					mobj->anim_speed_mul = -mobj->anim_speed_mul;
+					animator->speed_mul = -animator->speed_mul;
 					anim_speed = -anim_speed;
 				}
 			}
 			else if (anim_speed < 0)
 			{
-				mobj->anim_timer += mobj->anim_frame_duration;
+				animator->timer += animator->frame_duration;
 
 				if (frame == 0 || (entry->loop_index != 0 && (signed)frame - 1 < (signed)entry->loop_index))
 				{
@@ -232,16 +237,23 @@ void P_UpdateAnimation(mobj_t *mobj)
 					else
 						frame = 0;
 
-					mobj->anim_speed_mul = -mobj->anim_speed_mul;
+					animator->speed_mul = -animator->speed_mul;
 					anim_speed = -anim_speed;
 				}
 				else
 					frame--;
 			}
 
-			mobj->anim_frame = frame;
+			animator->frame = frame;
 
-			P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+			anim_frame = &entry->frames[animator->frame];
+
+			if (mobj != nullptr)
+			{
+				P_UpdateMobjAnimationFrame(mobj, anim_frame);
+			}
+
+			animator->frame_duration = anim_frame->duration * FRACUNIT;
 
 			if (++i > TICRATE)
 				break;
@@ -250,26 +262,33 @@ void P_UpdateAnimation(mobj_t *mobj)
 		return;
 	}
 
-	if (mobj->anim_direction == ANIM_DIR_REVERSE)
+	if (animator->direction == ANIM_DIR_REVERSE)
 		anim_speed = -anim_speed;
 
 	// Animate forwards
 	if (anim_speed > 0)
 	{
-		while (mobj->anim_timer > mobj->anim_frame_duration)
+		while (animator->timer > animator->frame_duration)
 		{
-			mobj->anim_timer -= mobj->anim_frame_duration;
-			mobj->anim_frame++;
+			animator->timer -= animator->frame_duration;
+			animator->frame++;
 
-			if (mobj->anim_frame >= entry->num_frames)
+			if (animator->frame >= entry->num_frames)
 			{
 				if (entry->loop_index < entry->num_frames)
-					mobj->anim_frame = entry->loop_index;
+					animator->frame = entry->loop_index;
 				else
-					mobj->anim_frame = entry->num_frames - 1;
+					animator->frame = entry->num_frames - 1;
 			}
 
-			P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+			anim_frame = &entry->frames[animator->frame];
+
+			if (mobj != nullptr)
+			{
+				P_UpdateMobjAnimationFrame(mobj, anim_frame);
+			}
+
+			animator->frame_duration = anim_frame->duration * FRACUNIT;
 
 			if (++i > TICRATE)
 				break;
@@ -278,21 +297,28 @@ void P_UpdateAnimation(mobj_t *mobj)
 	// Animate backwards
 	else if (anim_speed < 0)
 	{
-		while (mobj->anim_timer < 0)
+		while (animator->timer < 0)
 		{
-			mobj->anim_timer += mobj->anim_frame_duration;
+			animator->timer += animator->frame_duration;
 
-			if (mobj->anim_frame == 0)
+			if (animator->frame == 0)
 			{
 				if (entry->loop_index < entry->num_frames)
-					mobj->anim_frame = entry->loop_index;
+					animator->frame = entry->loop_index;
 				else
-					mobj->anim_frame = entry->num_frames - 1;
+					animator->frame = entry->num_frames - 1;
 			}
 			else
-				mobj->anim_frame--;
+				animator->frame--;
 
-			P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+			anim_frame = &entry->frames[animator->frame];
+
+			if (mobj != nullptr)
+			{
+				P_UpdateMobjAnimationFrame(mobj, anim_frame);
+			}
+
+			animator->frame_duration = anim_frame->duration * FRACUNIT;
 
 			if (++i > TICRATE)
 				break;
@@ -300,7 +326,7 @@ void P_UpdateAnimation(mobj_t *mobj)
 	}
 }
 
-static struct animation_s *find_animation_entry(struct animation_list_s *list, const char *name)
+static animation_s *find_animation_entry(animation_list_s *list, const char *name)
 {
 	if (list)
 	{
@@ -314,12 +340,12 @@ static struct animation_s *find_animation_entry(struct animation_list_s *list, c
 	return nullptr;
 }
 
-struct animation_list_s *P_GetNamedAnimation(const char *animation_name)
+animation_list_s *P_GetNamedAnimation(const char *animation_name)
 {
 	return find_animation_by_name(animation_name);
 }
 
-struct animation_s *P_GetNamedEntryInAnimation(struct animation_list_s *animation, const char *entry_name)
+animation_s *P_GetNamedEntryInAnimation(animation_list_s *animation, const char *entry_name)
 {
 	if (animation)
 	{
@@ -336,7 +362,7 @@ UINT16 P_GetNamedAnimationID(const char *animation_name)
 
 UINT16 P_GetNamedEntryIDInAnimation(UINT16 animation_id, const char *entry_name)
 {
-	struct animation_list_s *animation = get_animation_by_id(animation_id);
+	animation_list_s *animation = get_animation_by_id(animation_id);
 	if (animation != nullptr)
 	{
 		for (size_t i = 0; i < animation->count; i++)
@@ -403,14 +429,14 @@ void P_InitAnimations(void)
 		P_LoadAnimations(i);
 }
 
-static struct animation_list_s *find_or_create_animation(const char *name)
+static animation_list_s *find_or_create_animation(const char *name)
 {
-	struct animation_list_s *animation = find_animation_by_name(name);
+	animation_list_s *animation = find_animation_by_name(name);
 	if (animation != nullptr)
 		return animation;
 
-	animation = static_cast<struct animation_list_s *>(
-		Z_Calloc(sizeof(struct animation_list_s), PU_STATIC, NULL)
+	animation = static_cast<animation_list_s *>(
+		Z_Calloc(sizeof(animation_list_s), PU_STATIC, NULL)
 	);
 
 	animation->name = Z_StrDup(name);
@@ -420,7 +446,7 @@ static struct animation_list_s *find_or_create_animation(const char *name)
 	return animation;
 }
 
-static struct animation_s *find_or_create_animation_entry(struct animation_list_s *list, const char *name)
+static animation_s *find_or_create_animation_entry(animation_list_s *list, const char *name)
 {
 	for (size_t i = 0; i < list->count; i++)
 	{
@@ -429,12 +455,12 @@ static struct animation_s *find_or_create_animation_entry(struct animation_list_
 	}
 
 	list->count++;
-	list->animations = static_cast<struct animation_s **>(
-		Z_Realloc(list->animations, list->count * sizeof(struct animation_s **), PU_STATIC, NULL)
+	list->animations = static_cast<animation_s **>(
+		Z_Realloc(list->animations, list->count * sizeof(animation_s **), PU_STATIC, NULL)
 	);
 
-	struct animation_s *entry = static_cast<struct animation_s *>(
-		Z_Calloc(sizeof(struct animation_s), PU_STATIC, NULL)
+	animation_s *entry = static_cast<animation_s *>(
+		Z_Calloc(sizeof(animation_s), PU_STATIC, NULL)
 	);
 	list->animations[list->count - 1] = entry;
 
@@ -443,7 +469,7 @@ static struct animation_s *find_or_create_animation_entry(struct animation_list_
 	return entry;
 }
 
-static void parse_anim_frame(struct animation_frame_s *frame, json& entry)
+static void parse_anim_frame(animation_frame_s *frame, json& entry)
 {
 	UINT8 frame_num = 0;
 	tic_t duration = 1;
@@ -470,7 +496,7 @@ static void parse_anim_frame(struct animation_frame_s *frame, json& entry)
 	}
 }
 
-static void parse_anim_entry(struct animation_s *animation, json& entry)
+static void parse_anim_entry(animation_s *animation, json& entry)
 {
 	fixed_t speed = FRACUNIT;
 	unsigned loop_index = entry.value("loop_index", 0);
@@ -530,8 +556,8 @@ static void parse_anim_entry(struct animation_s *animation, json& entry)
 	if (num_entry_frames)
 	{
 		animation->num_frames = num_entry_frames;
-		animation->frames = static_cast<struct animation_frame_s *>(
-			Z_Calloc(num_entry_frames * sizeof(struct animation_frame_s), PU_STATIC, NULL)
+		animation->frames = static_cast<animation_frame_s *>(
+			Z_Calloc(num_entry_frames * sizeof(animation_frame_s), PU_STATIC, NULL)
 		);
 
 		for (json& frame_entry_obj : entry_frames)
@@ -548,7 +574,7 @@ static void parse_anim_entry(struct animation_s *animation, json& entry)
 	}
 	else
 	{
-		throw std::runtime_error("no frames in animation entry");
+		throw std::runtime_error("no frames in subanimation");
 	}
 
 	animation->loop_index = loop_index;
@@ -556,12 +582,12 @@ static void parse_anim_entry(struct animation_s *animation, json& entry)
 
 static void parse_anim_list(std::string name, json& entry)
 {
-	struct animation_list_s *animation = find_or_create_animation(name.c_str());
+	animation_list_s *animation = find_or_create_animation(name.c_str());
 
 	for (json& anim_list_entry : entry)
 	{
 		std::string entry_name = anim_list_entry.at("name");
-		struct animation_s *entry = find_or_create_animation_entry(animation, entry_name.c_str());
+		animation_s *entry = find_or_create_animation_entry(animation, entry_name.c_str());
 		parse_anim_entry(entry, anim_list_entry);
 	}
 
@@ -579,7 +605,7 @@ static void read_animation_from_file(const char *lump, size_t lump_len)
 		for (json& anim_entry_obj : anim_array)
 		{
 			if (anim_entry_obj.is_object() == false)
-				throw std::runtime_error("animation entry was not an object");
+				throw std::runtime_error("subanimation was not an object");
 
 			for (auto& it : anim_entry_obj.items())
 			{

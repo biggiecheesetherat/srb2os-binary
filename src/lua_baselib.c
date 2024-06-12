@@ -2520,10 +2520,10 @@ static int lib_pSetMobjAnimation(lua_State *L)
 
 	UINT16 entry_id = P_GetNamedEntryIDInAnimation(animation_id, entry_name);
 	if (entry_id == UINT16_MAX)
-		return luaL_error(L, "invalid entry name '%s' in animation '%s'", entry_name, animation_name);
+		return luaL_error(L, "invalid subanimation name '%s' in animation '%s'", entry_name, animation_name);
 
 	if (starting_frame < 0 || starting_frame > UINT16_MAX)
-		return luaL_error(L, "invalid starting frame %d for entry '%s' in animation '%s'", starting_frame, entry_name, animation_name);
+		return luaL_error(L, "invalid starting frame %d for subanimation '%s' in animation '%s'", starting_frame, entry_name, animation_name);
 
 	lua_pushboolean(L, P_SetMobjAnimation(mobj, animation_id, entry_id, (UINT16)starting_frame));
 	return 1;

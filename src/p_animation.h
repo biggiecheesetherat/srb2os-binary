@@ -56,7 +56,7 @@ void P_LoadAnimations(UINT16 wadnum);
 
 boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 entry_id, UINT16 start_frame);
 boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *entry_name, UINT16 start_frame);
-void P_UpdateAnimation(mobj_t *mobj);
+void P_DoAnimationPlayback(struct animator_s *animator, mobj_t *mobj);
 
 struct animation_list_s *P_GetNamedAnimation(const char *animation_name);
 struct animation_s *P_GetNamedEntryInAnimation(struct animation_list_s *animation, const char *entry_name);

@@ -98,8 +98,8 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 
 	if (!(st->frame & FF_ANIMATE))
 	{
-		if (mobj->animation)
-			P_SetMobjAnimation(mobj, mobj->animation, st->anim_entry, st->frame & FF_FRAMEMASK);
+		if (mobj->animator.animation)
+			P_SetMobjAnimation(mobj, mobj->animator.animation, st->anim_entry, st->frame & FF_FRAMEMASK);
 		return;
 	}
 
@@ -133,8 +133,8 @@ FUNCINLINE static ATTRINLINE void P_CycleStateAnimation(mobj_t *mobj)
 {
 	if ((mobj->frame & FF_ANIMATE) == 0)
 	{
-		if (mobj->animation)
-			P_UpdateAnimation(mobj);
+		if (mobj->animator.animation)
+			P_DoAnimationPlayback(&mobj->animator, mobj);
 		return;
 	}
 
@@ -10695,7 +10695,7 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 	mobj->tics = st->tics;
 	mobj->sprite = st->sprite;
 	mobj->frame = st->frame; // FF_FRAMEMASK for frame, and other bits..
-	mobj->anim_speed_mul = FRACUNIT;
+	mobj->animator.speed_mul = FRACUNIT;
 	P_SetupStateAnimation(mobj, st);
 
 	mobj->friction = ORIG_FRICTION;
@@ -11109,8 +11109,8 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 		}
 	}
 
-	if (mobj->animation)
-		P_UpdateAnimation(mobj);
+	if (mobj->animator.animation)
+		P_DoAnimationPlayback(&mobj->animator, mobj);
 
 	if (CheckForReverseGravity && !(mobj->flags & MF_NOBLOCKMAP))
 		P_CheckGravity(mobj, false);

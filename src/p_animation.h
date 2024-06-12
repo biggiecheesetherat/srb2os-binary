@@ -36,7 +36,7 @@ typedef struct animation_frame_s
 
 typedef struct animation_s
 {
-	const char *name;
+	char *name;
 	fixed_t speed;
 	unsigned loop_index;
 	animation_direction_t direction;
@@ -46,7 +46,7 @@ typedef struct animation_s
 
 typedef struct animation_list_s
 {
-	const char *name;
+	char *name;
 	struct animation_s **animations;
 	size_t count;
 } animation_list_t;
@@ -63,6 +63,8 @@ struct animation_s *P_GetNamedEntryInAnimation(struct animation_list_s *animatio
 
 UINT16 P_GetNamedAnimationID(const char *animation_name);
 UINT16 P_GetNamedEntryIDInAnimation(UINT16 animation_id, const char *entry_name);
+
+const char *P_GetAnimationNameByID(UINT16 animation_id);
 
 #ifdef __cplusplus
 } // extern "C"

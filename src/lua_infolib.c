@@ -1165,6 +1165,7 @@ enum mobjinfo_e
 	mobjinfo_activesound,
 	mobjinfo_flags,
 	mobjinfo_raisestate,
+	mobjinfo_animation
 };
 
 const char *const mobjinfo_opt[] = {
@@ -1192,6 +1193,7 @@ const char *const mobjinfo_opt[] = {
 	"activesound",
 	"flags",
 	"raisestate",
+	"animation",
 	NULL,
 };
 
@@ -1280,6 +1282,13 @@ static int mobjinfo_get(lua_State *L)
 	case mobjinfo_raisestate:
 		lua_pushinteger(L, info->raisestate);
 		break;
+	case mobjinfo_animation: {
+		const char *animation_name = P_GetAnimationNameByID(info->animation);
+		if (animation_name == NULL)
+			return 0;
+		lua_pushstring(L, animation_name);
+		break;
+	}
 	default:
 		lua_getfield(L, LUA_REGISTRYINDEX, LREG_EXTVARS);
 		I_Assert(lua_istable(L, -1));
@@ -1386,6 +1395,14 @@ static int mobjinfo_set(lua_State *L)
 	case mobjinfo_raisestate:
 		info->raisestate = luaL_checkinteger(L, 3);
 		break;
+	case mobjinfo_animation: {
+		const char *animation_name = luaL_checkstring(L, 3);
+		UINT16 animation_id = P_GetNamedAnimationID(animation_name);
+		if (animation_id == 0)
+			return luaL_error(L, "invalid animation name '%s'", animation_name);
+		info->animation = animation_id;
+		break;
+	}
 	default:
 		lua_getfield(L, LUA_REGISTRYINDEX, LREG_EXTVARS);
 		I_Assert(lua_istable(L, -1));

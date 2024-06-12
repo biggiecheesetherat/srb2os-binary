@@ -370,6 +370,17 @@ UINT16 P_GetNamedEntryIDInAnimation(UINT16 animation_id, const char *entry_name)
 	return UINT16_MAX;
 }
 
+const char *P_GetAnimationNameByID(UINT16 animation_id)
+{
+	animation_list_s *animation = get_animation_by_id(animation_id);
+	if (animation == nullptr)
+	{
+		return nullptr;
+	}
+
+	return animation->name;
+}
+
 // Animation parsing
 static void read_animation_from_file(const char *lump, size_t lump_len);
 

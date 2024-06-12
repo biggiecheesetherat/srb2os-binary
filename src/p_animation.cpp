@@ -188,11 +188,6 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 		return;
 	}
 
-	if (entry->speed == 0)
-	{
-		return;
-	}
-
 	unsigned i = 0;
 	animation_frame_s *anim_frame;
 

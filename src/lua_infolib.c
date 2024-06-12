@@ -18,6 +18,7 @@
 #include "deh_lua.h"
 #include "p_mobj.h"
 #include "p_local.h"
+#include "p_animation.h"
 #include "z_zone.h"
 #include "r_patch.h"
 #include "r_picformats.h"
@@ -1117,8 +1118,14 @@ static int lib_setMobjInfo(lua_State *L)
 			info->activesound = luaL_checkinteger(L, 3);
 		else if (i == 23 || (str && fastcmp(str,"flags")))
 			info->flags = (INT32)luaL_checkinteger(L, 3);
-		else if (i == 24 || (str && fastcmp(str,"raisestate"))) {
+		else if (i == 24 || (str && fastcmp(str,"raisestate")))
 			info->raisestate = luaL_checkinteger(L, 3);
+		else if (i == 25 || (str && fastcmp(str,"animation"))) {
+			const char *animation_name = luaL_checkstring(L, 3);
+			UINT16 animation_id = P_GetNamedAnimationID(animation_name);
+			if (animation_id == 0)
+				return luaL_error(L, "invalid animation name '%s'", animation_name);
+			info->animation = animation_id;
 		}
 		lua_pop(L, 1);
 	}

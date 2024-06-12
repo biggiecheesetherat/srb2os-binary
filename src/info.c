@@ -3997,6 +3997,11 @@ state_t states[NUMSTATES] =
 	{SPR_NULL, 0, 1, {NULL}, 0, 0, S_NULL, 0}, // S_NAMECHECK
 };
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
+
 mobjinfo_t mobjinfo[NUMMOBJTYPES] =
 {
 	{           // MT_NULL
@@ -21605,6 +21610,10 @@ mobjinfo_t mobjinfo[NUMMOBJTYPES] =
 		S_NULL          // raisestate
 	},
 };
+
+#if defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
 skincolor_t skincolors[MAXSKINCOLORS] = {
 	{"None", {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, SKINCOLOR_NONE, 0, 0, false}, // SKINCOLOR_NONE

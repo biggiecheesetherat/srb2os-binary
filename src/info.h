@@ -5197,6 +5197,7 @@ typedef struct
 	sfxenum_t activesound;
 	UINT32 flags;
 	statenum_t raisestate;
+	UINT16 animation;
 } mobjinfo_t;
 
 extern mobjinfo_t mobjinfo[NUMMOBJTYPES];

@@ -10685,6 +10685,9 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 
 	mobj->dispoffset = info->dispoffset;
 
+	if (info->animation > 0)
+		P_SetMobjAnimation(mobj, info->animation, 0, 0);
+
 	mobj->lastlook = -1; // stuff moved in P_enemy.P_LookForPlayer
 
 	// do not set the state with P_SetMobjState,

@@ -14,6 +14,8 @@
 
 #include "doomtype.h"
 
+#include "p_mobj.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,9 +29,9 @@ typedef enum animation_direction_e
 
 typedef struct animation_frame_s
 {
-	UINT8 num;
+	UINT8 frame_num;
+	UINT32 frame_flags;
 	tic_t duration;
-	boolean mirrored;
 } animation_frame_t;
 
 typedef struct animation_s
@@ -52,9 +54,15 @@ typedef struct animation_list_s
 void P_InitAnimations(void);
 void P_LoadAnimations(UINT16 wadnum);
 
-animation_t *P_GetAnimationEntry(UINT16 list_id, const char *entry_name);
-struct animation_s *P_GetAnimationEntryByID(UINT16 list_id, UINT16 entry_id);
-animation_t *P_GetNamedAnimationEntry(const char *list_name, const char *entry_name);
+boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 entry_id, UINT16 start_frame);
+boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *entry_name, UINT16 start_frame);
+void P_UpdateAnimation(mobj_t *mobj);
+
+struct animation_list_s *P_GetNamedAnimation(const char *animation_name);
+struct animation_s *P_GetNamedEntryInAnimation(struct animation_list_s *animation, const char *entry_name);
+
+UINT16 P_GetNamedAnimationID(const char *animation_name);
+UINT16 P_GetNamedEntryIDInAnimation(UINT16 animation_id, const char *entry_name);
 
 #ifdef __cplusplus
 } // extern "C"

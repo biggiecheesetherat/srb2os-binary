@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -19,6 +19,7 @@
 #include "hu_stuff.h"
 #include "p_local.h"
 #include "p_setup.h"
+#include "p_animation.h"
 #include "r_fps.h"
 #include "r_main.h"
 #include "r_skins.h"
@@ -96,7 +97,11 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 		animlength = st->var1;
 
 	if (!(st->frame & FF_ANIMATE))
+	{
+		if (mobj->animation)
+			P_SetMobjAnimation(mobj, mobj->animation, st->anim_entry, st->frame & FF_FRAMEMASK);
 		return;
+	}
 
 	if (animlength <= 0 || st->var2 == 0)
 	{
@@ -126,8 +131,15 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 //
 FUNCINLINE static ATTRINLINE void P_CycleStateAnimation(mobj_t *mobj)
 {
+	if ((mobj->frame & FF_ANIMATE) == 0)
+	{
+		if (mobj->animation)
+			P_UpdateAnimation(mobj);
+		return;
+	}
+
 	// var2 determines delay between animation frames
-	if (!(mobj->frame & FF_ANIMATE) || --mobj->anim_duration != 0)
+	if (--mobj->anim_duration != 0)
 		return;
 
 	mobj->anim_duration = (UINT16)mobj->state->var2;
@@ -10683,6 +10695,7 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 	mobj->tics = st->tics;
 	mobj->sprite = st->sprite;
 	mobj->frame = st->frame; // FF_FRAMEMASK for frame, and other bits..
+	mobj->anim_speed_mul = FRACUNIT;
 	P_SetupStateAnimation(mobj, st);
 
 	mobj->friction = ORIG_FRICTION;
@@ -11095,6 +11108,9 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 				return NULL;
 		}
 	}
+
+	if (mobj->animation)
+		P_UpdateAnimation(mobj);
 
 	if (CheckForReverseGravity && !(mobj->flags & MF_NOBLOCKMAP))
 		P_CheckGravity(mobj, false);

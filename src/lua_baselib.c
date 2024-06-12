@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2012-2016 by John "JTE" Muniz.
-// Copyright (C) 2012-2023 by Sonic Team Junior.
+// Copyright (C) 2012-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -14,6 +14,7 @@
 #include "fastcmp.h"
 #include "p_local.h"
 #include "p_setup.h" // So we can have P_SetupLevelSky
+#include "p_animation.h"
 #include "p_slopes.h" // P_GetSlopeZAt
 #include "z_zone.h"
 #include "r_main.h"
@@ -2502,6 +2503,32 @@ static int lib_pSetMobjStateNF(lua_State *L)
 	return 1;
 }
 
+static int lib_pSetMobjAnimation(lua_State *L)
+{
+	mobj_t *mobj = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	const char *animation_name = luaL_checkstring(L, 2);
+	const char *entry_name = luaL_checkstring(L, 3);
+	INT32 starting_frame = (INT32)luaL_optinteger(L, 4, 0);
+	NOHUD
+	INLEVEL
+	if (!mobj)
+		return LUA_ErrInvalid(L, "mobj_t");
+
+	UINT16 animation_id = P_GetNamedAnimationID(animation_name);
+	if (animation_id == 0)
+		return luaL_error(L, "invalid animation name '%s'", animation_name);
+
+	UINT16 entry_id = P_GetNamedEntryIDInAnimation(animation_id, entry_name);
+	if (entry_id == UINT16_MAX)
+		return luaL_error(L, "invalid entry name '%s' in animation '%s'", entry_name, animation_name);
+
+	if (starting_frame < 0)
+		return luaL_error(L, "invalid starting frame %d for entry '%s' in animation '%s'", starting_frame, entry_name, animation_name);
+
+	lua_pushboolean(L, P_SetMobjAnimation(mobj, animation_id, entry_id, (UINT16)starting_frame));
+	return 1;
+}
+
 static int lib_pDoSuperTransformation(lua_State *L)
 {
 	player_t *player = *((player_t **)luaL_checkudata(L, 1, META_PLAYER));
@@ -4524,6 +4551,7 @@ static luaL_Reg lib[] = {
 	{"P_ThrustEvenIn2D",lib_pThrustEvenIn2D},
 	{"P_VectorInstaThrust",lib_pVectorInstaThrust},
 	{"P_SetMobjStateNF",lib_pSetMobjStateNF},
+	{"P_SetMobjAnimation",lib_pSetMobjAnimation},
 	{"P_DoSuperTransformation",lib_pDoSuperTransformation},
 	{"P_DoSuperDetransformation",lib_pDoSuperDetransformation},
 	{"P_ExplodeMissile",lib_pExplodeMissile},

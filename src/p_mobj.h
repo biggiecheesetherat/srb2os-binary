@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -309,6 +309,13 @@ typedef struct mobj_s
 	spritenum_t sprite; // used to find patch_t and flip value
 	UINT32 frame; // frame number, plus bits see p_pspr.h
 	UINT16 sprite2; // player sprites
+
+	UINT16 animation;
+	UINT16 anim_entry;
+	UINT16 anim_frame;
+	fixed_t anim_frame_duration;
+	fixed_t anim_timer;
+	fixed_t anim_speed_mul;
 	UINT16 anim_duration; // for FF_ANIMATE states
 
 	UINT32 renderflags; // render flags
@@ -452,6 +459,13 @@ typedef struct precipmobj_s
 	spritenum_t sprite; // used to find patch_t and flip value
 	UINT32 frame; // frame number, plus bits see p_pspr.h
 	UINT16 sprite2; // player sprites
+
+	UINT16 animation;
+	UINT16 anim_entry;
+	UINT16 anim_frame;
+	fixed_t anim_frame_duration;
+	fixed_t anim_timer;
+	fixed_t anim_speed_mul;
 	UINT16 anim_duration; // for FF_ANIMATE states
 
 	UINT32 renderflags; // render flags

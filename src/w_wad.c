@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -68,6 +68,7 @@
 #ifdef SCANTHINGS
 #include "p_setup.h" // P_ScanThings
 #endif
+#include "p_animation.h"
 #include "m_misc.h" // M_MapNumber
 #include "g_game.h" // G_SetGameModified
 
@@ -990,6 +991,9 @@ UINT16 W_InitFile(const char *filename, boolean mainfile, boolean startup)
 
 	// The below hack makes me load this here.
 	W_LoadTrnslateLumps(numwadfiles - 1);
+
+	// And this too.
+	P_LoadAnimations(numwadfiles - 1);
 
 	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
 	switch (wadfile->type)

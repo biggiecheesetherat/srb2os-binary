@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -38,8 +38,8 @@ skin_t **skins = NULL;
 // Gets the animation ID of a state
 UINT16 P_GetStateSprite2(state_t *state)
 {
-	if (state->sprite2)
-		return state->sprite2;
+	if (state->anim_entry)
+		return state->anim_entry;
 	else
 	{
 		// Transform the state frame into an animation ID
@@ -55,7 +55,7 @@ UINT16 P_GetStateSprite2(state_t *state)
 // Gets the starting frame of an animation
 UINT16 P_GetSprite2StateFrame(state_t *state)
 {
-	if (state->sprite2)
+	if (state->anim_entry)
 		return state->frame & FF_FRAMEMASK;
 	else
 		return 0;
@@ -64,9 +64,9 @@ UINT16 P_GetSprite2StateFrame(state_t *state)
 // Checks if a state should use the "super" variant of the animation
 boolean P_IsStateSprite2Super(state_t *state)
 {
-	if (state->sprite2)
+	if (state->anim_entry)
 	{
-		if (state->sprite2 & SPR2F_SUPER)
+		if (state->anim_entry & SPR2F_SUPER)
 			return true;
 	}
 	else if (state->frame & SPR2F_SUPER)

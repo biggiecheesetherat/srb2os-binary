@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -20,7 +20,6 @@
 #include "p_setup.h"
 #include "p_spec.h"
 #include "p_saveg.h"
-#include "p_animation.h"
 
 #include "i_time.h"
 #include "i_sound.h" // for I_PlayCD()..
@@ -8376,9 +8375,6 @@ static boolean P_LoadAddon(UINT16 numlumps)
 	R_AddSkins(wadnum, false); // faB: wadfile index in wadfiles[]
 	R_PatchSkins(wadnum, false); // toast: PATCH PATCH
 	ST_ReloadSkinFaceGraphics();
-
-	// Load animations
-	P_LoadAnimations(wadnum);
 
 	//
 	// edit music defs

@@ -195,11 +195,11 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 	if (anim_speed == 0)
 		return;
 
-	animator->timer += anim_speed;
-
 	// Oscillating animation
 	if (animator->direction == ANIM_DIR_OSCILLATE)
 	{
+		animator->timer += anim_speed;
+
 		while (animator->timer < 0 || animator->timer > animator->frame_duration)
 		{
 			UINT16 frame = animator->frame;
@@ -212,7 +212,7 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 
 				if (frame >= entry->num_frames)
 				{
-					if (entry->loop_index != 0 && entry->loop_index < entry->num_frames)
+					if (entry->loop_index != UINT16_MAX && entry->loop_index < entry->num_frames)
 						frame = entry->loop_index;
 					else
 						frame = entry->num_frames - 1;
@@ -225,9 +225,9 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 			{
 				animator->timer += animator->frame_duration;
 
-				if (frame == 0 || (entry->loop_index != 0 && (signed)frame - 1 < (signed)entry->loop_index))
+				if (frame == 0 || (entry->loop_index != UINT16_MAX && (signed)frame - 1 < (signed)entry->loop_index))
 				{
-					if (entry->loop_index != 0 && entry->loop_index < entry->num_frames)
+					if (entry->loop_index != UINT16_MAX && entry->loop_index < entry->num_frames)
 						frame = entry->loop_index;
 					else
 						frame = 0;
@@ -260,6 +260,8 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 	if (animator->direction == ANIM_DIR_REVERSE)
 		anim_speed = -anim_speed;
 
+	animator->timer += anim_speed;
+
 	// Animate forwards
 	if (anim_speed > 0)
 	{
@@ -270,7 +272,9 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 
 			if (animator->frame >= entry->num_frames)
 			{
-				if (entry->loop_index < entry->num_frames)
+				if (entry->loop_index == UINT16_MAX)
+					animator->frame = 0;
+				else if (entry->loop_index < entry->num_frames)
 					animator->frame = entry->loop_index;
 				else
 					animator->frame = entry->num_frames - 1;
@@ -298,7 +302,7 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 
 			if (animator->frame == 0)
 			{
-				if (entry->loop_index < entry->num_frames)
+				if (entry->loop_index != UINT16_MAX && entry->loop_index < entry->num_frames)
 					animator->frame = entry->loop_index;
 				else
 					animator->frame = entry->num_frames - 1;
@@ -505,7 +509,6 @@ static void parse_anim_frame(animation_frame_s *frame, json& entry)
 static void parse_anim_entry(animation_s *animation, json& entry)
 {
 	fixed_t speed = FRACUNIT;
-	unsigned loop_index = entry.value("loop_index", 0);
 	std::string direction = entry.value("direction", "forwards");
 	animation_direction_e direction_type;
 	json& entry_frames = entry.at("frames");
@@ -549,7 +552,7 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 	}
 
 	animation->speed = speed;
-	animation->loop_index = 0;
+	animation->loop_index = UINT16_MAX;
 	animation->direction = direction_type;
 
 	if (animation->frames)
@@ -572,18 +575,27 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 			i++;
 		}
 
-		if (loop_index >= num_entry_frames)
+		if (entry.contains("loop_index"))
 		{
-			loop_index = num_entry_frames - 1;
-			CONS_Alert(CONS_WARNING, "invalid animation loop index\n");
+			int loop_index = entry.at("loop_index");
+
+			if (loop_index < 0 || loop_index >= (signed)num_entry_frames)
+			{
+				if (loop_index != -1)
+				{
+					CONS_Alert(CONS_WARNING, "invalid animation loop index\n");
+				}
+
+				loop_index = UINT16_MAX;
+			}
+
+			animation->loop_index = (UINT16)loop_index;
 		}
 	}
 	else
 	{
 		throw std::runtime_error("no frames in subanimation");
 	}
-
-	animation->loop_index = loop_index;
 }
 
 static void parse_anim_list(std::string name, json& entry)

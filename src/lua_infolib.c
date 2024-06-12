@@ -1396,6 +1396,10 @@ static int mobjinfo_set(lua_State *L)
 		info->raisestate = luaL_checkinteger(L, 3);
 		break;
 	case mobjinfo_animation: {
+		if (lua_isnil(L, 3)) {
+			info->animation = 0;
+			break;
+		}
 		const char *animation_name = luaL_checkstring(L, 3);
 		UINT16 animation_id = P_GetNamedAnimationID(animation_name);
 		if (animation_id == 0)

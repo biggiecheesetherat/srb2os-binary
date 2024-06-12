@@ -20,6 +20,7 @@
 #include "p_setup.h"
 #include "p_spec.h"
 #include "p_saveg.h"
+#include "p_animation.h"
 
 #include "i_time.h"
 #include "i_sound.h" // for I_PlayCD()..
@@ -8375,6 +8376,9 @@ static boolean P_LoadAddon(UINT16 numlumps)
 	R_AddSkins(wadnum, false); // faB: wadfile index in wadfiles[]
 	R_PatchSkins(wadnum, false); // toast: PATCH PATCH
 	ST_ReloadSkinFaceGraphics();
+
+	// Load animations
+	P_LoadAnimations(wadnum);
 
 	//
 	// edit music defs

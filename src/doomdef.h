@@ -15,6 +15,10 @@
 #ifndef __DOOMDEF__
 #define __DOOMDEF__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Sound system select
 // This should actually be in the makefile,
 // but I can't stand that gibberish. D:
@@ -151,10 +155,10 @@ extern char logfilename[1024];
 // VERSIONSTRING_RC is for the resource-definition script used by windows builds
 #else
 #ifdef BETAVERSION
-#define VERSIONSTRING "v"SRB2VERSION" "BETAVERSION
+#define VERSIONSTRING "v" SRB2VERSION " " BETAVERSION
 #define VERSIONSTRING_RC SRB2VERSION " " BETAVERSION "\0"
 #else
-#define VERSIONSTRING "v"SRB2VERSION
+#define VERSIONSTRING "v" SRB2VERSION
 #define VERSIONSTRING_RC SRB2VERSION "\0"
 #endif
 // Hey! If you change this, add 1 to the MODVERSION below!
@@ -735,6 +739,10 @@ extern int
 #define MASTERSERVER
 #else
 #undef UPDATE_ALERT
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif // __DOOMDEF__

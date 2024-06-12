@@ -1280,13 +1280,9 @@ UINT16 W_CheckNumForNamePwad(const char *name, UINT16 wad, UINT16 startlump)
 UINT16 W_CheckNumForLongNamePwad(const char *name, UINT16 wad, UINT16 startlump)
 {
 	UINT16 i;
-	static char uname[256 + 1];
 
 	if (!TestValidLump(wad,0))
 		return INT16_MAX;
-
-	strlcpy(uname, name, sizeof uname);
-	strupr(uname);
 
 	//
 	// scan forward
@@ -1297,7 +1293,7 @@ UINT16 W_CheckNumForLongNamePwad(const char *name, UINT16 wad, UINT16 startlump)
 	{
 		lumpinfo_t *lump_p = wadfiles[wad]->lumpinfo + startlump;
 		for (i = startlump; i < wadfiles[wad]->numlumps; i++, lump_p++)
-			if (!strcmp(lump_p->longname, uname))
+			if (!stricmp(lump_p->longname, name))
 				return i;
 	}
 

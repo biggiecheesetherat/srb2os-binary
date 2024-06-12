@@ -48,6 +48,7 @@
 #include "m_misc.h"
 #include "p_setup.h"
 #include "p_saveg.h"
+#include "p_animation.h"
 #include "r_main.h"
 #include "r_local.h"
 #include "r_translation.h"
@@ -1499,6 +1500,9 @@ void D_SRB2Main(void)
 
 	CONS_Printf("HU_LoadGraphics()...\n");
 	HU_LoadGraphics();
+
+	CONS_Printf("P_InitAnimations()...\n");
+	P_InitAnimations();
 
 	//--------------------------------------------------------- CONFIG.CFG
 	M_FirstLoadConfig(); // WARNING : this do a "COM_BufExecute()"

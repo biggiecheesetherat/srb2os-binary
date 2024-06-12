@@ -47,6 +47,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	p_map.c
 	p_maputl.c
 	p_mobj.c
+	p_animation.cpp
 	p_polyobj.c
 	p_saveg.c
 	p_setup.c
@@ -326,7 +327,6 @@ target_compile_options(SRB2SDL2 PRIVATE
 		-Wno-absolute-value
 		-Wextra
 		-Wno-trigraphs
-		-Wconditional-uninitialized
 		-Wno-error=non-literal-null-conversion
 		-Wno-error=constant-conversion
 		-Wno-error=unused-but-set-variable
@@ -345,7 +345,6 @@ target_compile_options(SRB2SDL2 PRIVATE
 		-Wall
 		-Wextra
 		-Wno-trigraphs
-		-Wconditional-uninitialized
 	>
 
 	# C++, MSVC

@@ -79,14 +79,26 @@ static void P_UpdateAnimationFrame(mobj_t *mobj, struct animation_frame_s *frame
 
 static void P_SetupMobjAnimation(mobj_t *mobj, struct animation_s *entry)
 {
+	if (mobj->anim_direction == ANIM_DIR_OSCILLATE && mobj->anim_speed_mul < 0)
+		mobj->anim_speed_mul = -mobj->anim_speed_mul;
+
 	mobj->anim_timer = 0;
+	mobj->anim_direction = entry->direction;
 
 	if (entry->num_frames == 0)
 	{
 		return;
 	}
 
-	mobj->anim_frame %= entry->num_frames;
+	if (mobj->anim_frame == UINT16_MAX)
+	{
+		if (mobj->anim_direction == ANIM_DIR_REVERSE)
+			mobj->anim_frame = entry->num_frames - 1;
+		else
+			mobj->anim_frame = 0;
+	}
+	else
+		mobj->anim_frame %= entry->num_frames;
 
 	P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
 }
@@ -185,23 +197,106 @@ void P_UpdateAnimation(mobj_t *mobj)
 
 	mobj->anim_timer += anim_speed;
 
-	while (mobj->anim_timer > mobj->anim_frame_duration)
+	// Oscillating animation
+	if (mobj->anim_direction == ANIM_DIR_OSCILLATE)
 	{
-		mobj->anim_timer -= mobj->anim_frame_duration;
-		mobj->anim_frame++;
-
-		if (mobj->anim_frame >= entry->num_frames)
+		while (mobj->anim_timer < 0 || mobj->anim_timer > mobj->anim_frame_duration)
 		{
-			if (entry->loop_index < entry->num_frames)
-				mobj->anim_frame = entry->loop_index;
-			else
-				mobj->anim_frame = entry->num_frames - 1;
+			UINT16 frame = mobj->anim_frame;
+
+			if (anim_speed > 0)
+			{
+				mobj->anim_timer -= mobj->anim_frame_duration;
+
+				frame++;
+
+				if (frame >= entry->num_frames)
+				{
+					if (entry->loop_index != 0 && entry->loop_index < entry->num_frames)
+						frame = entry->loop_index;
+					else
+						frame = entry->num_frames - 1;
+
+					mobj->anim_speed_mul = -mobj->anim_speed_mul;
+					anim_speed = -anim_speed;
+				}
+			}
+			else if (anim_speed < 0)
+			{
+				mobj->anim_timer += mobj->anim_frame_duration;
+
+				if (frame == 0 || (entry->loop_index != 0 && (signed)frame - 1 < (signed)entry->loop_index))
+				{
+					if (entry->loop_index != 0 && entry->loop_index < entry->num_frames)
+						frame = entry->loop_index;
+					else
+						frame = 0;
+
+					mobj->anim_speed_mul = -mobj->anim_speed_mul;
+					anim_speed = -anim_speed;
+				}
+				else
+					frame--;
+			}
+
+			mobj->anim_frame = frame;
+
+			P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+
+			if (++i > TICRATE)
+				break;
 		}
 
-		P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+		return;
+	}
 
-		if (++i > TICRATE)
-			break;
+	if (mobj->anim_direction == ANIM_DIR_REVERSE)
+		anim_speed = -anim_speed;
+
+	// Animate forwards
+	if (anim_speed > 0)
+	{
+		while (mobj->anim_timer > mobj->anim_frame_duration)
+		{
+			mobj->anim_timer -= mobj->anim_frame_duration;
+			mobj->anim_frame++;
+
+			if (mobj->anim_frame >= entry->num_frames)
+			{
+				if (entry->loop_index < entry->num_frames)
+					mobj->anim_frame = entry->loop_index;
+				else
+					mobj->anim_frame = entry->num_frames - 1;
+			}
+
+			P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+
+			if (++i > TICRATE)
+				break;
+		}
+	}
+	// Animate backwards
+	else if (anim_speed < 0)
+	{
+		while (mobj->anim_timer < 0)
+		{
+			mobj->anim_timer += mobj->anim_frame_duration;
+
+			if (mobj->anim_frame == 0)
+			{
+				if (entry->loop_index < entry->num_frames)
+					mobj->anim_frame = entry->loop_index;
+				else
+					mobj->anim_frame = entry->num_frames - 1;
+			}
+			else
+				mobj->anim_frame--;
+
+			P_UpdateAnimationFrame(mobj, &entry->frames[mobj->anim_frame]);
+
+			if (++i > TICRATE)
+				break;
+		}
 	}
 }
 
@@ -379,7 +474,7 @@ static void parse_anim_entry(struct animation_s *animation, json& entry)
 {
 	fixed_t speed = FRACUNIT;
 	unsigned loop_index = entry.value("loop_index", 0);
-	std::string direction = entry.value("direction", "forward");
+	std::string direction = entry.value("direction", "forwards");
 	animation_direction_e direction_type;
 	json& entry_frames = entry.at("frames");
 	size_t num_entry_frames = entry_frames.size(), i = 0;
@@ -404,17 +499,17 @@ static void parse_anim_entry(struct animation_s *animation, json& entry)
 		}
 	}
 
-	if (direction == "forward")
+	if (direction == "forwards")
 	{
-		direction_type = ANIM_DIR_FORWARD;
+		direction_type = ANIM_DIR_FORWARDS;
 	}
-	else if (direction == "backward")
+	else if (direction == "reverse")
 	{
-		direction_type = ANIM_DIR_BACKWARD;
+		direction_type = ANIM_DIR_REVERSE;
 	}
-	else if (direction == "ping-pong")
+	else if (direction == "oscillate")
 	{
-		direction_type = ANIM_DIR_PINGPONG;
+		direction_type = ANIM_DIR_OSCILLATE;
 	}
 	else
 	{

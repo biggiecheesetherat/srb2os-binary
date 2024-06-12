@@ -22,9 +22,9 @@ extern "C" {
 
 typedef enum animation_direction_e
 {
-	ANIM_DIR_FORWARD,
-	ANIM_DIR_BACKWARD,
-	ANIM_DIR_PINGPONG
+	ANIM_DIR_FORWARDS,
+	ANIM_DIR_REVERSE,
+	ANIM_DIR_OSCILLATE
 } animation_direction_t;
 
 typedef struct animation_frame_s

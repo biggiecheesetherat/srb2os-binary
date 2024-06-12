@@ -316,6 +316,7 @@ typedef struct mobj_s
 	fixed_t anim_frame_duration;
 	fixed_t anim_timer;
 	fixed_t anim_speed_mul;
+	UINT8 anim_direction;
 	UINT16 anim_duration; // for FF_ANIMATE states
 
 	UINT32 renderflags; // render flags
@@ -466,6 +467,7 @@ typedef struct precipmobj_s
 	fixed_t anim_frame_duration;
 	fixed_t anim_timer;
 	fixed_t anim_speed_mul;
+	UINT8 anim_direction;
 	UINT16 anim_duration; // for FF_ANIMATE states
 
 	UINT32 renderflags; // render flags

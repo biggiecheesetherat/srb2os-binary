@@ -2508,7 +2508,7 @@ static int lib_pSetMobjAnimation(lua_State *L)
 	mobj_t *mobj = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
 	const char *animation_name = luaL_checkstring(L, 2);
 	const char *entry_name = luaL_checkstring(L, 3);
-	INT32 starting_frame = (INT32)luaL_optinteger(L, 4, 0);
+	INT32 starting_frame = (INT32)luaL_optinteger(L, 4, UINT16_MAX);
 	NOHUD
 	INLEVEL
 	if (!mobj)
@@ -2522,7 +2522,7 @@ static int lib_pSetMobjAnimation(lua_State *L)
 	if (entry_id == UINT16_MAX)
 		return luaL_error(L, "invalid entry name '%s' in animation '%s'", entry_name, animation_name);
 
-	if (starting_frame < 0)
+	if (starting_frame < 0 || starting_frame > UINT16_MAX)
 		return luaL_error(L, "invalid starting frame %d for entry '%s' in animation '%s'", starting_frame, entry_name, animation_name);
 
 	lua_pushboolean(L, P_SetMobjAnimation(mobj, animation_id, entry_id, (UINT16)starting_frame));

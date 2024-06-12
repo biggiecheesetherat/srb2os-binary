@@ -37,7 +37,7 @@ typedef struct animation_frame_s
 typedef struct animation_s
 {
 	const char *name;
-	tic_t speed;
+	fixed_t speed;
 	unsigned loop_index;
 	animation_direction_t direction;
 	animation_frame_t *frames;

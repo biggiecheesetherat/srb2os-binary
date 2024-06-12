@@ -14,6 +14,7 @@
 #include "nlohmann/json.hpp"
 
 #include "doomdef.h"
+#include "m_fixed.h"
 #include "p_pspr.h"
 #include "w_wad.h"
 #include "z_zone.h"
@@ -178,7 +179,11 @@ void P_UpdateAnimation(mobj_t *mobj)
 
 	unsigned i = 0;
 
-	mobj->anim_timer += entry->speed * mobj->anim_speed_mul;
+	fixed_t anim_speed = FixedMul(entry->speed, mobj->anim_speed_mul);
+	if (anim_speed == 0)
+		return;
+
+	mobj->anim_timer += anim_speed;
 
 	while (mobj->anim_timer > mobj->anim_frame_duration)
 	{
@@ -372,16 +377,31 @@ static void parse_anim_frame(struct animation_frame_s *frame, json& entry)
 
 static void parse_anim_entry(struct animation_s *animation, json& entry)
 {
-	tic_t speed = entry.value("speed", 1);
+	fixed_t speed = FRACUNIT;
 	unsigned loop_index = entry.value("loop_index", 0);
 	std::string direction = entry.value("direction", "forward");
 	animation_direction_e direction_type;
 	json& entry_frames = entry.at("frames");
 	size_t num_entry_frames = entry_frames.size(), i = 0;
 
-	if (speed < 1)
+	if (entry.contains("speed"))
 	{
-		throw std::runtime_error("invalid animation speed");
+		json speed_value = entry.at("speed");
+		if (speed_value.is_number_float())
+		{
+			float speed_flt = (float)speed_value;
+
+			if (fpclassify(speed_flt) == FP_ZERO || fpclassify(speed_flt) == FP_INFINITE || fpclassify(speed_flt) == FP_NAN)
+			{
+				throw std::runtime_error("invalid animation speed");
+			}
+
+			speed = FloatToFixed(speed_flt);
+		}
+		else
+		{
+			speed = ((INT32)speed_value) * FRACUNIT;
+		}
 	}
 
 	if (direction == "forward")

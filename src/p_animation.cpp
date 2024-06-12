@@ -345,9 +345,20 @@ static struct animation_s *find_or_create_animation_entry(struct animation_list_
 
 static void parse_anim_frame(struct animation_frame_s *frame, json& entry)
 {
-	UINT8 frame_num = entry.value("frame", 0);
-	tic_t duration = entry.value("duration", 1);
-	boolean mirrored = entry.value("mirrored", false);
+	UINT8 frame_num = 0;
+	tic_t duration = 1;
+	boolean mirrored = false;
+
+	if (entry.is_object() == true)
+	{
+		frame_num = entry.value("frame", 0);
+		duration = entry.value("duration", 1);
+		mirrored = entry.value("mirrored", false);
+	}
+	else
+	{
+		frame_num = (UINT8)entry;
+	}
 
 	frame->frame_num = frame_num;
 	frame->frame_flags = 0;

@@ -28,6 +28,12 @@
 #define DEFAULTSKIN2 "tails" // secondary player
 #define DEFAULTNIGHTSSKIN 0
 
+typedef struct skinspritedef_s
+{
+	UINT16 animation_id;
+	spritenum_t spritenum[NUMPLAYERSPRITES];
+} skinspritedef_t;
+
 /// The skin_t struct
 typedef struct
 {
@@ -80,20 +86,7 @@ typedef struct
 	// specific sounds per skin
 	sfxenum_t soundsid[NUMSKINSOUNDS]; // sound # in S_sfx table
 
-	UINT16 animation_id;
-	UINT16 super_animation_id;
-
-	spritedef_t sprites[NUMPLAYERSPRITES];
-	spriteinfo_t sprinfo[NUMPLAYERSPRITES];
-
-	// contains super versions too
-	struct {
-		spritedef_t sprites[NUMPLAYERSPRITES];
-		spriteinfo_t sprinfo[NUMPLAYERSPRITES];
-	} super;
-
-	// TODO: 2.3: Delete
-	spritedef_t sprites_compat[NUMPLAYERSPRITES * 2];
+	skinspritedef_t sprites[NUMSKINSPRITESETS];
 } skin_t;
 
 /// Externs
@@ -115,7 +108,9 @@ void R_PatchSkins(UINT16 wadnum, boolean mainfile);
 
 UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset);
 UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset);
+UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 subanim, player_t *player);
 boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super);
+spritenum_t P_GetSkinSpriteID(skin_t *skin, UINT16 subanim, UINT8 spriteset);
 spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 subanim, UINT8 spriteset);
 spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 subanim, UINT8 spriteset);
 spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim);

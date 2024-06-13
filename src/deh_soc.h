@@ -45,6 +45,9 @@
 #include "dehacked.h"
 #include "doomdef.h" // HWRENDER
 
+spritenum_t DEH_FindSpriteByName(const char *name);
+spritenum_t DEH_AddSpriteName(const char *name);
+
 // Crazy word-reading stuff
 /// \todo Put these in a seperate file or something.
 mobjtype_t get_mobjtype(const char *word);

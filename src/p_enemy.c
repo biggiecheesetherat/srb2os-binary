@@ -3431,7 +3431,7 @@ void A_1upThinker(mobj_t *actor)
 		}
 	}
 
-	if (closestplayer == -1 || skins[players[closestplayer].skin]->sprites[SPR2_LIFE].numframes == 0)
+	if (closestplayer == -1 || !P_IsSkinAnimationValid(skins[players[closestplayer].skin], SPR2_LIFE, SKINSPRITES_BASE))
 	{ // Closest player not found (no players in game?? may be empty dedicated server!), or does not have correct sprite.
 		if (actor->tracer)
 		{
@@ -3529,7 +3529,7 @@ void A_MonitorPop(mobj_t *actor)
 			if (!newmobj->target
 			 || !newmobj->target->player
 			 || !newmobj->target->skin
-			 || ((skin_t *)newmobj->target->skin)->sprites[SPR2_LIFE].numframes == 0)
+			 || !P_IsSkinAnimationValid((skin_t *)newmobj->target->skin, SPR2_LIFE, SKINSPRITES_BASE))
 				{} // No lives icon for this player, use the default.
 			else
 			{ // Spawn the lives icon.
@@ -3620,7 +3620,7 @@ void A_GoldMonitorPop(mobj_t *actor)
 			if (!newmobj->target
 			 || !newmobj->target->player
 			 || !newmobj->target->skin
-			 || ((skin_t *)newmobj->target->skin)->sprites[SPR2_LIFE].numframes == 0)
+			 || !P_IsSkinAnimationValid((skin_t *)newmobj->target->skin, SPR2_LIFE, SKINSPRITES_BASE))
 				{} // No lives icon for this player, use the default.
 			else
 			{ // Spawn the lives icon.
@@ -5104,7 +5104,7 @@ void A_SignPlayer(mobj_t *actor)
 
 		if (signcolor)
 			;
-		else if (!skin->sprites[SPR2_SIGN].numframes)
+		else if (!P_IsSkinAnimationValid(skin, SPR2_SIGN, SKINSPRITES_BASE))
 			signcolor = facecolor;
 		else if ((facecolor == skin->prefcolor) && (skin->prefoppositecolor)) // Set it as the skin's preferred oppositecolor?
 			signcolor = skin->prefoppositecolor;
@@ -5138,7 +5138,7 @@ void A_SignPlayer(mobj_t *actor)
 		facecolor = skin->prefcolor;
 		if (signcolor)
 			;
-		else if (!skin->sprites[SPR2_SIGN].numframes)
+		else if (!P_IsSkinAnimationValid(skin, SPR2_SIGN, SKINSPRITES_BASE))
 			signcolor = facecolor;
 		else if (skin->prefoppositecolor)
 			signcolor = skin->prefoppositecolor;
@@ -5150,7 +5150,7 @@ void A_SignPlayer(mobj_t *actor)
     {
 		if (skin)
 		{
-			if (skin->sprites[SPR2_SIGN].numframes) // player face
+			if (P_IsSkinAnimationValid(skin, SPR2_SIGN, SKINSPRITES_BASE)) // player face
 			{
 				ov->color = facecolor;
 				ov->skin = skin;

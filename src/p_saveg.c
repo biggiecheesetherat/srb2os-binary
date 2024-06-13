@@ -1746,7 +1746,8 @@ typedef enum
 	MD2_DISPOFFSET          = 1<<23,
 	MD2_DRAWONLYFORPLAYER   = 1<<24,
 	MD2_DONTDRAWFORVIEWMOBJ = 1<<25,
-	MD2_TRANSLATION         = 1<<26
+	MD2_TRANSLATION         = 1<<26,
+	MD2_SKINSPRITESET       = 1<<27
 } mobj_diff2_t;
 
 typedef enum
@@ -1884,8 +1885,6 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		diff |= MD_TICS;
 	if (mobj->sprite != mobj->state->sprite)
 		diff |= MD_SPRITE;
-	if (mobj->sprite == SPR_PLAY && mobj->skinspriteset != 0)
-		diff |= MD_SPRITE;
 	if (mobj->frame != mobj->state->frame)
 		diff |= MD_FRAME;
 	if (mobj->anim_duration != (UINT16)mobj->state->var2)
@@ -1937,6 +1936,8 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		diff2 |= MD2_COLOR;
 	if (mobj->translation)
 		diff2 |= MD2_TRANSLATION;
+	if (mobj->skinspriteset)
+		diff2 |= MD2_SKINSPRITESET;
 	if (mobj->skin)
 		diff2 |= MD2_SKIN;
 	if (mobj->extravalue1)
@@ -2066,11 +2067,7 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 	if (diff & MD_TICS)
 		WRITEINT32(save_p, mobj->tics);
 	if (diff & MD_SPRITE)
-	{
 		WRITEUINT16(save_p, mobj->sprite);
-		if (mobj->sprite == SPR_PLAY)
-			WRITEUINT8(save_p, mobj->skinspriteset);
-	}
 	if (diff & MD_FRAME)
 	{
 		WRITEUINT32(save_p, mobj->frame);
@@ -2173,6 +2170,8 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		WRITEINT32(save_p, mobj->dispoffset);
 	if (diff2 & MD2_TRANSLATION)
 		WRITEUINT16(save_p, mobj->translation);
+	if (diff2 & MD2_SKINSPRITESET)
+		WRITEUINT8(save_p, mobj->skinspriteset);
 
 	WRITEUINT32(save_p, mobj->mobjnum);
 }
@@ -3097,17 +3096,9 @@ static thinker_t* LoadMobjThinker(actionf_p1 thinker)
 	else
 		mobj->tics = mobj->state->tics;
 	if (diff & MD_SPRITE)
-	{
 		mobj->sprite = READUINT16(save_p);
-		if (mobj->sprite == SPR_PLAY)
-			mobj->skinspriteset = READUINT8(save_p);
-	}
 	else
-	{
 		mobj->sprite = mobj->state->sprite;
-		if (mobj->sprite == SPR_PLAY)
-			mobj->skinspriteset = 0;
-	}
 	if (diff & MD_FRAME)
 	{
 		mobj->frame = READUINT32(save_p);
@@ -3241,6 +3232,8 @@ static thinker_t* LoadMobjThinker(actionf_p1 thinker)
 		mobj->dispoffset = mobj->info->dispoffset;
 	if (diff2 & MD2_TRANSLATION)
 		mobj->translation = READUINT16(save_p);
+	if (diff2 & MD2_SKINSPRITESET)
+		mobj->skinspriteset = READUINT8(save_p);
 
 	if (diff & MD_REDFLAG)
 	{

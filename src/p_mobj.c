@@ -88,7 +88,7 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 {
 	INT32 animlength;
 
-	if (mobj->sprite == SPR_PLAY && mobj->skin)
+	if (st->sprite == SPR_PLAY && mobj->skin)
 	{
 		spritedef_t *spritedef = P_GetSkinSpritedef(mobj->skin, mobj->animator.subanimation, mobj->skinspriteset);
 		animlength = (INT32)(spritedef->numframes);
@@ -141,19 +141,14 @@ FUNCINLINE static ATTRINLINE void P_CycleStateAnimation(mobj_t *mobj)
 		return;
 	}
 
-	if ((mobj->frame & FF_ANIMATE) == 0)
+	if (mobj->frame & FF_ANIMATE)
 	{
-		return;
-	}
+		// var2 determines delay between animation frames
+		if (--mobj->anim_duration != 0)
+			return;
 
-	// var2 determines delay between animation frames
-	if (--mobj->anim_duration != 0)
-		return;
+		mobj->anim_duration = (UINT16)mobj->state->var2;
 
-	mobj->anim_duration = (UINT16)mobj->state->var2;
-
-	if (mobj->sprite != SPR_PLAY)
-	{
 		// compare the current sprite frame to the one we started from
 		// if more than var1 away from it, swap back to the original
 		// else just advance by one
@@ -204,6 +199,39 @@ static void P_CyclePlayerMobjState(mobj_t *mobj)
 	}
 }
 
+static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
+{
+	skin_t *skin = ((skin_t *)mobj->skin);
+	UINT16 animation;
+	UINT16 subanimation = st->anim_entry;
+	UINT8 spriteset = mobj->skinspriteset;
+	UINT8 starting_frame = st->frame & FF_FRAMEMASK;
+
+	if (P_ShouldUseSuperSprites(mobj, spriteset == SKINSPRITES_BASE && st->frame & SPR2F_SUPER))
+	{
+		spriteset = SKINSPRITES_SUPER;
+	}
+
+	animation = P_GetSkinAnimation(skin, spriteset);
+	subanimation = P_GetSkinSubanimation(skin, subanimation, spriteset, mobj->player, &spriteset);
+
+	mobj->sprite = P_GetSkinSpriteID(skin, subanimation, spriteset);
+
+	if ((st->frame & FF_SPR2MIDSTART) && P_RandomChance(FRACUNIT / 2))
+	{
+		starting_frame += P_GetSubanimationFrameCount(animation, subanimation) / 2;
+	}
+
+	P_SetMobjAnimation(mobj, animation, subanimation, starting_frame);
+
+	if (mobj->player && P_PlayerFullbright(mobj->player))
+		mobj->frame |= FF_FULLBRIGHT;
+
+	spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, mobj->animator.subanimation);
+	if (sprdef && st == &states[S_PLAY_STND] && spriteset == SKINSPRITES_SUPER && sprdef[SPR2_WAIT].numframes == 0)
+		mobj->tics = -1; // If no super wait, don't wait at all
+}
+
 //
 // P_SetPlayerMobjState
 // Returns true if the mobj is still present.
@@ -233,7 +261,7 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 		return P_SetPlayerMobjState(mobj, S_PLAY_FALL);
 
 	// Catch swimming versus flying
-	if ((state == S_PLAY_FLY || (state == S_PLAY_GLIDE && skins[player->skin]->sprites[SPR2_SWIM].numframes))
+	if ((state == S_PLAY_FLY || (state == S_PLAY_GLIDE && P_IsSkinAnimationValid(skins[player->skin], SPR2_SWIM, SKINSPRITES_BASE)))
 	&& player->mo->eflags & MFE_UNDERWATER && !player->skidtime)
 		return P_SetPlayerMobjState(player->mo, S_PLAY_SWIM);
 	else if (state == S_PLAY_SWIM && !(player->mo->eflags & MFE_UNDERWATER))
@@ -429,27 +457,7 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 		// Player animations
 		if (st->sprite == SPR_PLAY && mobj->skin)
 		{
-			skin_t *skin = ((skin_t *)mobj->skin);
-			UINT16 subanimation = st->anim_entry;
-			UINT8 spriteset = mobj->skinspriteset;
-
-			mobj->sprite = SPR_PLAY;
-
-			if (P_ShouldUseSuperSprites(mobj, spriteset == SKINSPRITES_BASE && st->frame & SPR2F_SUPER))
-			{
-				spriteset = SKINSPRITES_SUPER;
-			}
-
-			subanimation = P_GetSkinSubanimation(skin, subanimation, spriteset, player, &spriteset);
-
-			P_SetMobjAnimation(mobj, P_GetSkinAnimation(skin, spriteset), subanimation, st->frame & FF_FRAMEMASK);
-
-			if (P_PlayerFullbright(player))
-				mobj->frame |= FF_FULLBRIGHT;
-
-			spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, mobj->animator.subanimation);
-			if (sprdef && state == S_PLAY_STND && spriteset == SKINSPRITES_SUPER && sprdef[SPR2_WAIT].numframes == 0)
-				mobj->tics = -1; // If no super wait, don't wait at all
+			P_SetupPlayerMobjAnimation(mobj, st);
 		}
 		// Regular sprites
 		else
@@ -491,7 +499,6 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 	return true;
 }
 
-
 boolean P_SetMobjState(mobj_t *mobj, statenum_t state)
 {
 	state_t *st;
@@ -524,24 +531,7 @@ boolean P_SetMobjState(mobj_t *mobj, statenum_t state)
 		// Player animations
 		if (st->sprite == SPR_PLAY && mobj->skin)
 		{
-			skin_t *skin = ((skin_t *)mobj->skin);
-			UINT16 subanimation = st->anim_entry;
-			UINT8 spriteset = mobj->skinspriteset;
-
-			mobj->sprite = SPR_PLAY;
-
-			if (P_ShouldUseSuperSprites(mobj, spriteset == SKINSPRITES_BASE && st->frame & SPR2F_SUPER))
-			{
-				spriteset = SKINSPRITES_SUPER;
-			}
-
-			subanimation = P_GetSkinSubanimation(skin, subanimation, spriteset, NULL, &spriteset);
-
-			P_SetMobjAnimation(mobj, P_GetSkinAnimation(skin, spriteset), subanimation, st->frame & FF_FRAMEMASK);
-
-			spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, mobj->animator.subanimation);
-			if (sprdef && state == S_PLAY_STND && spriteset == SKINSPRITES_SUPER && sprdef[SPR2_WAIT].numframes == 0)
-				mobj->tics = -1; // If no super wait, don't wait at all
+			P_SetupPlayerMobjAnimation(mobj, st);
 		}
 		// Regular sprites
 		else
@@ -11049,6 +11039,7 @@ static precipmobj_t *P_SpawnPrecipMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype
 	mobj->tics = st->tics;
 	mobj->sprite = st->sprite;
 	mobj->frame = st->frame; // FF_FRAMEMASK for frame, and other bits..
+	mobj->animator.speed_mul = FRACUNIT;
 	P_SetupStateAnimation((mobj_t*)mobj, st);
 
 	// set subsector and/or block links
@@ -11607,15 +11598,17 @@ void P_SpawnPlayer(INT32 playernum)
 	mobj = P_SpawnMobj(0, 0, 0, MT_PLAYER, p);
 	I_Assert(mobj != NULL);
 
+	mobj->skin = skins[p->skin];
+
 	mobj->angle = 0;
 
 	// set color translations for player sprites
 	mobj->color = P_GetPlayerColor(p);
 
-	// set 'spritedef' override in mobj for player skins.. (see ProjectSprite)
-	// (usefulness: when body mobj is detached from player (who respawns),
-	// the dead body mobj retains the skin through the 'spritedef' override).
-	mobj->skin = skins[p->skin];
+	// Set proper player sprite and start animation
+	if (mobj->sprite == SPR_PLAY)
+		P_SetupPlayerMobjAnimation(mobj, mobj->state);
+
 	P_SetupStateAnimation(mobj, mobj->state);
 
 	mobj->health = 1;

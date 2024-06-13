@@ -8481,8 +8481,8 @@ static void M_DrawLoadGameData(void)
 			if (savegameinfo[savetodraw].botskin)
 			{
 				skin_t *charbotskin = skins[savegameinfo[savetodraw].botskin-1];
-				sprdef = &charbotskin->sprites[SPR2_SIGN];
-				if (!sprdef->numframes)
+				sprdef = P_GetSkinSpritedef(charbotskin, SPR2_SIGN, SKINSPRITES_BASE);
+				if (!sprdef || !sprdef->numframes)
 					goto skipbot;
 				colormap = R_GetTranslationColormap(savegameinfo[savetodraw].botskin-1, charbotskin->prefcolor, GTC_CACHE);
 				sprframe = &sprdef->spriteframes[0];
@@ -8501,10 +8501,10 @@ skipbot:
 			// signpost image
 			if (!charskin) // shut up compiler
 				goto skipsign;
-			sprdef = &charskin->sprites[SPR2_SIGN];
-			colormap = R_GetTranslationColormap(savegameinfo[savetodraw].skinnum, charskin->prefcolor, GTC_CACHE);
-			if (!sprdef->numframes)
+			sprdef = P_GetSkinSpritedef(charskin, SPR2_SIGN, SKINSPRITES_BASE);
+			if (!sprdef || !sprdef->numframes)
 				goto skipsign;
+			colormap = R_GetTranslationColormap(savegameinfo[savetodraw].skinnum, charskin->prefcolor, GTC_CACHE);
 			sprframe = &sprdef->spriteframes[0];
 			patch = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
 
@@ -8530,8 +8530,8 @@ skipsign:
 				goto skiplife;
 
 			// lives
-			sprdef = &charskin->sprites[SPR2_LIFE];
-			if (!sprdef->numframes)
+			sprdef = P_GetSkinSpritedef(charskin, SPR2_LIFE, SKINSPRITES_BASE);
+			if (!sprdef || sprdef->numframes)
 				goto skiplife;
 			sprframe = &sprdef->spriteframes[0];
 			patch = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
@@ -9064,9 +9064,9 @@ static void M_CacheCharacterSelectEntry(INT32 i, INT32 skinnum)
 {
 	if (!(description[i].picname[0]))
 	{
-		if (skins[skinnum]->sprites[SPR2_XTRA].numframes > XTRA_CHARSEL)
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnum], SPR2_XTRA, 0);
+		if (sprdef && sprdef->numframes > XTRA_CHARSEL)
 		{
-			spritedef_t *sprdef = &skins[skinnum]->sprites[SPR2_XTRA];
 			spriteframe_t *sprframe = &sprdef->spriteframes[XTRA_CHARSEL];
 			description[i].charpic = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
 		}
@@ -9863,9 +9863,9 @@ void M_DrawTimeAttackMenu(void)
 
 	// Character face!
 	{
-		if (skins[cv_chooseskin.value-1]->sprites[SPR2_XTRA].numframes > XTRA_CHARSEL)
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[cv_chooseskin.value-1], SPR2_XTRA, SKINSPRITES_BASE);
+		if (sprdef && sprdef->numframes > XTRA_CHARSEL)
 		{
-			spritedef_t *sprdef = &skins[cv_chooseskin.value-1]->sprites[SPR2_XTRA];
 			spriteframe_t *sprframe = &sprdef->spriteframes[XTRA_CHARSEL];
 			PictureOfUrFace = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
 		}
@@ -10189,37 +10189,42 @@ void M_DrawNightsAttackMenu(void)
 		// Draw selected character's NiGHTS sprite
 		patch_t *natksprite; //The patch for the sprite itself
 		INT32 spritetimer; //Timer for animating NiGHTS sprite
-		INT32 skinnumber; //Number for skin
+		INT32 skinnumber = cv_chooseskin.value-1; //Number for skin
 		UINT16 color; //natkcolor
 
-		if (skins[cv_chooseskin.value-1]->sprites[SPR2_NFLY].numframes == 0) //If we don't have NiGHTS sprites
-			skinnumber = 0; //Default to Sonic
-		else
-			skinnumber = (cv_chooseskin.value-1);
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnumber], SPR2_NFLY, 0);
+		if (sprdef == NULL) //If we don't have NiGHTS sprites
+		{
+			skinnumber = 0;
+			sprdef = P_GetSkinSpritedef(skins[skinnumber], SPR2_NFLY, 0); //Default to Sonic
+		}
 
-		spritedef_t *sprdef = &skins[skinnumber]->sprites[SPR2_NFLY]; //Make our patch the selected character's NFLY sprite
-		spritetimer = FixedInt(ntsatkdrawtimer/2) % skins[skinnumber]->sprites[SPR2_NFLY].numframes; //Make the sprite timer cycle though all the frames at 2 tics per frame
-		spriteframe_t *sprframe = &sprdef->spriteframes[spritetimer]; //Our animation frame is equal to the number on the timer
+		if (sprdef)
+		{
+			//Make our patch the selected character's NFLY sprite
+			spritetimer = FixedInt(ntsatkdrawtimer/2) % sprdef->numframes; //Make the sprite timer cycle though all the frames at 2 tics per frame
+			spriteframe_t *sprframe = &sprdef->spriteframes[spritetimer]; //Our animation frame is equal to the number on the timer
 
-		natksprite = W_CachePatchNum(sprframe->lumppat[6], PU_PATCH); //Draw the right facing angle
+			natksprite = W_CachePatchNum(sprframe->lumppat[6], PU_PATCH); //Draw the right facing angle
 
-		if (skins[skinnumber]->natkcolor) //If you set natkcolor use it
-			color = skins[skinnumber]->natkcolor;
-		else if ((skins[skinnumber]->flags & SF_SUPER) && !(skins[skinnumber]->flags & SF_NONIGHTSSUPER)) //If you go super in NiGHTS, use supercolor
-			color = skins[skinnumber]->supercolor+4;
-		else //If you don't go super in NiGHTS or at all, use prefcolor
-			color = skins[skinnumber]->prefcolor;
+			if (skins[skinnumber]->natkcolor) //If you set natkcolor use it
+				color = skins[skinnumber]->natkcolor;
+			else if ((skins[skinnumber]->flags & SF_SUPER) && !(skins[skinnumber]->flags & SF_NONIGHTSSUPER)) //If you go super in NiGHTS, use supercolor
+				color = skins[skinnumber]->supercolor+4;
+			else //If you don't go super in NiGHTS or at all, use prefcolor
+				color = skins[skinnumber]->prefcolor;
 
-		angle_t fa = (FixedAngle(((FixedInt(ntsatkdrawtimer * 4)) % 360)<<FRACBITS)>>ANGLETOFINESHIFT) & FINEMASK;
-		fixed_t scale = skins[skinnumber]->highresscale;
-		if (skins[skinnumber]->shieldscale)
-			scale = FixedDiv(scale, skins[skinnumber]->shieldscale);
+			angle_t fa = (FixedAngle(((FixedInt(ntsatkdrawtimer * 4)) % 360)<<FRACBITS)>>ANGLETOFINESHIFT) & FINEMASK;
+			fixed_t scale = skins[skinnumber]->highresscale;
+			if (skins[skinnumber]->shieldscale)
+				scale = FixedDiv(scale, skins[skinnumber]->shieldscale);
 
-		V_DrawFixedPatch(270<<FRACBITS, (186<<FRACBITS) - 8*FINESINE(fa),
-						 scale,
-						 (sprframe->flip & 1<<6) ? V_FLIP : 0,
-						 natksprite,
-						 R_GetTranslationColormap(TC_BLINK, color, GTC_CACHE));
+			V_DrawFixedPatch(270<<FRACBITS, (186<<FRACBITS) - 8*FINESINE(fa),
+							 scale,
+							 (sprframe->flip & 1<<6) ? V_FLIP : 0,
+							 natksprite,
+							 R_GetTranslationColormap(TC_BLINK, color, GTC_CACHE));
+		}
 
 		//if (P_HasGrades(cv_nextmap.value, 0))
 		//	V_DrawScaledPatch(235 - (((ngradeletters[bestoverall])->width)*3)/2, 135, 0, ngradeletters[bestoverall]);
@@ -12142,12 +12147,13 @@ static void M_SetPlayerSetupFollowItem(void)
 		case MT_TAILSOVERLAY:
 		{
 			const state_t *state = &states[S_TAILSOVERLAY_MINUS30DEGREES];
-			const UINT8 subanimation = P_GetSkinSubanimation(skins[setupm_fakeskin], state->frame & FF_FRAMEMASK, SKINSPRITES_BASE, NULL, NULL);
+			const UINT8 subanimation = P_GetSkinSubanimation(skins[setupm_fakeskin], state->anim_entry, SKINSPRITES_BASE, NULL, NULL);
+			spritedef_t *sprdef = P_GetSkinSpritedef(skins[setupm_fakeskin], subanimation, SKINSPRITES_BASE);
 
-			if (state->sprite != SPR_PLAY)
+			if (state->sprite != SPR_PLAY || sprdef == NULL)
 				break;
 
-			multi_followitem_sprdef = &skins[setupm_fakeskin]->sprites[subanimation];
+			multi_followitem_sprdef = sprdef;
 			multi_followitem_skinnum = setupm_fakeskin;
 			multi_followitem_numframes = multi_followitem_sprdef->numframes;
 			multi_followitem_startframe = 0;
@@ -12268,6 +12274,8 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	y += 11;
 
 	// anim the player in the box
+	// TODO: use an animator
+#if 0
 	if (!multi_paused)
 	{
 		multi_tics -= renderdeltatics;
@@ -12287,6 +12295,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 			}
 		}
 	}
+#endif
 
 #define charw 74
 
@@ -12294,9 +12303,9 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	V_DrawFill(x-(charw/2), y, charw, 84,
 		multi_invcolor ?skincolors[skincolors[setupm_fakecolor->color].invcolor].ramp[skincolors[setupm_fakecolor->color].invshade] : 159);
 
-	sprdef = &skins[setupm_fakeskin]->sprites[multi_spr2];
+	sprdef = P_GetSkinSpritedef(skins[setupm_fakeskin], multi_spr2, SKINSPRITES_BASE);
 
-	if (!setupm_fakecolor->color || !sprdef->numframes) // should never happen but hey, who knows
+	if (!setupm_fakecolor->color || !sprdef || !sprdef->numframes) // should never happen but hey, who knows
 		goto faildraw;
 
 	// ok, draw player sprite for sure now

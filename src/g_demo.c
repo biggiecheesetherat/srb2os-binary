@@ -411,7 +411,7 @@ void G_WriteGhostTic(mobj_t *ghost)
 		WRITEUINT8(demo_p,oldghost.frame);
 	}
 
-	if (ghost->sprite == SPR_PLAY && ghost->skinspriteset != oldghost.skinspriteset)
+	if (ghost->skinspriteset != oldghost.skinspriteset)
 	{
 		oldghost.skinspriteset = ghost->skinspriteset;
 		ziptic |= GZT_SPRSET;
@@ -1311,7 +1311,7 @@ void G_WriteMetalTic(mobj_t *metal)
 		WRITEUINT32(demo_p,oldmetal.frame);
 	}
 
-	if (metal->sprite == SPR_PLAY && metal->skinspriteset != oldmetal.skinspriteset)
+	if (metal->skinspriteset != oldmetal.skinspriteset)
 	{
 		oldmetal.skinspriteset = metal->skinspriteset;
 		ziptic |= GZT_SPRSET;

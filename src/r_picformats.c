@@ -1674,8 +1674,9 @@ static void R_ParseSpriteInfo(boolean spr2)
 					for (i = 0; i < foundskins; i++)
 					{
 						skin_t *skin = skins[skinnumbers[i]];
-						spriteinfo_t *sprinfo = skin->sprinfo;
-						M_Memcpy(&sprinfo[spr2num], info, sizeof(spriteinfo_t));
+						spriteinfo_t *skinsprinfo = P_GetSkinSpriteInfo(skin, spr2num, SKINSPRITES_BASE);
+						if (skinsprinfo != NULL)
+							M_Memcpy(skinsprinfo, info, sizeof(spriteinfo_t));
 					}
 				}
 				else

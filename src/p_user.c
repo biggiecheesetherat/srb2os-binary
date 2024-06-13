@@ -788,7 +788,7 @@ void P_NightserizePlayer(player_t *player, INT32 nighttime)
 		player->mo->height = P_GetPlayerHeight(player); // Just to make sure jumping into the drone doesn't result in a squashed hitbox.
 		player->oldscale = player->mo->scale;
 
-		if (skins[player->skin]->sprites[SPR2_NFLY].numframes == 0) // If you don't have a sprite for flying horizontally, use the default NiGHTS skin.
+		if (!P_IsSkinAnimationValid(skins[player->skin], SPR2_NFLY, SKINSPRITES_BASE)) // If you don't have a sprite for flying horizontally, use the default NiGHTS skin.
 		{
 			player->mo->skin = skins[DEFAULTNIGHTSSKIN];
 			if (!(cv_debug || devparm) && !(netgame || multiplayer || demoplayback))
@@ -12879,7 +12879,7 @@ void P_PlayerAfterThink(player_t *player)
 				{
 					if (player->mo->state-states != S_PLAY_RIDE)
 						P_SetMobjState(player->mo, S_PLAY_RIDE);
-					if (tails->player && (tails->skin && ((skin_t *)(tails->skin))->sprites[SPR2_SWIM].numframes) && (tails->eflags & MFE_UNDERWATER))
+					if (tails->player && (tails->skin && P_IsSkinAnimationValid((skin_t *)tails->skin, SPR2_SWIM, SKINSPRITES_BASE)) && (tails->eflags & MFE_UNDERWATER))
 						tails->player->powers[pw_tailsfly] = 0;
 				}
 				else if (player->powers[pw_carry] == CR_NONE)

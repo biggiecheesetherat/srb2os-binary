@@ -1167,7 +1167,9 @@ typedef enum playersprite
 typedef enum skinspriteset
 {
 	SKINSPRITES_BASE,
-	SKINSPRITES_SUPER
+	SKINSPRITES_SUPER,
+
+	NUMSKINSPRITESETS
 } skinspriteset_t;
 
 enum

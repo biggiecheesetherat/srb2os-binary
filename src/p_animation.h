@@ -68,6 +68,8 @@ UINT16 P_GetNamedSubanimationID(UINT16 animation_id, const char *entry_name);
 const char *P_GetAnimationNameByID(UINT16 animation_id);
 const char *P_GetSubanimationNameByID(UINT16 animation_id, UINT16 subanimation_id);
 
+UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

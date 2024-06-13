@@ -1075,37 +1075,39 @@ static boolean HWR_CanInterpolateSprite2(modelspr2frames_t *spr2frame)
 	return spr2frame->interpolate;
 }
 
-static modelspr2frames_t *HWR_GetModelSprite2Frames(md2_t *md2, UINT16 spr2, UINT8 spriteset)
+// FIXME: This sucks
+static modelspr2frames_t *HWR_GetSkinModelFrames(md2_t *md2, UINT16 subanim, UINT8 spriteset)
 {
-	if (!md2 || !md2->model)
-		return NULL;
-
-	if (spr2 >= free_spr2)
+	if (!md2 || !md2->model || subanim >= free_spr2)
 		return NULL;
 
 	if (spriteset == SKINSPRITES_SUPER)
 	{
 		modelspr2frames_t *frames = md2->model->superspr2frames;
-		if (frames && md2->model->superspr2frames[spr2].numframes)
-			return &md2->model->superspr2frames[spr2];
+		if (frames && md2->model->superspr2frames[subanim].numframes)
+			return &md2->model->superspr2frames[subanim];
 	}
 
-	if (md2->model->spr2frames[spr2].numframes)
-		return &md2->model->spr2frames[spr2];
+	if (md2->model->spr2frames[subanim].numframes)
+		return &md2->model->spr2frames[subanim];
 
 	return NULL;
 }
 
-static UINT16 HWR_GetModelSprite2Num(md2_t *md2, skin_t *skin, UINT16 spr2, UINT8 spriteset, player_t *player)
+static UINT16 HWR_GetSkinModelSubanim(md2_t *md2, skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset)
 {
 	UINT8 stored_spriteset = spriteset;
 	UINT8 i = 0;
 
-	if (!md2 || !md2->model || !skin)
-		return 0;
+	if (!skin)
+	{
+		if (found_spriteset)
+			*found_spriteset = SKINSPRITES_BASE;
+		return SPR2_STND;
+	}
 
-	while (!HWR_GetModelSprite2Frames(md2, spr2, spriteset)
-		&& spr2 != SPR2_STND
+	while (!HWR_GetSkinModelFrames(md2, subanim, spriteset)
+		&& subanim != SPR2_STND
 		&& ++i < 32) // recursion limiter
 	{
 		if (spriteset != SKINSPRITES_BASE)
@@ -1115,34 +1117,21 @@ static UINT16 HWR_GetModelSprite2Num(md2_t *md2, skin_t *skin, UINT16 spr2, UINT
 			continue;
 		}
 
-		switch(spr2)
-		{
-		// Normal special cases.
-		case SPR2_JUMP:
-			spr2 = ((player
-					? player->charflags
-					: skin->flags)
-					& SF_NOJUMPSPIN) ? SPR2_SPNG : SPR2_ROLL;
-			break;
-		case SPR2_TIRE:
-			spr2 = ((player
-					? player->charability
-					: skin->ability)
-					== CA_SWIM) ? SPR2_SWIM : SPR2_FLY;
-			break;
-		// Use the handy list, that's what it's there for!
-		default:
-			spr2 = spr2defaults[spr2];
-			break;
-		}
+		subanim = P_GetPlayerSubanimReplacement(skin, subanim, player);
 
 		spriteset = stored_spriteset;
 	}
 
 	if (i >= 32) // probably an infinite loop...
-		spr2 = 0;
+	{
+		subanim = SPR2_STND;
+		spriteset = SKINSPRITES_BASE;
+	}
 
-	return spr2;
+	if (found_spriteset)
+		*found_spriteset = spriteset;
+
+	return subanim;
 }
 
 // Adjust texture coords of model to fit into a patch's max_s and max_t
@@ -1303,10 +1292,11 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 
 		// don't forget to enable the depth test because we can't do this
 		// like before: model polygons are not sorted
+		boolean is_player_sprite = spr->mobj->skin && spr->mobj->state->sprite == SPR_PLAY;
 
 		// 1. load model+texture if not already loaded
 		// 2. draw model with correct position, rotation,...
-		if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY) // Use the player MD2 list if the mobj has a skin and is using the player sprites
+		if (is_player_sprite) // Use the player MD2 list if the mobj has a skin and is using the player sprites
 		{
 			UINT8 skinnum = ((skin_t*)spr->mobj->skin)->skinnum;
 			md2 = &md2_playermodels[skinnum];
@@ -1403,7 +1393,7 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 					else
 						skinnum = TC_RAINBOW;
 				}
-				else if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+				else if (is_player_sprite)
 					skinnum = ((skin_t*)spr->mobj->skin)->skinnum;
 				else
 					skinnum = TC_DEFAULT;
@@ -1432,20 +1422,20 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			tics = (float)spr->mobj->anim_duration;
 		}
 
-		if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
-			sprdef = P_GetSkinAnimSpritedef(spr->mobj->skin, spr->mobj->animator.animation, spr->mobj->animator.subanimation);
-		else
-			sprdef = &sprites[spr->mobj->sprite];
+		sprdef = &sprites[spr->mobj->sprite];
+		frame = spr->mobj->frame & FF_FRAMEMASK;
 
-		frame = (spr->mobj->frame & FF_FRAMEMASK);
-		if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+		UINT8 spriteset = spr->mobj->skinspriteset;
+
+		if (is_player_sprite)
 		{
-			spr2 = HWR_GetModelSprite2Num(md2, spr->mobj->skin, spr->mobj->animator.subanimation, spr->mobj->skinspriteset, spr->mobj->player);
-			spr2frames = HWR_GetModelSprite2Frames(md2, spr2, spr->mobj->skinspriteset);
+			spr2 = HWR_GetSkinModelSubanim(md2, spr->mobj->skin, spr->mobj->animator.subanimation, spriteset, spr->mobj->player, &spriteset);
+			spr2frames = HWR_GetSkinModelFrames(md2, spr2, spriteset);
 		}
+
 		if (spr2frames)
 		{
-			spritedef_t *defaultdef = P_GetSkinSpritedef(spr->mobj->skin, spr2, spr->mobj->skinspriteset);
+			spritedef_t *defaultdef = P_GetSkinSpritedef(spr->mobj->skin, spr2, spriteset);
 			mod = spr2frames->numframes;
 #ifndef DONTHIDEDIFFANIMLENGTH // by default, different anim length is masked by the mod
 			if (mod > (INT32)defaultdef->numframes)
@@ -1454,6 +1444,7 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			if (!mod)
 				mod = 1;
 			frame = spr2frames->frames[frame % mod];
+			nextFrame = frame;
 		}
 		else
 		{
@@ -1477,30 +1468,27 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			{
 				state_t *state = &states[spr->mobj->state->nextstate];
 
-				UINT8 spriteset = spr->mobj->skinspriteset;
+				UINT8 next_spriteset = spr->mobj->skinspriteset;
 
 				if (P_ShouldUseSuperSprites(spr->mobj, spriteset == SKINSPRITES_BASE && state->frame & SPR2F_SUPER))
-					spriteset = SKINSPRITES_SUPER;
+					next_spriteset = SKINSPRITES_SUPER;
 
 				if (HWR_CanInterpolateSprite2(spr2frames)
 					&& (spr->mobj->frame & FF_ANIMATE
 					|| (spr->mobj->state->nextstate != S_NULL
 					&& states[spr->mobj->state->nextstate].sprite == SPR_PLAY
-					&& spr->mobj->skinspriteset == spriteset
-					&& ((P_GetSkinSubanimation(spr->mobj->skin, state->anim_entry, spriteset, spr->mobj->player, NULL) == spr->mobj->animator.subanimation)))))
+					&& spriteset == next_spriteset
+					&& ((P_GetSkinSubanimation(spr->mobj->skin, state->anim_entry, next_spriteset, spr->mobj->player, NULL) == spr->mobj->animator.subanimation)))))
 				{
-					nextFrame = (spr->mobj->frame & FF_FRAMEMASK) + 1;
+					// FIXME
+#if 0
+					nextFrame = frame;
 					if (nextFrame >= mod)
 					{
-						if (spr->mobj->state->frame & FF_SPR2ENDSTATE)
-							nextFrame--;
-						else
-							nextFrame = 0;
+						nextFrame = 0;
 					}
-					if (frame || !(spr->mobj->state->frame & FF_SPR2ENDSTATE))
-						nextFrame = spr2frames->frames[nextFrame];
-					else
-						nextFrame = -1;
+					nextFrame = spr2frames->frames[nextFrame];
+#endif
 				}
 			}
 			else if (HWR_CanInterpolateModel(spr->mobj, md2->model))

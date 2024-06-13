@@ -25,6 +25,7 @@
 #include "../i_video.h"
 #include "../v_video.h"
 #include "../p_local.h"
+#include "../p_animation.h"
 #include "../p_setup.h"
 #include "../r_fps.h"
 #include "../r_local.h"
@@ -4148,7 +4149,7 @@ static void HWR_DrawSprites(void)
 				skipshadow = false;
 			}
 
-			if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+			if (spr->mobj && spr->mobj->skin && spr->mobj->state->sprite == SPR_PLAY)
 			{
 				if (!cv_glmodels.value || !md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].found || md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].scale < 0.0f)
 					HWR_DrawSprite(spr);
@@ -4362,25 +4363,26 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	rot = thing->frame&FF_FRAMEMASK;
 
 	//Fab : 02-08-98: 'skin' override spritedef currently used for skin
-	if (thing->skin && thing->sprite == SPR_PLAY)
-	{
-		sprdef = P_GetSkinAnimSpritedef(thing->skin, thing->animator.animation, thing->animator.subanimation);
+	// Lactozilla: No longer needed. Skins now use sprites[] and spriteinfo[]
+	sprdef = &sprites[thing->sprite];
 #ifdef ROTSPRITE
-		sprinfo = P_GetSkinAnimSpriteInfo(thing->skin, thing->animator.animation, thing->animator.subanimation);
+	sprinfo = &spriteinfo[thing->sprite];
 #endif
-	}
-	else
-	{
-		sprdef = &sprites[thing->sprite];
-#ifdef ROTSPRITE
-		sprinfo = &spriteinfo[thing->sprite];
-#endif
-	}
 
 	if (rot >= sprdef->numframes)
 	{
-		CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
-			sizeu1(rot), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
+		if (thing->animator.animation)
+		{
+			CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for animation %s subanimation %s\n"),
+				sizeu1(rot), sizeu2(sprdef->numframes),
+				P_GetAnimationNameByID(thing->animator.animation),
+				P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation));
+		}
+		else
+		{
+			CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
+				sizeu1(rot), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
+		}
 		thing->sprite = states[S_UNKNOWN].sprite;
 		thing->frame = states[S_UNKNOWN].frame;
 		sprdef = &sprites[thing->sprite];
@@ -4388,8 +4390,6 @@ static void HWR_ProjectSprite(mobj_t *thing)
 		sprinfo = &spriteinfo[thing->sprite];
 #endif
 		rot = thing->frame&FF_FRAMEMASK;
-		thing->state->sprite = thing->sprite;
-		thing->state->frame = thing->frame;
 	}
 
 	sprframe = &sprdef->spriteframes[rot];

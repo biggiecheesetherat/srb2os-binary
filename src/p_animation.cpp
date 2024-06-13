@@ -123,9 +123,9 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 
 	if (subanimation_id >= animation->count)
 	{
-		subanimation_id = 0;
+		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid subanimation ID %d/%s for animation '%s'\n", subanimation_id, sizeu1(animation->count), P_GetAnimationNameByID(animation_id));
 
-		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid subanimation %d for animation ID %d\n", subanimation_id, animation_id);
+		subanimation_id = 0;
 	}
 
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
@@ -392,57 +392,20 @@ const char *P_GetSubanimationNameByID(UINT16 animation_id, UINT16 subanimation_i
 	return nullptr;
 }
 
-// Animation parsing
-static void read_animation_from_file(const char *lump, size_t lump_len);
-
-static void load_animations_from_range(UINT16 wadnum, UINT16 start, UINT16 end)
+UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id)
 {
-	UINT16 lump = start;
-
-	while (true)
+	animation_list_s *animation = get_animation_by_id(animation_id);
+	if (animation == nullptr)
 	{
-		lump = W_CheckNumForLongNamePwad("animation_defs", (UINT16)wadnum, lump);
-		if (lump == INT16_MAX || lump >= end)
-			break;
-
-		lumpnum_t global_lump_id = (wadnum << 16) + lump;
-		size_t lump_len = W_LumpLength(global_lump_id);
-		const char *lump_text = static_cast<const char *>( W_CacheLumpNum(global_lump_id, PU_CACHE) );
-
-		read_animation_from_file(lump_text, lump_len);
-
-		lump++;
-	}
-}
-
-void P_LoadAnimations(UINT16 wadnum)
-{
-	UINT16 start = INT16_MAX, end = INT16_MAX;
-
-	start = W_CheckNumForFolderStartPK3("Sprites/", wadnum, 0);
-	if (start != INT16_MAX)
-	{
-		end = W_CheckNumForFolderEndPK3("Sprites/", wadnum, start);
-		if (end != INT16_MAX)
-		{
-			load_animations_from_range(wadnum, start, end);
-		}
+		return 0;
 	}
 
-	start = W_CheckNumForFolderStartPK3("LongSprites/", wadnum, 0);
-	if (start != INT16_MAX)
+	if (subanimation_id < animation->count)
 	{
-		end = W_CheckNumForFolderEndPK3("LongSprites/", wadnum, start);
-		if (end != INT16_MAX)
-		{
-			load_animations_from_range(wadnum, start, end);
-		}
+		return animation->animations[subanimation_id]->num_frames;
 	}
-}
 
-void P_InitAnimations(void)
-{
-	// TODO: Create a preset player animation that skins inherit from.
+	return 0;
 }
 
 static animation_list_s *find_or_create_animation(const char *name)
@@ -510,6 +473,59 @@ animation_s *P_FindOrCreateSubAnimation(animation_list_s *animation, const char 
 animation_s *P_FindOrCreateSubAnimationAt(animation_list_s *animation, const char *subanimation_name, unsigned index)
 {
 	return find_or_create_subanimation(animation, subanimation_name, (int)index);
+}
+
+void P_InitAnimations(void)
+{
+	// TODO: Create a preset player animation that skins inherit from.
+}
+
+// Animation parsing
+static void read_animation_from_file(const char *lump, size_t lump_len);
+
+static void load_animations_from_range(UINT16 wadnum, UINT16 start, UINT16 end)
+{
+	UINT16 lump = start;
+
+	while (true)
+	{
+		lump = W_CheckNumForLongNamePwad("animation_defs", (UINT16)wadnum, lump);
+		if (lump == INT16_MAX || lump >= end)
+			break;
+
+		lumpnum_t global_lump_id = (wadnum << 16) + lump;
+		size_t lump_len = W_LumpLength(global_lump_id);
+		const char *lump_text = static_cast<const char *>( W_CacheLumpNum(global_lump_id, PU_CACHE) );
+
+		read_animation_from_file(lump_text, lump_len);
+
+		lump++;
+	}
+}
+
+void P_LoadAnimations(UINT16 wadnum)
+{
+	UINT16 start = INT16_MAX, end = INT16_MAX;
+
+	start = W_CheckNumForFolderStartPK3("Sprites/", wadnum, 0);
+	if (start != INT16_MAX)
+	{
+		end = W_CheckNumForFolderEndPK3("Sprites/", wadnum, start);
+		if (end != INT16_MAX)
+		{
+			load_animations_from_range(wadnum, start, end);
+		}
+	}
+
+	start = W_CheckNumForFolderStartPK3("LongSprites/", wadnum, 0);
+	if (start != INT16_MAX)
+	{
+		end = W_CheckNumForFolderEndPK3("LongSprites/", wadnum, start);
+		if (end != INT16_MAX)
+		{
+			load_animations_from_range(wadnum, start, end);
+		}
+	}
 }
 
 static void parse_anim_frame(animation_frame_s *frame, json& entry)

@@ -399,6 +399,42 @@ void readPlayer(MYFILE *f, INT32 num)
 	Z_Free(s);
 }
 
+spritenum_t DEH_FindSpriteByName(const char *name)
+{
+	// Search freeslots first
+	for (spritenum_t i = SPR_FIRSTFREESLOT; i <= SPR_LASTFREESLOT; i++)
+	{
+		if (in_bit_array(used_spr, i - SPR_FIRSTFREESLOT) && stricmp(sprnames[i], name) == 0)
+			return i;
+	}
+
+	// Now regular sprites
+	for (spritenum_t i = SPR_NULL + 1; i < SPR_FIRSTFREESLOT; i++)
+	{
+		if (stricmp(sprnames[i], name) == 0)
+			return i;
+	}
+
+	return NUMSPRITES;
+}
+
+spritenum_t DEH_AddSpriteName(const char *name)
+{
+	for (spritenum_t i = SPR_FIRSTFREESLOT; i <= SPR_LASTFREESLOT; i++)
+	{
+		if (in_bit_array(used_spr, i - SPR_FIRSTFREESLOT))
+			continue; // Already allocated, next.
+		// Found a free slot!
+		strcpy(sprnames[i], name);
+		set_bit_array(used_spr, i - SPR_FIRSTFREESLOT); // Okay, this sprite slot has been named now.
+		// Lua needs to update the value in _G if it exists
+		LUA_UpdateSprName(name, i);
+		return i;
+	}
+
+	return NUMSPRITES;
+}
+
 // TODO: Figure out how to do undolines for this....
 // TODO: Warnings for running out of freeslots
 void readfreeslots(MYFILE *f)
@@ -445,17 +481,7 @@ void readfreeslots(MYFILE *f)
 				if (strlen(word) > MAXSPRITENAME)
 					I_Error("Sprite name is longer than %d characters\n", MAXSPRITENAME);
 
-				for (i = SPR_FIRSTFREESLOT; i <= SPR_LASTFREESLOT; i++)
-				{
-					if (in_bit_array(used_spr, i - SPR_FIRSTFREESLOT))
-						continue; // Already allocated, next.
-					// Found a free slot!
-					strcpy(sprnames[i], word);
-					set_bit_array(used_spr, i - SPR_FIRSTFREESLOT); // Okay, this sprite slot has been named now.
-					// Lua needs to update the value in _G if it exists
-					LUA_UpdateSprName(word, i);
-					break;
-				}
+				DEH_AddSpriteName(word);
 			}
 			else if (fastcmp(type, "S"))
 			{
@@ -1080,8 +1106,9 @@ void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
 					for (i = 0; i < foundskins; i++)
 					{
 						skin_t *skin = skins[skinnumbers[i]];
-						spriteinfo_t *sprinfo = skin->sprinfo;
-						M_Memcpy(&sprinfo[num], info, sizeof(spriteinfo_t));
+						spriteinfo_t *skinsprinfo = P_GetSkinSpriteInfo(skin, num, SKINSPRITES_BASE);
+						if (skinsprinfo != NULL)
+							M_Memcpy(skinsprinfo, info, sizeof(spriteinfo_t));
 					}
 				}
 				else

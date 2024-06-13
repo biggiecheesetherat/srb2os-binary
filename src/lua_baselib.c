@@ -188,7 +188,6 @@ static const struct {
 
 	{META_SKINSPRITES,       "skin_t.skinsprites"},
 	{META_SKINSPRITESLIST,   "skin_t.skinsprites[]"},
-	{META_SKINSPRITESCOMPAT, "skin_t.sprites"}, // TODO: 2.3: Delete
 
 	{META_VERTEX,       "vertex_t"},
 	{META_LINE,         "line_t"},

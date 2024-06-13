@@ -1292,7 +1292,7 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 
 		// don't forget to enable the depth test because we can't do this
 		// like before: model polygons are not sorted
-		boolean is_player_sprite = spr->mobj->skin && spr->mobj->state->sprite == SPR_PLAY;
+		boolean is_player_sprite = spr->mobj->skin && P_IsSkinSprite(spr->mobj->skin, spr->mobj->sprite);
 
 		// 1. load model+texture if not already loaded
 		// 2. draw model with correct position, rotation,...

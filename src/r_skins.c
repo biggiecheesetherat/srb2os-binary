@@ -21,8 +21,8 @@
 #include "m_menu.h"
 #include "m_misc.h"
 #include "info.h" // spr2names
-#include "deh_soc.h"
-#include "i_video.h" // rendermode
+#include "deh_soc.h" // DEH_AddSpriteName
+#include "deh_tables.h" // used_skinspr
 #include "i_system.h"
 #include "r_things.h"
 #include "r_skins.h"
@@ -119,6 +119,29 @@ const char *P_GetPlayerAnimName(UINT16 playeranim)
 		return NULL;
 
 	return player_anim_names[playeranim];
+}
+
+boolean P_IsSkinSprite(skin_t *skin, spritenum_t spritenum)
+{
+	// Cannot possibly be a skin sprite
+	if (spritenum < SPR_FIRSTFREESLOT)
+		return false;
+
+	if (skin)
+	{
+		if (in_bit_array(used_skinspr, spritenum - SPR_FIRSTFREESLOT))
+			return true;
+	}
+	else
+	{
+		for (INT32 i = 0; i < numskins; i++)
+		{
+			if (P_IsSkinSprite(skins[i], spritenum))
+				return true;
+		}
+	}
+
+	return false;
 }
 
 // Checks if an object should use super sprites
@@ -744,6 +767,8 @@ static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *
 					Z_Free(spritedef.spriteframes);
 					return false;
 				}
+
+				set_bit_array(used_skinspr, sprnum - SPR_FIRSTFREESLOT);
 			}
 
 			def->spritenum[subanimation_id] = sprnum;

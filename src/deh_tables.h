@@ -24,12 +24,14 @@ extern char *FREE_STATES[NUMSTATEFREESLOTS];
 extern char *FREE_MOBJS[NUMMOBJFREESLOTS];
 extern char *FREE_SKINCOLORS[NUMCOLORFREESLOTS];
 extern bitarray_t used_spr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Sprite freeslots in use
+extern bitarray_t used_skinspr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Which sprite freeslots are being used by skins
 
 #define initfreeslots() {\
 	memset(FREE_STATES, 0, sizeof(FREE_STATES));\
 	memset(FREE_MOBJS, 0, sizeof(FREE_MOBJS));\
 	memset(FREE_SKINCOLORS, 0, sizeof(FREE_SKINCOLORS));\
 	memset(used_spr, 0, sizeof(used_spr));\
+	memset(used_skinspr, 0, sizeof(used_skinspr));\
 	memset(actionsoverridden, LUA_REFNIL, sizeof(actionsoverridden));\
 }
 

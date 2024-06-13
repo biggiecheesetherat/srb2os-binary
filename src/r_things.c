@@ -954,7 +954,7 @@ UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 trans
 {
 	INT32 skinnum = TC_DEFAULT;
 
-	boolean is_player = mobj->skin && mobj->state->sprite == SPR_PLAY;
+	boolean is_player = mobj->skin && P_IsSkinSprite(mobj->skin, mobj->sprite);
 	if (is_player) // This thing is a player!
 		skinnum = ((skin_t*)mobj->skin)->skinnum;
 

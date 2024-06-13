@@ -116,6 +116,7 @@ spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 subanim, UINT8 spriteset)
 spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim);
 spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, UINT16 subanim);
 boolean P_IsSkinAnimationValid(skin_t *skin, UINT16 subanim, UINT8 spriteset);
+boolean P_IsSkinSprite(skin_t *skin, spritenum_t spritenum);
 const char *P_GetPlayerAnimName(UINT16 playeranim);
 
 void R_RefreshSprite2(void);

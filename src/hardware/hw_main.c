@@ -4149,7 +4149,7 @@ static void HWR_DrawSprites(void)
 				skipshadow = false;
 			}
 
-			if (spr->mobj && spr->mobj->skin && spr->mobj->state->sprite == SPR_PLAY)
+			if (spr->mobj && spr->mobj->skin && P_IsSkinSprite(spr->mobj->skin, spr->mobj->sprite))
 			{
 				if (!cv_glmodels.value || !md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].found || md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].scale < 0.0f)
 					HWR_DrawSprite(spr);
@@ -4338,7 +4338,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	{
 		if (cv_glmodels.value) //Yellow: Only MD2's dont disappear
 		{
-			if (thing->skin && thing->sprite == SPR_PLAY)
+			if (thing->skin && P_IsSkinSprite(thing->skin, thing->sprite))
 				md2 = &md2_playermodels[((skin_t *)thing->skin)->skinnum];
 			else
 				md2 = &md2_models[thing->sprite];

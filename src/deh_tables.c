@@ -32,6 +32,7 @@ char *FREE_STATES[NUMSTATEFREESLOTS];
 char *FREE_MOBJS[NUMMOBJFREESLOTS];
 char *FREE_SKINCOLORS[NUMCOLORFREESLOTS];
 bitarray_t used_spr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Sprite freeslots in use
+bitarray_t used_skinspr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Which sprite freeslots are being used by skins
 
 const char NIGHTSGRADE_LIST[] = {
 	'F', // GRADE_F

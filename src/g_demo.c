@@ -21,6 +21,7 @@
 #include "i_system.h"
 #include "m_random.h"
 #include "p_local.h"
+#include "p_animation.h"
 #include "r_draw.h"
 #include "r_main.h"
 #include "g_game.h"
@@ -128,7 +129,7 @@ static ticcmd_t oldcmd;
 #define GZT_MOMZ   0x04
 #define GZT_ANGLE  0x08
 #define GZT_FRAME  0x10 // Animation frame
-#define GZT_SPR2   0x20 // Player animations
+#define GZT_SPRSET 0x20 // Player animations
 #define GZT_EXTRA  0x40
 #define GZT_FOLLOW 0x80 // Followmobj
 
@@ -410,15 +411,14 @@ void G_WriteGhostTic(mobj_t *ghost)
 		WRITEUINT8(demo_p,oldghost.frame);
 	}
 
-	if (ghost->sprite == SPR_PLAY
-	&& ghost->sprite2 != oldghost.sprite2)
+	if (ghost->sprite == SPR_PLAY && ghost->skinspriteset != oldghost.skinspriteset)
 	{
-		oldghost.sprite2 = ghost->sprite2;
-		ziptic |= GZT_SPR2;
-		WRITEUINT16(demo_p,oldghost.sprite2);
+		oldghost.skinspriteset = ghost->skinspriteset;
+		ziptic |= GZT_SPRSET;
+		WRITEUINT16(demo_p,oldghost.skinspriteset);
 	}
 
-	// Check for sprite set changes
+	// Check for sprite changes
 	if (ghost->sprite != oldghost.sprite)
 	{
 		oldghost.sprite = ghost->sprite;
@@ -515,7 +515,7 @@ void G_WriteGhostTic(mobj_t *ghost)
 		temp = ghost->player->followmobj->z-ghost->z;
 		WRITEFIXED(demo_p,temp);
 		if (followtic & FZT_SKIN)
-			WRITEUINT16(demo_p,ghost->player->followmobj->sprite2);
+			WRITEUINT16(demo_p,ghost->player->followmobj->skinspriteset);
 		WRITEUINT16(demo_p,ghost->player->followmobj->sprite);
 		WRITEUINT8(demo_p,(ghost->player->followmobj->frame & FF_FRAMEMASK));
 		WRITEUINT16(demo_p,ghost->player->followmobj->color);
@@ -579,7 +579,7 @@ void G_ConsGhostTic(void)
 		demo_p++;
 	if (ziptic & GZT_FRAME)
 		demo_p++;
-	if (ziptic & GZT_SPR2)
+	if (ziptic & GZT_SPRSET)
 		demo_p += (demoversion < 0x0011) ? sizeof(UINT8) : sizeof(UINT16);
 
 	if (ziptic & GZT_EXTRA)
@@ -733,8 +733,8 @@ void G_GhostTicker(void)
 			g->mo->angle = READUINT8(g->p)<<24;
 		if (ziptic & GZT_FRAME)
 			g->oldmo.frame = READUINT8(g->p);
-		if (ziptic & GZT_SPR2)
-			g->oldmo.sprite2 = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
+		if (ziptic & GZT_SPRSET)
+			g->oldmo.skinspriteset = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
 
 		// Update ghost
 		P_UnsetThingPosition(g->mo);
@@ -748,7 +748,7 @@ void G_GhostTicker(void)
 			g->mo->frame += (((--g->fadein)/6)<<FF_TRANSSHIFT); // this calc never exceeds 9 unless g->fadein is bad, and it's only set once, so...
 			g->mo->flags2 &= ~MF2_DONTDRAW;
 		}
-		g->mo->sprite2 = g->oldmo.sprite2;
+		g->mo->skinspriteset = g->oldmo.skinspriteset;
 
 		if (ziptic & GZT_EXTRA)
 		{ // But wait, there's more!
@@ -949,9 +949,9 @@ void G_GhostTicker(void)
 				follow->z = g->mo->z + temp;
 				P_SetThingPosition(follow);
 				if (followtic & FZT_SKIN)
-					follow->sprite2 = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
+					follow->skinspriteset = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
 				else
-					follow->sprite2 = 0;
+					follow->skinspriteset = 0;
 				follow->sprite = READUINT16(g->p);
 				follow->frame = (READUINT8(g->p)) | (g->mo->frame & FF_TRANSMASK);
 				follow->angle = g->mo->angle;
@@ -1063,8 +1063,8 @@ void G_ReadMetalTic(mobj_t *metal)
 		if (metalversion < 0x000f)
 			oldmetal.frame = G_ConvertOldFrameFlags(oldmetal.frame);
 	}
-	if (ziptic & GZT_SPR2)
-		oldmetal.sprite2 = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
+	if (ziptic & GZT_SPRSET)
+		oldmetal.skinspriteset = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
 
 	// Set movement, position, and angle
 	// oldmetal contains where you're supposed to be.
@@ -1077,7 +1077,7 @@ void G_ReadMetalTic(mobj_t *metal)
 	metal->z = oldmetal.z;
 	P_SetThingPosition(metal);
 	metal->frame = oldmetal.frame;
-	metal->sprite2 = oldmetal.sprite2;
+	metal->skinspriteset = oldmetal.skinspriteset;
 
 	if (ziptic & GZT_EXTRA)
 	{ // But wait, there's more!
@@ -1207,9 +1207,9 @@ void G_ReadMetalTic(mobj_t *metal)
 				follow->z = metal->z + temp;
 				P_SetThingPosition(follow);
 				if (followtic & FZT_SKIN)
-					follow->sprite2 = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
+					follow->skinspriteset = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
 				else
-					follow->sprite2 = 0;
+					follow->skinspriteset = 0;
 				follow->sprite = READUINT16(metal_p);
 				follow->frame = READUINT32(metal_p); // NOT & FF_FRAMEMASK here, so 32 bits
 				if (metalversion < 0x000f)
@@ -1311,15 +1311,14 @@ void G_WriteMetalTic(mobj_t *metal)
 		WRITEUINT32(demo_p,oldmetal.frame);
 	}
 
-	if (metal->sprite == SPR_PLAY
-	&& metal->sprite2 != oldmetal.sprite2)
+	if (metal->sprite == SPR_PLAY && metal->skinspriteset != oldmetal.skinspriteset)
 	{
-		oldmetal.sprite2 = metal->sprite2;
-		ziptic |= GZT_SPR2;
-		WRITEUINT16(demo_p,oldmetal.sprite2);
+		oldmetal.skinspriteset = metal->skinspriteset;
+		ziptic |= GZT_SPRSET;
+		WRITEUINT16(demo_p,oldmetal.skinspriteset);
 	}
 
-	// Check for sprite set changes
+	// Check for sprite changes
 	if (metal->sprite != oldmetal.sprite)
 	{
 		oldmetal.sprite = metal->sprite;
@@ -1391,7 +1390,7 @@ void G_WriteMetalTic(mobj_t *metal)
 		temp = metal->player->followmobj->z-metal->z;
 		WRITEFIXED(demo_p,temp);
 		if (followtic & FZT_SKIN)
-			WRITEUINT16(demo_p,metal->player->followmobj->sprite2);
+			WRITEUINT16(demo_p,metal->player->followmobj->skinspriteset);
 		WRITEUINT16(demo_p,metal->player->followmobj->sprite);
 		WRITEUINT32(demo_p,metal->player->followmobj->frame); // NOT & FF_FRAMEMASK here, so 32 bits
 		WRITEUINT16(demo_p,metal->player->followmobj->color);
@@ -2617,11 +2616,11 @@ void G_AddGhost(char *defdemoname)
 
 	gh->mo->state = &states[S_PLAY_STND];
 	gh->mo->sprite = gh->mo->state->sprite;
-	gh->mo->sprite2 = P_GetStateSprite2(gh->mo->state);
-	gh->mo->frame = (gh->mo->state->frame & ~FF_FRAMEMASK) | P_GetSprite2StateFrame(gh->mo->state);
 	gh->mo->flags2 |= MF2_DONTDRAW;
 	gh->fadein = (9-3)*6; // fade from invisible to trans30 over as close to 35 tics as possible
 	gh->mo->tics = -1;
+
+	P_SetMobjAnimation(gh->mo, P_GetSkinAnimation(gh->mo->skin, 0), 0, gh->mo->state->frame & FF_FRAMEMASK);
 
 	CONS_Printf(M_GetText("Added ghost %s from %s\n"), name, pdemoname);
 	Z_Free(pdemoname);

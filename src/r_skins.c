@@ -26,6 +26,7 @@
 #include "r_things.h"
 #include "r_skins.h"
 #include "p_local.h"
+#include "p_animation.h"
 #include "dehacked.h" // get_number (for thok)
 #include "m_cond.h"
 #ifdef HWRENDER
@@ -35,86 +36,134 @@
 INT32 numskins = 0;
 skin_t **skins = NULL;
 
-// Gets the animation ID of a state
-UINT16 P_GetStateSprite2(state_t *state)
+static const char *player_anim_names[] =
 {
-	if (state->anim_entry)
-		return state->anim_entry;
-	else
-	{
-		// Transform the state frame into an animation ID
-		UINT16 spr2 = state->frame & FF_FRAMEMASK;
+	"stand",
+	"wait",
+	"walk",
+	"skid",
+	"run",
+	"dash",
+	"pain",
+	"stun",
+	"dead",
+	"drown",
+	"roll",
+	"gasp",
+	"jump",
+	"spring",
+	"fall",
+	"edge",
+	"ride",
+	"spindash",
+	"fly",
+	"swim",
+	"tired",
+	"glide",
+	"land",
+	"cling",
+	"climb",
+	"float",
+	"float_run",
+	"bounce",
+	"fire",
+	"twinspin",
+	"melee",
+	"melee_land",
+	"transformation",
+	"nights_stand",
+	"nights_float",
+	"nights_fly",
+	"nights_drill",
+	"nights_stun",
+	"nights_pull",
+	"nights_attack",
 
-		if (state->frame & SPR2F_SUPER)
-			spr2 |= SPR2F_SUPER;
+	"tail_0",
+	"tail_1",
+	"tail_2",
+	"tail_3",
+	"tail_4",
+	"tail_5",
+	"tail_6",
+	"tail_7",
+	"tail_8",
+	"tail_9",
+	"tail_a",
+	"tail_b",
+	"tail_c",
 
-		return spr2;
-	}
+	"continue",
+	"continue_lift",
+	"continue_spin",
+	"continue_partner",
+
+	"end_sign",
+	"life_icon",
+
+	"extra"
+};
+
+UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset)
+{
+	if (spriteset == SKINSPRITES_SUPER && skin->super_animation_id)
+		return skin->super_animation_id;
+
+	return skin->animation_id;
 }
 
-// Gets the starting frame of an animation
-UINT16 P_GetSprite2StateFrame(state_t *state)
+const char *P_GetPlayerAnimName(UINT16 playeranim)
 {
-	if (state->anim_entry)
-		return state->frame & FF_FRAMEMASK;
-	else
-		return 0;
+	if (playeranim >= SPR2_XTRA)
+		return NULL;
+
+	return player_anim_names[playeranim];
 }
 
-// Checks if a state should use the "super" variant of the animation
-boolean P_IsStateSprite2Super(state_t *state)
-{
-	if (state->anim_entry)
-	{
-		if (state->anim_entry & SPR2F_SUPER)
-			return true;
-	}
-	else if (state->frame & SPR2F_SUPER)
-		return true;
-
-	return false;
-}
-
-// Applies SPR2F_SUPER to an animation based on the actor's state
-UINT16 P_ApplySuperFlagToSprite2(UINT16 spr2, mobj_t *mobj)
+// Checks if an object should use super sprites
+boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super)
 {
 	if (mobj->player)
 	{
 		if (mobj->player->charflags & SF_NOSUPERSPRITES || (mobj->player->powers[pw_carry] == CR_NIGHTSMODE && (mobj->player->charflags & SF_NONIGHTSSUPER)))
-			spr2 &= ~SPR2F_SUPER;
+			use_super = false;
 		else if (mobj->player->powers[pw_super] || (mobj->player->powers[pw_carry] == CR_NIGHTSMODE && (mobj->player->charflags & SF_SUPER)))
-			spr2 |= SPR2F_SUPER;
+			use_super = true;
 	}
 
-	if (spr2 & SPR2F_SUPER)
+	if (use_super)
 	{
 		if (mobj->eflags & MFE_FORCENOSUPER)
-			spr2 &= ~SPR2F_SUPER;
+			use_super = false;
 	}
 	else if (mobj->eflags & MFE_FORCESUPER)
-		spr2 |= SPR2F_SUPER;
+		use_super = true;
 
-	return spr2;
+	return use_super;
 }
 
 // For non-super players, this tries each sprite2's immediate predecessor until it finds one with a number of frames or ends up at standing.
 // For super players, does the same as above - but tries the super equivalent for each sprite2 before the non-super version.
-UINT16 P_GetSkinSprite2(skin_t *skin, UINT16 spr2, player_t *player)
+UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 spr2, UINT8 spriteset, player_t *player, UINT8 *found_spriteset)
 {
-	UINT16 super = 0;
+	UINT8 stored_spriteset = spriteset;
 	UINT8 i = 0;
 
 	if (!skin)
+	{
+		if (found_spriteset)
+			*found_spriteset = SKINSPRITES_BASE;
 		return 0;
+	}
 
-	while (!P_IsValidSprite2(skin, spr2)
+	while (!P_IsSkinAnimationValid(skin, spr2, spriteset)
 		&& spr2 != SPR2_STND
 		&& ++i < 32) // recursion limiter
 	{
-		if (spr2 & SPR2F_SUPER)
+		if (spriteset != SKINSPRITES_BASE)
 		{
-			super = SPR2F_SUPER;
-			spr2 &= ~SPR2F_SUPER;
+			stored_spriteset = spriteset;
+			spriteset = SKINSPRITES_BASE;
 			continue;
 		}
 
@@ -139,57 +188,73 @@ UINT16 P_GetSkinSprite2(skin_t *skin, UINT16 spr2, player_t *player)
 			break;
 		}
 
-		spr2 |= super;
+		spriteset = stored_spriteset;
 	}
 
 	if (i >= 32) // probably an infinite loop...
-		return 0;
+	{
+		spr2 = 0;
+		spriteset = SKINSPRITES_BASE;
+	}
+
+	if (found_spriteset)
+		*found_spriteset = spriteset;
 
 	return spr2;
 }
 
-// Gets the spritedef of a skin animation
-spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 spr2)
+// Gets the spritedef of a skin subanimation
+spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 subanim, UINT8 spriteset)
 {
 	if (!skin)
 		return NULL;
 
-	boolean is_super = spr2 & SPR2F_SUPER;
-
-	spr2 &= SPR2F_MASK;
-
-	if (spr2 >= free_spr2)
-		return NULL;
-
-	if (is_super)
-		return &skin->super.sprites[spr2];
+	if (spriteset == SKINSPRITES_SUPER)
+		return &skin->super.sprites[subanim];
 	else
-		return &skin->sprites[spr2];
+		return &skin->sprites[subanim];
 }
 
-// Gets the spriteinfo of a skin animation
-spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 spr2)
+// Gets the spriteinfo of a skin subanimation
+spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 subanim, UINT8 spriteset)
 {
 	if (!skin)
 		return NULL;
 
-	boolean is_super = spr2 & SPR2F_SUPER;
+	if (spriteset == SKINSPRITES_SUPER)
+		return &skin->super.sprinfo[subanim];
+	else
+		return &skin->sprinfo[subanim];
+}
 
-	spr2 &= SPR2F_MASK;
-
-	if (spr2 >= free_spr2)
+// Gets the spritedef of a skin from the given animation and subanimation IDs
+spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim)
+{
+	if (!skin)
 		return NULL;
 
-	if (is_super)
-		return &skin->super.sprinfo[spr2];
+	if (anim == skin->super_animation_id)
+		return &skin->super.sprites[subanim];
 	else
-		return &skin->sprinfo[spr2];
+		return &skin->sprites[subanim];
+}
+
+// Gets the spriteinfo of a skin from the given animation and subanimation IDs
+spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, UINT16 subanim)
+{
+	if (!skin)
+		return NULL;
+
+	if (anim == skin->super_animation_id)
+		return &skin->super.sprinfo[subanim];
+	else
+		return &skin->sprinfo[subanim];
 }
 
 // Checks if a skin animation is valid
-boolean P_IsValidSprite2(skin_t *skin, UINT16 spr2)
+boolean P_IsSkinAnimationValid(skin_t *skin, UINT16 subanim, UINT8 spriteset)
 {
-	spritedef_t *sprdef = P_GetSkinSpritedef(skin, spr2);
+	spritedef_t *sprdef = P_GetSkinSpritedef(skin, subanim, spriteset);
 	return sprdef && sprdef->numframes;
 }
 
@@ -601,8 +666,35 @@ static UINT16 W_CheckForPatchSkinMarkerInPwad(UINT16 wadid, UINT16 startlump)
 	return INT16_MAX; // not found
 }
 
-static void R_LoadSkinSprites(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
+static void InitSubanimationForSpritedef(animation_list_t *animation, const char *name, spritedef_t *spritedef, unsigned index)
 {
+	animation_t *subanim = P_FindOrCreateSubAnimationAt(animation, name, index);
+	if (subanim->frames)
+	{
+		Z_Free(subanim->frames);
+		subanim->frames = NULL;
+	}
+
+	subanim->num_frames = spritedef->numframes;
+	subanim->frames = Z_Calloc(subanim->num_frames * sizeof(animation_frame_t), PU_STATIC, NULL);
+
+	for (unsigned i = 0; i < spritedef->numframes; i++)
+	{
+		animation_frame_t *frame = &subanim->frames[i];
+		frame->frame_num = i;
+		frame->frame_flags = 0;
+		frame->duration = 1;
+	}
+}
+
+static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
+{
+	size_t anim_name_size = strlen(skin->name) + 12 + 1; // "skin_" + skin name + "_super"
+
+	char *anim_name = Z_Malloc(anim_name_size, PU_STATIC, NULL);
+
+	animation_list_t *animation;
+
 	UINT16 newlastlump;
 	UINT16 sprite2;
 
@@ -622,20 +714,47 @@ static void R_LoadSkinSprites(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, ski
 	if (newlastlump < *lastlump)
 	{
 		newlastlump++;
+
+		snprintf(anim_name, anim_name_size, "skin_%s_super", skin->name);
+		animation = P_FindOrCreateAnimation(anim_name);
+		skin->super_animation_id = P_GetNamedAnimationID(anim_name);
+
 		// load all sprite sets we are aware of... for super!
 		for (sprite2 = start_spr2; sprite2 < free_spr2; sprite2++)
-			R_AddSingleSpriteDef(spr2names[sprite2], &skin->super.sprites[sprite2], wadnum, newlastlump, *lastlump, false);
+		{
+			spritedef_t *spritedef = &skin->super.sprites[sprite2];
+
+			R_AddSingleSpriteDef(spr2names[sprite2], spritedef, wadnum, newlastlump, *lastlump, false);
+
+			InitSubanimationForSpritedef(animation, player_anim_names[sprite2], spritedef, sprite2);
+		}
 
 		newlastlump--;
 		*lastlump = newlastlump; // okay, make the normal sprite set loading end there
 	}
+	else
+	{
+		skin->super_animation_id = 0;
+	}
+
+	snprintf(anim_name, anim_name_size, "skin_%s", skin->name);
+	animation = P_FindOrCreateAnimation(anim_name);
+	skin->animation_id = P_GetNamedAnimationID(anim_name);
 
 	// load all sprite sets we are aware of... for normal stuff.
 	for (sprite2 = start_spr2; sprite2 < free_spr2; sprite2++)
-		R_AddSingleSpriteDef(spr2names[sprite2], &skin->sprites[sprite2], wadnum, *lump, *lastlump, false);
+	{
+		spritedef_t *spritedef = &skin->sprites[sprite2];
+
+		R_AddSingleSpriteDef(spr2names[sprite2], spritedef, wadnum, *lump, *lastlump, false);
+
+		InitSubanimationForSpritedef(animation, player_anim_names[sprite2], spritedef, sprite2);
+	}
 
 	if (skin->sprites[0].numframes == 0)
-		CONS_Alert(CONS_ERROR, M_GetText("No frames found for sprite SPR2_%s\n"), spr2names[0]);
+		CONS_Alert(CONS_ERROR, M_GetText("No frames found for subanimation '%s'\n"), player_anim_names[0]);
+
+	Z_Free(anim_name);
 
 	// TODO: 2.3: Delete
 	memcpy(&skin->sprites_compat[start_spr2],
@@ -644,6 +763,20 @@ static void R_LoadSkinSprites(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, ski
 	memcpy(&skin->sprites_compat[start_spr2 + NUMPLAYERSPRITES],
 		&skin->super.sprites[start_spr2],
 		sizeof(spritedef_t) * (free_spr2 - start_spr2));
+}
+
+static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
+{
+	// TODO: lol
+	R_LoadSkinAnimationsWAD(wadnum, lump, lastlump, skin, start_spr2);
+}
+
+static void R_LoadSkinSprites(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
+{
+	if (W_FileHasFolders(wadfiles[wadnum]))
+		R_LoadSkinAnimations(wadnum, lump, lastlump, skin, start_spr2);
+	else
+		R_LoadSkinAnimationsWAD(wadnum, lump, lastlump, skin, start_spr2);
 }
 
 // returns whether found appropriate property

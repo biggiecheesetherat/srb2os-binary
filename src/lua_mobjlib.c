@@ -38,7 +38,6 @@ enum mobj_e {
 	mobj_rollangle, // backwards compat
 	mobj_sprite,
 	mobj_frame,
-	mobj_sprite2,
 	mobj_anim_duration,
 	mobj_spritexscale,
 	mobj_spriteyscale,
@@ -119,7 +118,6 @@ static const char *const mobj_opt[] = {
 	"rollangle", // backwards compat
 	"sprite",
 	"frame",
-	"sprite2",
 	"anim_duration",
 	"spritexscale",
 	"spriteyscale",
@@ -247,9 +245,6 @@ static int mobj_get(lua_State *L)
 		break;
 	case mobj_frame:
 		lua_pushinteger(L, mo->frame);
-		break;
-	case mobj_sprite2:
-		lua_pushinteger(L, mo->sprite2);
 		break;
 	case mobj_anim_duration:
 		lua_pushinteger(L, mo->anim_duration);
@@ -562,9 +557,6 @@ static int mobj_set(lua_State *L)
 		break;
 	case mobj_frame:
 		mo->frame = (UINT32)luaL_checkinteger(L, 3);
-		break;
-	case mobj_sprite2:
-		mo->sprite2 = P_GetSkinSprite2(((skin_t *)mo->skin), (UINT16)luaL_checkinteger(L, 3), mo->player);
 		break;
 	case mobj_anim_duration:
 		mo->anim_duration = (UINT16)luaL_checkinteger(L, 3);

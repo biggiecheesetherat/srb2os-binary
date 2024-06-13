@@ -1437,6 +1437,9 @@ void D_SRB2Main(void)
 	mainwads++;
 #endif
 
+	CONS_Printf("P_InitAnimations()...\n");
+	P_InitAnimations();
+
 	// load wad, including the main wad file
 	CONS_Printf("W_InitMultipleFiles(): Adding IWAD and main PWADs.\n");
 	W_InitMultipleFiles(&startupwadfiles);
@@ -1500,9 +1503,6 @@ void D_SRB2Main(void)
 
 	CONS_Printf("HU_LoadGraphics()...\n");
 	HU_LoadGraphics();
-
-	CONS_Printf("P_InitAnimations()...\n");
-	P_InitAnimations();
 
 	//--------------------------------------------------------- CONFIG.CFG
 	M_FirstLoadConfig(); // WARNING : this do a "COM_BufExecute()"

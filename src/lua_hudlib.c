@@ -554,7 +554,7 @@ static int libd_getSprite2Patch(lua_State *L)
 	UINT8 angle = 0;
 	spritedef_t *sprdef;
 	spriteframe_t *sprframe;
-	boolean super = false; // add SPR2F_SUPER to sprite2 if true
+	boolean super = false; // use super variant if true
 	HUDONLY
 
 	// get skin first!
@@ -581,11 +581,6 @@ static int libd_getSprite2Patch(lua_State *L)
 	if (lua_isnumber(L, 1)) // sprite number given, e.g. SPR2_STND
 	{
 		j = lua_tonumber(L, 1);
-		if (j & SPR2F_SUPER) // e.g. SPR2_STND|SPR2F_SUPER
-		{
-			super = true;
-			j &= ~SPR2F_SUPER; // remove flag so the next check doesn't fail
-		}
 
 		if (j >= free_spr2)
 			return 0;
@@ -610,10 +605,7 @@ static int libd_getSprite2Patch(lua_State *L)
 	}
 	// if it's not boolean then just assume it's the frame number
 
-	if (super)
-		j |= SPR2F_SUPER;
-
-	sprdef = P_GetSkinSpritedef(skins[i], j);
+	sprdef = P_GetSkinSpritedef(skins[i], j, super ? 1 : 0);
 
 	// set frame number
 	frame = luaL_optinteger(L, 2, 0);
@@ -641,7 +633,7 @@ static int libd_getSprite2Patch(lua_State *L)
 		INT32 rot = R_GetRollAngle(rollangle);
 
 		if (rot) {
-			patch_t *rotsprite = Patch_GetRotatedSprite(sprframe, frame, angle, sprframe->flip & (1<<angle), P_GetSkinSpriteInfo(skins[i], j), rot);
+			patch_t *rotsprite = Patch_GetRotatedSprite(sprframe, frame, angle, sprframe->flip & (1<<angle), P_GetSkinSpriteInfo(skins[i], j, 0), rot);
 			LUA_PushUserdata(L, rotsprite, META_PATCH);
 			lua_pushboolean(L, false);
 			lua_pushboolean(L, true);

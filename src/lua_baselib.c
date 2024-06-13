@@ -689,18 +689,6 @@ static int lib_pRemoveMobj(lua_State *L)
 	return 0;
 }
 
-static int lib_pIsValidSprite2(lua_State *L)
-{
-	mobj_t *mobj = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
-	UINT16 spr2 = (UINT16)luaL_checkinteger(L, 2);
-	//HUDSAFE
-	INLEVEL
-	if (!mobj)
-		return LUA_ErrInvalid(L, "mobj_t");
-	lua_pushboolean(L, mobj->skin && P_IsValidSprite2(mobj->skin, spr2));
-	return 1;
-}
-
 // P_SpawnLockOn doesn't exist either, but we want to expose making a local mobj without encouraging hacks.
 
 static int lib_pSpawnLockOn(lua_State *L)
@@ -2518,14 +2506,14 @@ static int lib_pSetMobjAnimation(lua_State *L)
 	if (animation_id == 0)
 		return luaL_error(L, "invalid animation name '%s'", animation_name);
 
-	UINT16 entry_id = P_GetNamedEntryIDInAnimation(animation_id, entry_name);
-	if (entry_id == UINT16_MAX)
+	UINT16 subanimation_id = P_GetNamedSubanimationID(animation_id, entry_name);
+	if (subanimation_id == UINT16_MAX)
 		return luaL_error(L, "invalid subanimation name '%s' in animation '%s'", entry_name, animation_name);
 
 	if (starting_frame < 0 || starting_frame > UINT16_MAX)
 		return luaL_error(L, "invalid starting frame %d for subanimation '%s' in animation '%s'", starting_frame, entry_name, animation_name);
 
-	lua_pushboolean(L, P_SetMobjAnimation(mobj, animation_id, entry_id, (UINT16)starting_frame));
+	lua_pushboolean(L, P_SetMobjAnimation(mobj, animation_id, subanimation_id, (UINT16)starting_frame));
 	return 1;
 }
 
@@ -3143,47 +3131,6 @@ static int lib_rSkinUsable(lua_State *L)
 	}
 
 	lua_pushboolean(L, R_SkinUsable(j, i));
-	return 1;
-}
-
-static int lib_pGetStateSprite2(lua_State *L)
-{
-	int statenum = luaL_checkinteger(L, 1);
-	if (statenum < 0 || statenum >= NUMSTATES)
-		return luaL_error(L, "state %d out of range (0 - %d)", statenum, NUMSTATES-1);
-
-	lua_pushinteger(L, P_GetStateSprite2(&states[statenum]));
-	return 1;
-}
-
-static int lib_pGetSprite2StateFrame(lua_State *L)
-{
-	int statenum = luaL_checkinteger(L, 1);
-	if (statenum < 0 || statenum >= NUMSTATES)
-		return luaL_error(L, "state %d out of range (0 - %d)", statenum, NUMSTATES-1);
-
-	lua_pushinteger(L, P_GetSprite2StateFrame(&states[statenum]));
-	return 1;
-}
-
-static int lib_pIsStateSprite2Super(lua_State *L)
-{
-	int statenum = luaL_checkinteger(L, 1);
-	if (statenum < 0 || statenum >= NUMSTATES)
-		return luaL_error(L, "state %d out of range (0 - %d)", statenum, NUMSTATES-1);
-
-	lua_pushboolean(L, P_IsStateSprite2Super(&states[statenum]));
-	return 1;
-}
-
-// Not a real function. Who cares? I know I don't.
-static int lib_pGetSuperSprite2(lua_State *L)
-{
-	int animID = luaL_checkinteger(L, 1) & SPR2F_MASK;
-	if (animID < 0 || animID >= NUMPLAYERSPRITES)
-		return luaL_error(L, "sprite2 %d out of range (0 - %d)", animID, NUMPLAYERSPRITES-1);
-
-	lua_pushinteger(L, animID | SPR2F_SUPER);
 	return 1;
 }
 
@@ -4412,7 +4359,6 @@ static luaL_Reg lib[] = {
 	{"P_SpawnMobj",lib_pSpawnMobj},
 	{"P_SpawnMobjFromMobj",lib_pSpawnMobjFromMobj},
 	{"P_RemoveMobj",lib_pRemoveMobj},
-	{"P_IsValidSprite2", lib_pIsValidSprite2},
 	{"P_SpawnLockOn", lib_pSpawnLockOn},
 	{"P_SpawnMissile",lib_pSpawnMissile},
 	{"P_SpawnXYZMissile",lib_pSpawnXYZMissile},
@@ -4597,10 +4543,6 @@ static luaL_Reg lib[] = {
 
 	// r_skins
 	{"R_SkinUsable",lib_rSkinUsable},
-	{"P_GetStateSprite2",lib_pGetStateSprite2},
-	{"P_GetSprite2StateFrame",lib_pGetSprite2StateFrame},
-	{"P_IsStateSprite2Super",lib_pIsStateSprite2Super},
-	{"P_GetSuperSprite2",lib_pGetSuperSprite2},
 
 	// r_data
 	{"R_CheckTextureNumForName",lib_rCheckTextureNumForName},

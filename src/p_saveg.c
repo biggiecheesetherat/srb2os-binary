@@ -1884,7 +1884,7 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		diff |= MD_TICS;
 	if (mobj->sprite != mobj->state->sprite)
 		diff |= MD_SPRITE;
-	if (mobj->sprite == SPR_PLAY && mobj->sprite2 != P_GetStateSprite2(mobj->state))
+	if (mobj->sprite == SPR_PLAY && mobj->skinspriteset != 0)
 		diff |= MD_SPRITE;
 	if (mobj->frame != mobj->state->frame)
 		diff |= MD_FRAME;
@@ -2065,10 +2065,11 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		WRITEUINT16(save_p, mobj->state-states);
 	if (diff & MD_TICS)
 		WRITEINT32(save_p, mobj->tics);
-	if (diff & MD_SPRITE) {
+	if (diff & MD_SPRITE)
+	{
 		WRITEUINT16(save_p, mobj->sprite);
 		if (mobj->sprite == SPR_PLAY)
-			WRITEUINT16(save_p, mobj->sprite2);
+			WRITEUINT8(save_p, mobj->skinspriteset);
 	}
 	if (diff & MD_FRAME)
 	{
@@ -3095,15 +3096,17 @@ static thinker_t* LoadMobjThinker(actionf_p1 thinker)
 		mobj->tics = READINT32(save_p);
 	else
 		mobj->tics = mobj->state->tics;
-	if (diff & MD_SPRITE) {
+	if (diff & MD_SPRITE)
+	{
 		mobj->sprite = READUINT16(save_p);
 		if (mobj->sprite == SPR_PLAY)
-			mobj->sprite2 = READUINT16(save_p);
+			mobj->skinspriteset = READUINT8(save_p);
 	}
-	else {
+	else
+	{
 		mobj->sprite = mobj->state->sprite;
 		if (mobj->sprite == SPR_PLAY)
-			mobj->sprite2 = P_GetStateSprite2(mobj->state);
+			mobj->skinspriteset = 0;
 	}
 	if (diff & MD_FRAME)
 	{

@@ -3566,7 +3566,7 @@ void F_StartContinue(void)
 	contPlayers[0] = &players[consoleplayer];
 	contskins[0] = skins[players[consoleplayer].skin];
 
-	cont_spr2[0][0] = P_GetSkinSprite2(contskins[0], SPR2_CNT1, NULL);
+	cont_spr2[0][0] = P_GetSkinSubanimation(contskins[0], SPR2_CNT1, SKINSPRITES_BASE, NULL, NULL);
 	cont_spr2[0][2] = contskins[0]->contangle & 7;
 	contColors[0] = players[consoleplayer].skincolor;
 	contcolormaps[0] = R_GetTranslationColormap(players[consoleplayer].skin, players[consoleplayer].skincolor, GTC_CACHE);
@@ -3585,7 +3585,7 @@ void F_StartContinue(void)
 		contPlayers[1] = &players[secondplaya];
 		contskins[1] = skins[players[secondplaya].skin];
 
-		cont_spr2[1][0] = P_GetSkinSprite2(contskins[1], SPR2_CNT4, NULL);
+		cont_spr2[1][0] = P_GetSkinSubanimation(contskins[1], SPR2_CNT4, SKINSPRITES_BASE, NULL, NULL);
 		cont_spr2[1][2] = (contskins[1]->contangle >> 3) & 7;
 		contColors[1] = players[secondplaya].skincolor;
 		contcolormaps[1] = R_GetTranslationColormap(players[secondplaya].skin, players[secondplaya].skincolor, GTC_CACHE);
@@ -3811,14 +3811,14 @@ void F_ContinueTicker(void)
 			S_StartSound(NULL, sfx_cdfm56); // or 31
 		else if (continuetime == 5)
 		{
-			cont_spr2[0][0] = P_GetSkinSprite2(contskins[0], SPR2_CNT2, NULL);
+			cont_spr2[0][0] = P_GetSkinSubanimation(contskins[0], SPR2_CNT2, SKINSPRITES_BASE, NULL, NULL);
 			cont_spr2[0][4] = contskins[0]->sprites[cont_spr2[0][0]].numframes;
 			cont_spr2[0][1] = cont_spr2[0][3] = 0;
 			cont_spr2[0][5] = 2;
 		}
 		else if (continuetime == TICRATE)
 		{
-			cont_spr2[0][0] = P_GetSkinSprite2(contskins[0], SPR2_CNT3, NULL);
+			cont_spr2[0][0] = P_GetSkinSubanimation(contskins[0], SPR2_CNT3, SKINSPRITES_BASE, NULL, NULL);
 			cont_spr2[0][4] = contskins[0]->sprites[cont_spr2[0][0]].numframes;
 			cont_spr2[0][1] = cont_spr2[0][3] = 0;
 		}
@@ -3826,14 +3826,14 @@ void F_ContinueTicker(void)
 		{
 			if (continuetime == 10)
 			{
-				cont_spr2[1][0] = P_GetSkinSprite2(contskins[1], SPR2_CNT2, NULL);
+				cont_spr2[1][0] = P_GetSkinSubanimation(contskins[1], SPR2_CNT2, SKINSPRITES_BASE, NULL, NULL);
 				cont_spr2[1][4] = contskins[1]->sprites[cont_spr2[1][0]].numframes;
 				cont_spr2[1][1] = cont_spr2[1][3] = 0;
 				cont_spr2[1][5] = 2;
 			}
 			else if (continuetime == TICRATE+5)
 			{
-				cont_spr2[1][0] = P_GetSkinSprite2(contskins[1], SPR2_CNT3, NULL);
+				cont_spr2[1][0] = P_GetSkinSubanimation(contskins[1], SPR2_CNT3, SKINSPRITES_BASE, NULL, NULL);
 				cont_spr2[1][4] = contskins[1]->sprites[cont_spr2[1][0]].numframes;
 				cont_spr2[1][1] = cont_spr2[1][3] = 0;
 			}

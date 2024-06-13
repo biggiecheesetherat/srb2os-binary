@@ -80,6 +80,9 @@ typedef struct
 	// specific sounds per skin
 	sfxenum_t soundsid[NUMSKINSOUNDS]; // sound # in S_sfx table
 
+	UINT16 animation_id;
+	UINT16 super_animation_id;
+
 	spritedef_t sprites[NUMPLAYERSPRITES];
 	spriteinfo_t sprinfo[NUMPLAYERSPRITES];
 
@@ -110,14 +113,15 @@ INT32 R_GetForcedSkin(INT32 playernum);
 void R_AddSkins(UINT16 wadnum, boolean mainfile);
 void R_PatchSkins(UINT16 wadnum, boolean mainfile);
 
-UINT16 P_GetStateSprite2(state_t *state);
-UINT16 P_GetSprite2StateFrame(state_t *state);
-UINT16 P_GetSkinSprite2(skin_t *skin, UINT16 spr2, player_t *player);
-UINT16 P_ApplySuperFlagToSprite2(UINT16 spr2, mobj_t *mobj);
-spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 spr2);
-spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 spr2);
-boolean P_IsValidSprite2(skin_t *skin, UINT16 spr2);
-boolean P_IsStateSprite2Super(state_t *state);
+UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset);
+UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset);
+boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super);
+spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 subanim, UINT8 spriteset);
+spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 subanim, UINT8 spriteset);
+spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim);
+spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, UINT16 subanim);
+boolean P_IsSkinAnimationValid(skin_t *skin, UINT16 subanim, UINT8 spriteset);
+const char *P_GetPlayerAnimName(UINT16 playeranim);
 
 void R_RefreshSprite2(void);
 

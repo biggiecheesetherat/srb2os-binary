@@ -54,7 +54,7 @@ static animation_list_s *get_animation_by_id(UINT16 id)
 	return animation_defs[id - 1];
 }
 
-static UINT16 get_animation_entry_id(animation_list_s *animation, const char *name)
+static UINT16 get_subanimation_id(animation_list_s *animation, const char *name)
 {
 	if (animation)
 	{
@@ -107,7 +107,7 @@ static void P_SetupMobjAnimation(mobj_t *mobj, animation_s *entry)
 	animator->frame_duration = frame->duration * FRACUNIT;
 }
 
-boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 entry_id, UINT16 start_frame)
+boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
 {
 	animation_list_s *animation = get_animation_by_id(animation_id);
 	if (animation == nullptr)
@@ -121,15 +121,18 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 entry_id, U
 		return false;
 	}
 
-	if (entry_id >= animation->count)
+	if (subanimation_id >= animation->count)
 	{
-		entry_id = 0;
+		subanimation_id = 0;
 
-		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid subanimation %d for animation ID %d\n", entry_id, animation_id);
+		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid subanimation %d for animation ID %d\n", subanimation_id, animation_id);
 	}
 
+	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
+		return true;
+
 	mobj->animator.animation = animation_id;
-	mobj->animator.subanimation = entry_id;
+	mobj->animator.subanimation = subanimation_id;
 	mobj->animator.frame = start_frame;
 
 	P_SetupMobjAnimation(mobj, animation->animations[mobj->animator.subanimation]);
@@ -137,31 +140,34 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 entry_id, U
 	return true;
 }
 
-boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *entry_name, UINT16 start_frame)
+boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *subanimation_name, UINT16 start_frame)
 {
-	UINT16 id = get_animation_id(animation_name);
-	if (id == 0)
+	UINT16 animation_id = get_animation_id(animation_name);
+	if (animation_id == 0)
 	{
 		CONS_Alert(CONS_ERROR, "P_SetNamedMobjAnimation: Unknown animation '%s'\n", animation_name);
 		return false;
 	}
 
-	animation_list_s *animation = animation_defs[id];
+	animation_list_s *animation = animation_defs[animation_id];
 	if (animation->count == 0)
 	{
 		return false;
 	}
 
-	UINT16 entry_id = get_animation_entry_id(animation, entry_name);
-	if (entry_id == UINT16_MAX)
+	UINT16 subanimation_id = get_subanimation_id(animation, subanimation_name);
+	if (subanimation_id == UINT16_MAX)
 	{
-		entry_id = 0;
+		subanimation_id = 0;
 
-		CONS_Alert(CONS_ERROR, "P_SetNamedMobjAnimation: No subanimation named '%s' in animation '%s'\n", entry_name, animation_name);
+		CONS_Alert(CONS_ERROR, "P_SetNamedMobjAnimation: No subanimation named '%s' in animation '%s'\n", subanimation_name, animation_name);
 	}
 
-	mobj->animator.animation = id;
-	mobj->animator.subanimation = entry_id;
+	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
+		return true;
+
+	mobj->animator.animation = animation_id;
+	mobj->animator.subanimation = subanimation_id;
 	mobj->animator.frame = start_frame;
 
 	P_SetupMobjAnimation(mobj, animation->animations[mobj->animator.subanimation]);
@@ -325,7 +331,7 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 	}
 }
 
-static animation_s *find_animation_entry(animation_list_s *list, const char *name)
+static animation_s *find_subanimation(animation_list_s *list, const char *name)
 {
 	if (list)
 	{
@@ -339,34 +345,19 @@ static animation_s *find_animation_entry(animation_list_s *list, const char *nam
 	return nullptr;
 }
 
-animation_list_s *P_GetNamedAnimation(const char *animation_name)
-{
-	return find_animation_by_name(animation_name);
-}
-
-animation_s *P_GetNamedEntryInAnimation(animation_list_s *animation, const char *entry_name)
-{
-	if (animation)
-	{
-		return find_animation_entry(animation, entry_name);
-	}
-
-	return NULL;
-}
-
 UINT16 P_GetNamedAnimationID(const char *animation_name)
 {
 	return get_animation_id(animation_name);
 }
 
-UINT16 P_GetNamedEntryIDInAnimation(UINT16 animation_id, const char *entry_name)
+UINT16 P_GetNamedSubanimationID(UINT16 animation_id, const char *subanimation_name)
 {
 	animation_list_s *animation = get_animation_by_id(animation_id);
 	if (animation != nullptr)
 	{
 		for (size_t i = 0; i < animation->count; i++)
 		{
-			if (!strcmp(animation->animations[i]->name, entry_name))
+			if (!strcmp(animation->animations[i]->name, subanimation_name))
 				return i;
 		}
 	}
@@ -383,6 +374,22 @@ const char *P_GetAnimationNameByID(UINT16 animation_id)
 	}
 
 	return animation->name;
+}
+
+const char *P_GetSubanimationNameByID(UINT16 animation_id, UINT16 subanimation_id)
+{
+	animation_list_s *animation = get_animation_by_id(animation_id);
+	if (animation == nullptr)
+	{
+		return nullptr;
+	}
+
+	if (subanimation_id < animation->count)
+	{
+		return animation->animations[subanimation_id]->name;
+	}
+
+	return nullptr;
 }
 
 // Animation parsing
@@ -435,8 +442,7 @@ void P_LoadAnimations(UINT16 wadnum)
 
 void P_InitAnimations(void)
 {
-	for (UINT16 i = 0; i < numwadfiles; i++)
-		P_LoadAnimations(i);
+	// TODO: Create a preset player animation that skins inherit from.
 }
 
 static animation_list_s *find_or_create_animation(const char *name)
@@ -456,7 +462,7 @@ static animation_list_s *find_or_create_animation(const char *name)
 	return animation;
 }
 
-static animation_s *find_or_create_animation_entry(animation_list_s *list, const char *name)
+static animation_s *find_or_create_subanimation(animation_list_s *list, const char *name, int index)
 {
 	for (size_t i = 0; i < list->count; i++)
 	{
@@ -464,19 +470,46 @@ static animation_s *find_or_create_animation_entry(animation_list_s *list, const
 			return list->animations[i];
 	}
 
-	list->count++;
-	list->animations = static_cast<animation_s **>(
-		Z_Realloc(list->animations, list->count * sizeof(animation_s **), PU_STATIC, NULL)
-	);
-
-	animation_s *entry = static_cast<animation_s *>(
+	animation_s *subanimation = static_cast<animation_s *>(
 		Z_Calloc(sizeof(animation_s), PU_STATIC, NULL)
 	);
-	list->animations[list->count - 1] = entry;
+	subanimation->name = Z_StrDup(name);
+	subanimation->speed = FRACUNIT;
+	subanimation->loop_index = UINT16_MAX;
+	subanimation->direction = ANIM_DIR_FORWARDS;
 
-	entry->name = Z_StrDup(name);
+	list->animations = static_cast<animation_s **>(
+		Z_Realloc(list->animations, (list->count + 1) * sizeof(animation_s **), PU_STATIC, NULL)
+	);
 
-	return entry;
+	if (index < 0 || (unsigned)index >= list->count)
+	{
+		list->animations[list->count] = subanimation;
+	}
+	else
+	{
+		memmove(&list->animations[index + 1], &list->animations[index], list->count - index);
+		list->animations[index] = subanimation;
+	}
+
+	list->count++;
+
+	return subanimation;
+}
+
+animation_list_s *P_FindOrCreateAnimation(const char *animation_name)
+{
+	return find_or_create_animation(animation_name);
+}
+
+animation_s *P_FindOrCreateSubAnimation(animation_list_s *animation, const char *subanimation_name)
+{
+	return find_or_create_subanimation(animation, subanimation_name, -1);
+}
+
+animation_s *P_FindOrCreateSubAnimationAt(animation_list_s *animation, const char *subanimation_name, unsigned index)
+{
+	return find_or_create_subanimation(animation, subanimation_name, (int)index);
 }
 
 static void parse_anim_frame(animation_frame_s *frame, json& entry)
@@ -558,7 +591,6 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 	}
 
 	animation->speed = speed;
-	animation->loop_index = UINT16_MAX;
 	animation->direction = direction_type;
 
 	if (animation->frames)
@@ -610,8 +642,8 @@ static void parse_anim_list(std::string name, json& entry)
 
 	for (json& anim_list_entry : entry)
 	{
-		std::string entry_name = anim_list_entry.at("name");
-		animation_s *entry = find_or_create_animation_entry(animation, entry_name.c_str());
+		std::string subanimation_name = anim_list_entry.at("name");
+		animation_s *entry = find_or_create_subanimation(animation, subanimation_name.c_str(), -1);
 		parse_anim_entry(entry, anim_list_entry);
 	}
 
@@ -633,9 +665,9 @@ static void read_animation_from_file(const char *lump, size_t lump_len)
 
 			for (auto& it : anim_entry_obj.items())
 			{
-				std::string anim_entry_name = it.key();
+				std::string subanimation_name = it.key();
 				json& anim_entry_obj = it.value();
-				parse_anim_list(anim_entry_name, anim_entry_obj);
+				parse_anim_list(subanimation_name, anim_entry_obj);
 			}
 		}
 	}

@@ -12142,12 +12142,12 @@ static void M_SetPlayerSetupFollowItem(void)
 		case MT_TAILSOVERLAY:
 		{
 			const state_t *state = &states[S_TAILSOVERLAY_MINUS30DEGREES];
-			const UINT8 sprite2 = P_GetSkinSprite2(skins[setupm_fakeskin], state->frame & FF_FRAMEMASK, NULL);
+			const UINT8 subanimation = P_GetSkinSubanimation(skins[setupm_fakeskin], state->frame & FF_FRAMEMASK, SKINSPRITES_BASE, NULL, NULL);
 
 			if (state->sprite != SPR_PLAY)
 				break;
 
-			multi_followitem_sprdef = &skins[setupm_fakeskin]->sprites[sprite2];
+			multi_followitem_sprdef = &skins[setupm_fakeskin]->sprites[subanimation];
 			multi_followitem_skinnum = setupm_fakeskin;
 			multi_followitem_numframes = multi_followitem_sprdef->numframes;
 			multi_followitem_startframe = 0;
@@ -12584,7 +12584,7 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = numskins-1;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+				multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
 				M_SetPlayerSetupFollowItem();
 			}
 			else if (itemOn == 2) // player color
@@ -12625,7 +12625,7 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = 0;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+				multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
 				M_SetPlayerSetupFollowItem();
 			}
 			else if (itemOn == 2) // player color
@@ -12776,7 +12776,7 @@ static void M_SetupMultiPlayer(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+	multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
 	M_SetPlayerSetupFollowItem();
 
 	// allocate and/or clear Lua player setup draw list
@@ -12821,7 +12821,7 @@ static void M_SetupMultiPlayer2(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+	multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
 	M_SetPlayerSetupFollowItem();
 
 	// allocate and/or clear Lua player setup draw list

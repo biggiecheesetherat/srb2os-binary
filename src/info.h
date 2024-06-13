@@ -1164,6 +1164,12 @@ typedef enum playersprite
 	NUMPLAYERSPRITES
 } playersprite_t;
 
+typedef enum skinspriteset
+{
+	SKINSPRITES_BASE,
+	SKINSPRITES_SUPER
+} skinspriteset_t;
+
 enum
 {
 	XTRA_LIFEPIC,

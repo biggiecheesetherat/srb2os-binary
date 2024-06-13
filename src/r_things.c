@@ -34,6 +34,7 @@
 #include "r_splats.h"
 #include "p_tick.h"
 #include "p_local.h"
+#include "p_animation.h"
 #include "p_slopes.h"
 #include "netcode/d_netfil.h" // blargh. for nameonly().
 #include "m_cheat.h" // objectplace
@@ -1814,14 +1815,14 @@ static void R_ProjectSprite(mobj_t *thing)
 	//Fab : 02-08-98: 'skin' override spritedef currently used for skin
 	if (thing->skin && thing->sprite == SPR_PLAY)
 	{
-		sprdef = P_GetSkinSpritedef(thing->skin, thing->sprite2);
+		sprdef = P_GetSkinAnimSpritedef(thing->skin, thing->animator.animation, thing->animator.subanimation);
 #ifdef ROTSPRITE
-		sprinfo = P_GetSkinSpriteInfo(thing->skin, thing->sprite2);
+		sprinfo = P_GetSkinAnimSpriteInfo(thing->skin, thing->animator.animation, thing->animator.subanimation);
 #endif
 
 		if (frame >= sprdef->numframes)
 		{
-			CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid skins[\"%s\"].sprites[SPR2_%s] %sframe %s\n"), ((skin_t *)thing->skin)->name, spr2names[thing->sprite2 & SPR2F_MASK], (thing->sprite2 & SPR2F_SUPER) ? "super ": "", sizeu5(frame));
+			CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid skin \"%s\" animation \"%s\" frame %s\n"), ((skin_t *)thing->skin)->name, P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation), sizeu1(frame));
 			thing->sprite = states[S_UNKNOWN].sprite;
 			thing->frame = states[S_UNKNOWN].frame;
 			sprdef = &sprites[thing->sprite];

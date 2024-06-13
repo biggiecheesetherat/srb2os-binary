@@ -22,6 +22,7 @@
 #include "g_demo.h" // demoplayback, demoversion
 #include "g_game.h"
 #include "p_local.h"
+#include "p_animation.h"
 #include "r_fps.h"
 #include "r_main.h"
 #include "s_sound.h"
@@ -1193,7 +1194,7 @@ boolean P_PlayerCanDamage(player_t *player, mobj_t *thing)
 	}
 	else if (P_MobjFlip(player->mo)*(topheight - (thing->z + thing->height/2)) < 0)
 	{
-		if ((player->powers[pw_strong] & STR_UPPER) && (player->mo->sprite2 != SPR2_SWIM) && (P_MobjFlip(player->mo)*(player->mo->momz - thing->momz) > 0))
+		if ((player->powers[pw_strong] & STR_UPPER) && (player->mo->animator.subanimation != SPR2_SWIM) && (P_MobjFlip(player->mo)*(player->mo->momz - thing->momz) > 0))
 			return true;
 	}
 
@@ -1414,8 +1415,7 @@ void P_DoSuperDetransformation(player_t *player)
 	if (!G_CoopGametype())
 		player->powers[pw_flashing] = flashingtics-1;
 
-	if (player->mo->sprite2 & SPR2F_SUPER)
-		P_SetMobjState(player->mo, player->mo->state-states);
+	P_SetMobjState(player->mo, player->mo->state-states);
 
 	// Inform the netgame that the champion has fallen in the heat of battle.
 	if (!G_CoopGametype())
@@ -2070,7 +2070,7 @@ mobj_t *P_SpawnGhostMobj(mobj_t *mobj)
 	ghost->spriteroll = mobj->spriteroll;
 
 	ghost->sprite = mobj->sprite;
-	ghost->sprite2 = mobj->sprite2;
+	ghost->skinspriteset = mobj->skinspriteset;
 	ghost->frame = mobj->frame;
 	ghost->tics = -1;
 	ghost->frame &= ~FF_TRANSMASK;
@@ -2088,6 +2088,9 @@ mobj_t *P_SpawnGhostMobj(mobj_t *mobj)
 	ghost->skin = mobj->skin;
 	ghost->standingslope = mobj->standingslope;
 
+	P_SetMobjAnimation(ghost, mobj->animator.animation, mobj->animator.subanimation, mobj->animator.frame);
+	ghost->animator.speed_mul = mobj->animator.speed_mul;
+
 	if (mobj->flags2 & MF2_OBJECTFLIP)
 		ghost->flags2 |= MF2_OBJECTFLIP;
 
@@ -2098,7 +2101,7 @@ mobj_t *P_SpawnGhostMobj(mobj_t *mobj)
 		{
 			P_SetTarget(&ghost2->tracer, ghost);
 			P_SetTarget(&ghost->tracer, ghost2);
-		P_SetTarget(&ghost2->dontdrawforviewmobj, mobj); // Hide the follow-ghost for the non-follow target
+			P_SetTarget(&ghost2->dontdrawforviewmobj, mobj); // Hide the follow-ghost for the non-follow target
 			ghost2->flags2 |= (mobj->player->followmobj->flags2 & MF2_LINKDRAW);
 		}
 	}
@@ -6911,7 +6914,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 	if (!(player->charflags & SF_NONIGHTSROTATION))
 	{
 		if ((player->mo->state == &states[S_PLAY_NIGHTS_PULL])
-		&& (player->mo->sprite2 == SPR2_NPUL))
+		&& (player->mo->animator.subanimation == SPR2_NPUL))
 			player->mo->spriteroll -= ANG30;
 		else
 			player->mo->spriteroll = 0;
@@ -11417,11 +11420,11 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 		else
 			chosenstate = S_TAILSOVERLAY_MINUS30DEGREES;
 	}
-	else if (player->mo->sprite2 == SPR2_FLY)
+	else if (player->mo->animator.subanimation == SPR2_FLY)
 		chosenstate = S_TAILSOVERLAY_FLY;
-	else if (player->mo->sprite2 == SPR2_SWIM)
+	else if (player->mo->animator.subanimation == SPR2_SWIM)
 		chosenstate = S_TAILSOVERLAY_FLY;
-	else if (player->mo->sprite2 == SPR2_TIRE)
+	else if (player->mo->animator.subanimation == SPR2_TIRE)
 		chosenstate = S_TAILSOVERLAY_TIRE;
 	else if (player->panim == PA_ABILITY2)
 		chosenstate = S_TAILSOVERLAY_PLUS30DEGREES;
@@ -11433,7 +11436,6 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 	// state...
 	if (panimchange)
 	{
-		tails->sprite2 = -1;
 		P_SetMobjState(tails, chosenstate);
 	}
 	else
@@ -11441,7 +11443,15 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 		if (tails->state != &states[chosenstate])
 		{
 			if (states[chosenstate].sprite == SPR_PLAY)
-				tails->sprite2 = P_GetSkinSprite2(((skin_t *)tails->skin), P_GetStateSprite2(&states[chosenstate]), player);
+			{
+				tails->skinspriteset = player->mo->skinspriteset;
+
+				if (P_ShouldUseSuperSprites(player->mo, tails->skinspriteset == SKINSPRITES_BASE && states[chosenstate].frame & SPR2F_SUPER))
+				{
+					tails->skinspriteset = SKINSPRITES_SUPER;
+				}
+			}
+
 			P_SetMobjState(tails, chosenstate);
 		}
 	}
@@ -11463,7 +11473,7 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 		ticnum = 2;
 	else if (player->mo->state-states == S_PLAY_GASP)
 		tails->tics = -1;
-	else if (player->mo->sprite2 == SPR2_TIRE)
+	else if (player->mo->animator.subanimation == SPR2_TIRE)
 		ticnum = (doswim ? 2 : 4);
 	else if (player->panim != PA_IDLE)
 		ticnum = player->mo->tics;

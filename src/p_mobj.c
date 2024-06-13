@@ -90,16 +90,20 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 
 	if (mobj->sprite == SPR_PLAY && mobj->skin)
 	{
-		spritedef_t *spritedef = P_GetSkinSpritedef(mobj->skin, mobj->sprite2);
+		spritedef_t *spritedef = P_GetSkinSpritedef(mobj->skin, mobj->animator.subanimation, mobj->skinspriteset);
 		animlength = (INT32)(spritedef->numframes);
 	}
 	else
 		animlength = st->var1;
 
+	if (mobj->animator.animation)
+	{
+		P_SetMobjAnimation(mobj, mobj->animator.animation, st->anim_entry, st->frame & FF_FRAMEMASK);
+		return;
+	}
+
 	if (!(st->frame & FF_ANIMATE))
 	{
-		if (mobj->animator.animation)
-			P_SetMobjAnimation(mobj, mobj->animator.animation, st->anim_entry, st->frame & FF_FRAMEMASK);
 		return;
 	}
 
@@ -131,10 +135,14 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 //
 FUNCINLINE static ATTRINLINE void P_CycleStateAnimation(mobj_t *mobj)
 {
+	if (mobj->animator.animation)
+	{
+		P_DoAnimationPlayback(&mobj->animator, mobj);
+		return;
+	}
+
 	if ((mobj->frame & FF_ANIMATE) == 0)
 	{
-		if (mobj->animator.animation)
-			P_DoAnimationPlayback(&mobj->animator, mobj);
 		return;
 	}
 
@@ -151,17 +159,6 @@ FUNCINLINE static ATTRINLINE void P_CycleStateAnimation(mobj_t *mobj)
 		// else just advance by one
 		if (((++mobj->frame) & FF_FRAMEMASK) - (mobj->state->frame & FF_FRAMEMASK) > (UINT32)mobj->state->var1)
 			mobj->frame = (mobj->state->frame & FF_FRAMEMASK) | (mobj->frame & ~FF_FRAMEMASK);
-
-		return;
-	}
-
-	// sprite2 version of above
-	if (mobj->skin)
-	{
-		spritedef_t *spritedef = P_GetSkinSpritedef(mobj->skin, mobj->sprite2);
-		UINT32 anim_length = (UINT32)(spritedef->numframes);
-		if (((++mobj->frame) & FF_FRAMEMASK) >= anim_length)
-			mobj->frame &= ~FF_FRAMEMASK;
 	}
 }
 
@@ -217,6 +214,7 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 {
 	state_t *st;
 	player_t *player = mobj->player;
+	INT32 animtics = 0;
 
 	// remember states seen, to detect cycles:
 	static statenum_t seenstate_tab[NUMSTATES]; // fast transition table
@@ -352,34 +350,40 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 		mobj->state = st;
 		mobj->tics = st->tics;
 
+		// NOTE: currently for backwards compat -- should just use the animation's speed instead
+		if (st->nextstate == state)
+			animtics = mobj->tics;
+		else
+			animtics = st->var2 != 0 ? st->var2 : mobj->tics;
+
 		// Adjust the player's animation speed to match their velocity.
 		if (player->panim == PA_EDGE && (player->charflags & SF_FASTEDGE))
-			mobj->tics = 2;
+			animtics = 2;
 		else if (!(disableSpeedAdjust || player->charflags & SF_NOSPEEDADJUST))
 		{
-			fixed_t speed;// = FixedDiv(player->speed, FixedMul(mobj->scale, player->mo->movefactor));
+			fixed_t speed;
 			if (player->panim == PA_FALL)
 			{
 				speed = FixedDiv(abs(mobj->momz), mobj->scale);
 				if (speed < 10<<FRACBITS)
-					mobj->tics = 4;
+					animtics = 4;
 				else if (speed < 20<<FRACBITS)
-					mobj->tics = 3;
+					animtics = 3;
 				else if (speed < 30<<FRACBITS)
-					mobj->tics = 2;
+					animtics = 2;
 				else
-					mobj->tics = 1;
+					animtics = 1;
 			}
 			else if (player->panim == PA_ABILITY2 && player->charability2 == CA2_SPINDASH)
 			{
 				fixed_t step = (player->maxdash - player->mindash)/4;
 				speed = (player->dashspeed - player->mindash);
 				if (speed > 3*step)
-					mobj->tics = 1;
+					animtics = 1;
 				else if (speed > step)
-					mobj->tics = 2;
+					animtics = 2;
 				else
-					mobj->tics = 3;
+					animtics = 3;
 			}
 			else
 			{
@@ -387,114 +391,74 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 				if (player->panim == PA_ROLL || player->panim == PA_JUMP)
 				{
 					if (speed > 16<<FRACBITS)
-						mobj->tics = 1;
+						animtics = 1;
 					else
-						mobj->tics = 2;
+						animtics = 2;
 				}
 				else if (P_IsObjectOnGround(mobj) || ((player->charability == CA_FLOAT || player->charability == CA_SLOWFALL) && player->secondjump == 1) || player->powers[pw_super]) // Only if on the ground or superflying.
 				{
 					if (player->panim == PA_WALK)
 					{
 						if (speed > 12<<FRACBITS)
-							mobj->tics = 2;
+							animtics = 2;
 						else if (speed > 6<<FRACBITS)
-							mobj->tics = 3;
+							animtics = 3;
 						else
-							mobj->tics = 4;
+							animtics = 4;
 					}
 					else if ((player->panim == PA_RUN) || (player->panim == PA_DASH))
 					{
 						if (speed > 52<<FRACBITS)
-							mobj->tics = 1;
+							animtics = 1;
 						else
-							mobj->tics = 2;
+							animtics = 2;
 					}
 				}
 			}
 		}
 
+		if (animtics > 0)
+		{
+			mobj->animator.speed_mul = FRACUNIT / animtics;
+		}
+		else
+		{
+			mobj->animator.speed_mul = 0;
+		}
+
 		// Player animations
-		if (st->sprite == SPR_PLAY)
+		if (st->sprite == SPR_PLAY && mobj->skin)
 		{
 			skin_t *skin = ((skin_t *)mobj->skin);
-			UINT16 frame = (mobj->frame & FF_FRAMEMASK)+1;
-			UINT8 numframes;
-			UINT16 spr2;
+			UINT16 subanimation = st->anim_entry;
+			UINT8 spriteset = mobj->skinspriteset;
 
-			if (skin)
+			mobj->sprite = SPR_PLAY;
+
+			if (P_ShouldUseSuperSprites(mobj, spriteset == SKINSPRITES_BASE && st->frame & SPR2F_SUPER))
 			{
-				spr2 = P_GetStateSprite2(st);
-
-				// Add or remove SPR2F_SUPER based on certain conditions
-				spr2 = P_ApplySuperFlagToSprite2(spr2, mobj);
-
-				// Get the needed sprite2 and frame number
-				spr2 = P_GetSkinSprite2(skin, spr2, mobj->player);
-
-				spritedef_t *sprdef = P_GetSkinSpritedef(skin, spr2);
-				numframes = sprdef->numframes;
-
-				if (state == S_PLAY_STND && (spr2 & SPR2F_SUPER) && sprdef[SPR2_WAIT].numframes == 0)
-					mobj->tics = -1;	// If no super wait, don't wait at all
-			}
-			else
-			{
-				spr2 = 0;
-				frame = 0;
-				numframes = 0;
+				spriteset = SKINSPRITES_SUPER;
 			}
 
-			if (mobj->sprite != SPR_PLAY)
-			{
-				mobj->sprite = SPR_PLAY;
-				frame = P_GetSprite2StateFrame(st);
-			}
-			else if (mobj->sprite2 != spr2)
-			{
-				if (st->frame & FF_SPR2MIDSTART)
-				{
-					if (numframes && P_RandomChance(FRACUNIT/2))
-						frame = numframes/2;
-					else
-						frame = 0;
-				}
-				else if (numframes)
-					frame = P_GetSprite2StateFrame(st) % numframes;
-				else
-					frame = 0;
-			}
+			subanimation = P_GetSkinSubanimation(skin, subanimation, spriteset, player, &spriteset);
 
-			if (frame >= numframes)
-			{
-				if (st->frame & FF_SPR2ENDSTATE) // no frame advancement
-				{
-					if (st->var1 == mobj->state-states)
-						frame--;
-					else
-					{
-						if (mobj->frame & FF_FRAMEMASK)
-							mobj->frame--;
+			P_SetMobjAnimation(mobj, P_GetSkinAnimation(skin, spriteset), subanimation, st->frame & FF_FRAMEMASK);
 
-						return P_SetPlayerMobjState(mobj, st->var1);
-					}
-				}
-				else
-					frame = 0;
-			}
-
-			mobj->sprite2 = spr2;
-			mobj->frame = frame|(st->frame&~FF_FRAMEMASK);
 			if (P_PlayerFullbright(player))
 				mobj->frame |= FF_FULLBRIGHT;
+
+			spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, mobj->animator.subanimation);
+			if (sprdef && state == S_PLAY_STND && spriteset == SKINSPRITES_SUPER && sprdef[SPR2_WAIT].numframes == 0)
+				mobj->tics = -1; // If no super wait, don't wait at all
 		}
 		// Regular sprites
 		else
 		{
 			mobj->sprite = st->sprite;
 			mobj->frame = st->frame;
-		}
 
-		P_SetupStateAnimation(mobj, st);
+			P_SetupStateAnimation(mobj, st);
+		}
 
 		// Modified handling.
 		// Call action functions when the state is set
@@ -558,85 +522,35 @@ boolean P_SetMobjState(mobj_t *mobj, statenum_t state)
 		mobj->tics = st->tics;
 
 		// Player animations
-		if (st->sprite == SPR_PLAY)
+		if (st->sprite == SPR_PLAY && mobj->skin)
 		{
 			skin_t *skin = ((skin_t *)mobj->skin);
-			UINT16 frame = (mobj->frame & FF_FRAMEMASK)+1;
-			UINT8 numframes;
-			UINT16 spr2;
+			UINT16 subanimation = st->anim_entry;
+			UINT8 spriteset = mobj->skinspriteset;
 
-			if (skin)
+			mobj->sprite = SPR_PLAY;
+
+			if (P_ShouldUseSuperSprites(mobj, spriteset == SKINSPRITES_BASE && st->frame & SPR2F_SUPER))
 			{
-				spr2 = P_GetStateSprite2(st);
-
-				// Add or remove SPR2F_SUPER based on certain conditions
-				spr2 = P_ApplySuperFlagToSprite2(spr2, mobj);
-
-				// Get the needed sprite2 and frame number
-				spr2 = P_GetSkinSprite2(skin, spr2, NULL);
-
-				spritedef_t *sprdef = P_GetSkinSpritedef(skin, spr2);
-				numframes = sprdef->numframes;
-
-				if (state == S_PLAY_STND && (spr2 & SPR2F_SUPER) && sprdef[SPR2_WAIT].numframes == 0)
-					mobj->tics = -1;	// If no super wait, don't wait at all
-			}
-			else
-			{
-				spr2 = 0;
-				frame = 0;
-				numframes = 0;
+				spriteset = SKINSPRITES_SUPER;
 			}
 
-			if (mobj->sprite != SPR_PLAY)
-			{
-				mobj->sprite = SPR_PLAY;
-				frame = P_GetSprite2StateFrame(st);
-			}
-			else if (mobj->sprite2 != spr2)
-			{
-				if (st->frame & FF_SPR2MIDSTART)
-				{
-					if (numframes && P_RandomChance(FRACUNIT/2))
-						frame = numframes/2;
-					else
-						frame = 0;
-				}
-				else if (numframes)
-					frame = P_GetSprite2StateFrame(st) % numframes;
-				else
-					frame = 0;
-			}
+			subanimation = P_GetSkinSubanimation(skin, subanimation, spriteset, NULL, &spriteset);
 
-			if (frame >= numframes)
-			{
-				if (st->frame & FF_SPR2ENDSTATE) // no frame advancement
-				{
-					if (st->var1 == mobj->state-states)
-						frame--;
-					else
-					{
-						if (mobj->frame & FF_FRAMEMASK)
-							mobj->frame--;
+			P_SetMobjAnimation(mobj, P_GetSkinAnimation(skin, spriteset), subanimation, st->frame & FF_FRAMEMASK);
 
-						return P_SetMobjState(mobj, st->var1);
-					}
-				}
-				else
-					frame = 0;
-			}
-
-			mobj->sprite2 = spr2;
-			mobj->frame = frame|(st->frame&~FF_FRAMEMASK);
+			spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, mobj->animator.subanimation);
+			if (sprdef && state == S_PLAY_STND && spriteset == SKINSPRITES_SUPER && sprdef[SPR2_WAIT].numframes == 0)
+				mobj->tics = -1; // If no super wait, don't wait at all
 		}
 		// Regular sprites
 		else
 		{
 			mobj->sprite = st->sprite;
 			mobj->frame = st->frame;
-		}
 
-		P_SetupStateAnimation(mobj, st);
+			P_SetupStateAnimation(mobj, st);
+		}
 
 		// Modified handling.
 		// Call action functions when the state is set
@@ -11080,12 +10994,6 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 				break;
 			}
 		}
-	}
-
-	if (mobj->skin) // correct inadequecies above.
-	{
-		mobj->sprite2 = P_GetSkinSprite2(mobj->skin, P_GetStateSprite2(mobj->state), NULL);
-		mobj->frame &= ~FF_FRAMEMASK;
 	}
 
 	// Call action functions when the state is set

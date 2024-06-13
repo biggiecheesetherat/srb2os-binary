@@ -4364,9 +4364,9 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	//Fab : 02-08-98: 'skin' override spritedef currently used for skin
 	if (thing->skin && thing->sprite == SPR_PLAY)
 	{
-		sprdef = P_GetSkinSpritedef(thing->skin, thing->sprite2);
+		sprdef = P_GetSkinAnimSpritedef(thing->skin, thing->animator.animation, thing->animator.subanimation);
 #ifdef ROTSPRITE
-		sprinfo = P_GetSkinSpriteInfo(thing->skin, thing->sprite2);
+		sprinfo = P_GetSkinAnimSpriteInfo(thing->skin, thing->animator.animation, thing->animator.subanimation);
 #endif
 	}
 	else

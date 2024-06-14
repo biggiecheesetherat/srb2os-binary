@@ -72,6 +72,8 @@ UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id);
 
 boolean P_SetupAnimator(animator_t *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame);
 UINT32 P_GetAnimatorFrame(animator_t *animator);
+UINT32 P_GetAnimatorNextFrame(animator_t *animator);
+fixed_t P_GetAnimatorSpeed(animator_t *animator);
 
 #ifdef __cplusplus
 } // extern "C"

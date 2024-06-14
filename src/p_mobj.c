@@ -138,6 +138,8 @@ FUNCINLINE static ATTRINLINE void P_CycleStateAnimation(mobj_t *mobj)
 	if (mobj->animator.animation)
 	{
 		P_DoAnimationPlayback(&mobj->animator, mobj, FRACUNIT);
+		if (mobj->player && P_PlayerFullbright(mobj->player))
+			mobj->frame |= FF_FULLBRIGHT;
 		return;
 	}
 
@@ -11011,7 +11013,12 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 	}
 
 	if (mobj->animator.animation)
+	{
 		P_DoAnimationPlayback(&mobj->animator, mobj, FRACUNIT);
+
+		if (mobj->player && P_PlayerFullbright(mobj->player))
+			mobj->frame |= FF_FULLBRIGHT;
+	}
 
 	if (CheckForReverseGravity && !(mobj->flags & MF_NOBLOCKMAP))
 		P_CheckGravity(mobj, false);

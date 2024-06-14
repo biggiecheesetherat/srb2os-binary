@@ -1272,10 +1272,6 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			R_InterpolateMobjState(spr->mobj, FRACUNIT, &interp);
 		}
 
-		// Apparently people don't like jump frames like that, so back it goes
-		//if (tics > durs)
-			//durs = tics;
-
 		INT32 blendmode;
 		if (spr->mobj->frame & FF_BLENDMASK)
 			blendmode = ((spr->mobj->frame & FF_BLENDMASK) >> FF_BLENDSHIFT) + 1;
@@ -1445,6 +1441,10 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 				mod = 1;
 			frame = spr2frames->frames[frame % mod];
 			nextFrame = frame;
+
+			// OpenGL interpolation factor is inverted
+			tics = FixedToFloat(spr->mobj->animator.frame_duration - spr->mobj->animator.timer);
+			durs = FixedToFloat(spr->mobj->animator.frame_duration);
 		}
 		else
 		{
@@ -1454,8 +1454,19 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		}
 
 #ifdef USE_MODEL_NEXTFRAME
-		// Interpolate the model interpolation. (lol)
-		tics -= FixedToFloat(rendertimefrac);
+		// Interpolate the model interpolation
+		if (spr2frames && rendertimefrac != 0)
+		{
+			tics -= FixedToFloat(FixedMul(P_GetAnimatorSpeed(&spr->mobj->animator), rendertimefrac));
+			if (tics < 0.0)
+				tics = 0.0;
+			else if (tics > durs)
+				tics = durs;
+		}
+		else
+		{
+			tics -= FixedToFloat(rendertimefrac);
+		}
 
 #define INTERPOLERATION_LIMIT (TICRATE * 0.25f)
 
@@ -1480,15 +1491,8 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 					&& spriteset == next_spriteset
 					&& ((P_GetSkinSubanimation(spr->mobj->skin, state->anim_entry, next_spriteset, spr->mobj->player, NULL) == spr->mobj->animator.subanimation)))))
 				{
-					// FIXME
-#if 0
-					nextFrame = frame;
-					if (nextFrame >= mod)
-					{
-						nextFrame = 0;
-					}
+					nextFrame = P_GetAnimatorNextFrame(&spr->mobj->animator) & FF_FRAMEMASK;
 					nextFrame = spr2frames->frames[nextFrame];
-#endif
 				}
 			}
 			else if (HWR_CanInterpolateModel(spr->mobj, md2->model))

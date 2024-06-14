@@ -69,10 +69,82 @@ static UINT16 get_subanimation_id(animation_list_s *animation, const char *name)
 }
 
 // Animation playback
-static void P_UpdateMobjAnimationFrame(mobj_t *mobj, animation_frame_s *frame)
+static void P_UpdateMobjAnimationFrame(mobj_t *mobj, animator_s *animator)
 {
-	mobj->frame &= ~FF_FRAMEMASK;
-	mobj->frame |= (frame->frame_num & FF_FRAMEMASK) | (frame->frame_flags & ~FF_FRAMEMASK);
+	mobj->frame = animator->current_frame;
+}
+
+static UINT16 P_GetNextSubanimationFrame(UINT16 frame, animation_s *entry, UINT8 direction)
+{
+	if (direction == ANIM_DIR_REVERSE)
+	{
+		if (frame == 0)
+		{
+			if (entry->loop_index != UINT16_MAX && entry->loop_index < entry->num_frames)
+				frame = entry->loop_index;
+			else
+				frame = entry->num_frames - 1;
+		}
+		else
+			frame--;
+	}
+	else
+	{
+		frame++;
+
+		if (frame >= entry->num_frames)
+		{
+			if (entry->loop_index == UINT16_MAX)
+				frame = 0;
+			else if (entry->loop_index < entry->num_frames)
+				frame = entry->loop_index;
+			else
+				frame = entry->num_frames - 1;
+		}
+	}
+
+	return frame;
+}
+
+static animation_frame_s *P_GetNextSubanimationFramePtr(UINT16 frame, animation_s *entry, UINT8 direction)
+{
+	return &entry->frames[P_GetNextSubanimationFrame(frame, entry, direction)];
+}
+
+fixed_t P_GetAnimatorSpeed(animator_s *animator)
+{
+	animation_list_s *animation = get_animation_by_id(animator->animation);
+	if (animation == nullptr || animation->count == 0 || animator->subanimation >= animation->count)
+	{
+		return 0;
+	}
+
+	animation_s *entry = animation->animations[animator->subanimation];
+
+	return FixedMul(entry->speed, animator->speed_mul);
+}
+
+static void P_UpdateAnimatorCurNextFrames(animator_s *animator, animation_s *entry)
+{
+	animation_frame_s *frame = &entry->frames[animator->frame];
+
+	fixed_t anim_speed = FixedMul(entry->speed, animator->speed_mul);
+
+	animator->current_frame = frame->frame_num | (frame->frame_flags & ~FF_FRAMEMASK);
+
+	if (animator->direction == ANIM_DIR_REVERSE)
+		anim_speed = -anim_speed;
+
+	if (anim_speed < 0)
+	{
+		frame = P_GetNextSubanimationFramePtr(animator->frame, entry, ANIM_DIR_REVERSE);
+	}
+	else
+	{
+		frame = P_GetNextSubanimationFramePtr(animator->frame, entry, ANIM_DIR_FORWARDS);
+	}
+
+	animator->next_frame = frame->frame_num | (frame->frame_flags & ~FF_FRAMEMASK);
 }
 
 boolean P_SetupAnimator(animator_s *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
@@ -91,21 +163,25 @@ boolean P_SetupAnimator(animator_s *animator, UINT16 animation_id, UINT16 subani
 
 	entry = animation->animations[subanimation_id];
 
+	// If the animation was going in reverse, invert the speed to that it's going forwards instead
 	if (animator->direction == ANIM_DIR_OSCILLATE && animator->speed_mul < 0)
 		animator->speed_mul = -animator->speed_mul;
 
 	animator->direction = entry->direction;
 
+	// Animation is empty
 	if (entry->num_frames == 0)
 	{
 		animator->frame = 0;
 		animator->frame_duration = 0;
+		animator->current_frame = animator->next_frame = 0;
 		return false;
 	}
 
+	// Set starting frame
 	animator->frame = start_frame;
 
-	if (animator->frame == UINT16_MAX)
+	if (animator->frame == UINT16_MAX) // default frame
 	{
 		if (animator->direction == ANIM_DIR_REVERSE)
 			animator->frame = entry->num_frames - 1;
@@ -117,6 +193,9 @@ boolean P_SetupAnimator(animator_s *animator, UINT16 animation_id, UINT16 subani
 
 	animator->frame_duration = entry->frames[animator->frame].duration * FRACUNIT;
 
+	// Set current and next frame
+	P_UpdateAnimatorCurNextFrames(animator, entry);
+
 	return true;
 }
 
@@ -124,9 +203,7 @@ static boolean P_SetupMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 su
 {
 	if (P_SetupAnimator(&mobj->animator, animation_id, subanimation_id, start_frame))
 	{
-		animation_list_s *animation = animation_defs[animation_id];
-		animation_s *entry = animation->animations[subanimation_id];
-		P_UpdateMobjAnimationFrame(mobj, &entry->frames[mobj->animator.frame]);
+		P_UpdateMobjAnimationFrame(mobj, &mobj->animator);
 		return true;
 	}
 
@@ -135,28 +212,12 @@ static boolean P_SetupMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 su
 
 UINT32 P_GetAnimatorFrame(animator_s *animator)
 {
-	animation_frame_s *anim_frame;
+	return animator->current_frame;
+}
 
-	if (!animator || animator->animation == 0 || animator->animation > animation_defs.size())
-	{
-		return 0;
-	}
-
-	animation_list_s *animation = animation_defs[animator->animation - 1];
-	if (animator->subanimation >= animation->count)
-	{
-		return 0;
-	}
-
-	animation_s *entry = animation->animations[animator->subanimation];
-	if (animator->frame >= entry->num_frames)
-	{
-		return 0;
-	}
-
-	anim_frame = &entry->frames[animator->frame];
-
-	return (anim_frame->frame_num & FF_FRAMEMASK) | (anim_frame->frame_flags & ~FF_FRAMEMASK);
+UINT32 P_GetAnimatorNextFrame(animator_s *animator)
+{
+	return animator->next_frame;
 }
 
 boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
@@ -238,12 +299,11 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)
 		return;
 	}
 
-	unsigned i = 0;
-	animation_frame_s *anim_frame;
-
 	fixed_t anim_speed = FixedMul(FixedMul(entry->speed, animator->speed_mul), timedelta);
 	if (anim_speed == 0)
 		return;
+
+	unsigned i = 0;
 
 	// Oscillating animation
 	if (animator->direction == ANIM_DIR_OSCILLATE)
@@ -291,14 +351,14 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)
 
 			animator->frame = frame;
 
-			anim_frame = &entry->frames[animator->frame];
+			P_UpdateAnimatorCurNextFrames(animator, entry);
 
 			if (mobj != nullptr)
 			{
-				P_UpdateMobjAnimationFrame(mobj, anim_frame);
+				P_UpdateMobjAnimationFrame(mobj, animator);
 			}
 
-			animator->frame_duration = anim_frame->duration * FRACUNIT;
+			animator->frame_duration = entry->frames[animator->frame].duration * FRACUNIT;
 
 			if (++i > TICRATE)
 				break;
@@ -318,26 +378,16 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)
 		while (animator->timer > animator->frame_duration)
 		{
 			animator->timer -= animator->frame_duration;
-			animator->frame++;
+			animator->frame = P_GetNextSubanimationFrame(animator->frame, entry, ANIM_DIR_FORWARDS);
 
-			if (animator->frame >= entry->num_frames)
-			{
-				if (entry->loop_index == UINT16_MAX)
-					animator->frame = 0;
-				else if (entry->loop_index < entry->num_frames)
-					animator->frame = entry->loop_index;
-				else
-					animator->frame = entry->num_frames - 1;
-			}
-
-			anim_frame = &entry->frames[animator->frame];
+			P_UpdateAnimatorCurNextFrames(animator, entry);
 
 			if (mobj != nullptr)
 			{
-				P_UpdateMobjAnimationFrame(mobj, anim_frame);
+				P_UpdateMobjAnimationFrame(mobj, animator);
 			}
 
-			animator->frame_duration = anim_frame->duration * FRACUNIT;
+			animator->frame_duration = entry->frames[animator->frame].duration * FRACUNIT;
 
 			if (++i > TICRATE)
 				break;
@@ -349,25 +399,16 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)
 		while (animator->timer < 0)
 		{
 			animator->timer += animator->frame_duration;
+			animator->frame = P_GetNextSubanimationFrame(animator->frame, entry, ANIM_DIR_REVERSE);
 
-			if (animator->frame == 0)
-			{
-				if (entry->loop_index != UINT16_MAX && entry->loop_index < entry->num_frames)
-					animator->frame = entry->loop_index;
-				else
-					animator->frame = entry->num_frames - 1;
-			}
-			else
-				animator->frame--;
-
-			anim_frame = &entry->frames[animator->frame];
+			P_UpdateAnimatorCurNextFrames(animator, entry);
 
 			if (mobj != nullptr)
 			{
-				P_UpdateMobjAnimationFrame(mobj, anim_frame);
+				P_UpdateMobjAnimationFrame(mobj, animator);
 			}
 
-			animator->frame_duration = anim_frame->duration * FRACUNIT;
+			animator->frame_duration = entry->frames[animator->frame].duration * FRACUNIT;
 
 			if (++i > TICRATE)
 				break;

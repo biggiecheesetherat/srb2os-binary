@@ -296,6 +296,8 @@ typedef struct animator_s
 	fixed_t frame_duration; // duration of the current frame
 	fixed_t speed_mul; // how fast the animation is played back, multiplied by the subanimation speed
 	UINT8 direction; // forwards, reverse, or oscillate
+	UINT32 current_frame; // the current frame
+	UINT32 next_frame; // the next frame
 } animator_t;
 
 // Map Object definition.

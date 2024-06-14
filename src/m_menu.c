@@ -44,6 +44,7 @@
 #include "keys.h"
 #include "z_zone.h"
 #include "w_wad.h"
+#include "p_animation.h"
 #include "p_local.h"
 #include "p_setup.h"
 #include "f_finale.h"
@@ -11976,14 +11977,17 @@ static void M_HandleConnectIP(INT32 choice)
 // ========================
 // Tails 03-02-2002
 
-static fixed_t    multi_tics;
-static UINT8      multi_frame;
-static UINT16     multi_spr2;
-static boolean    multi_paused;
-static boolean    multi_invcolor;
-static boolean    multi_override;
+static fixed_t      multi_tics;
+static UINT8        multi_frame;
+static UINT16       multi_spr2;
+static spritedef_t *multi_sprdef;
+static animator_t   multi_animator;
+static boolean      multi_paused;
+static boolean      multi_invcolor;
+static boolean      multi_override;
 
 static spritedef_t *multi_followitem_sprdef;
+static animator_t   multi_followitem_animator;
 static INT32        multi_followitem_skinnum;
 static UINT8        multi_followitem_numframes;
 static UINT8        multi_followitem_startframe;
@@ -12138,6 +12142,24 @@ static menucolor_t *M_GridIndexToMenuColor(UINT16 index)
 	}
 }
 
+static UINT8 M_SetupPlayerMenuAnimator(animator_t *animator, skin_t *skin, UINT16 player_anim, spritedef_t **sprdef)
+{
+	UINT8 spriteset = SKINSPRITES_BASE;
+	UINT16 animation = P_GetSkinAnimation(skin, spriteset);
+	UINT16 subanimation = P_GetSkinSubanimation(skin, player_anim, spriteset, NULL, &spriteset);
+
+	*sprdef = P_GetSkinSpritedef(skin, subanimation, spriteset);
+
+	memset(animator, 0, sizeof(animator_t));
+
+	animator->speed_mul = FixedDiv(FRACUNIT, MULTI_DURATION);
+
+	if (!P_SetupAnimator(animator, animation, subanimation, 0))
+		animator->animation = UINT16_MAX;
+
+	return subanimation;
+}
+
 static void M_SetPlayerSetupFollowItem(void)
 {
 	const mobjtype_t followitem = skins[setupm_fakeskin]->followitem;
@@ -12147,15 +12169,16 @@ static void M_SetPlayerSetupFollowItem(void)
 		case MT_TAILSOVERLAY:
 		{
 			const state_t *state = &states[S_TAILSOVERLAY_MINUS30DEGREES];
-			const UINT8 subanimation = P_GetSkinSubanimation(skins[setupm_fakeskin], state->anim_entry, SKINSPRITES_BASE, NULL, NULL);
-			spritedef_t *sprdef = P_GetSkinSpritedef(skins[setupm_fakeskin], subanimation, SKINSPRITES_BASE);
 
-			if (state->sprite != SPR_PLAY || sprdef == NULL)
+			if (state->sprite != SPR_PLAY)
 				break;
 
-			multi_followitem_sprdef = sprdef;
+			animator_t *animator = &multi_followitem_animator;
+
+			M_SetupPlayerMenuAnimator(animator, skins[setupm_fakeskin], state->anim_entry, &multi_followitem_sprdef);
+
 			multi_followitem_skinnum = setupm_fakeskin;
-			multi_followitem_numframes = multi_followitem_sprdef->numframes;
+			multi_followitem_numframes = P_GetSubanimationFrameCount(animator->animation, animator->subanimation) / 2;
 			multi_followitem_startframe = 0;
 			multi_followitem_frame = multi_frame;
 			multi_followitem_duration = MULTI_DURATION;
@@ -12163,9 +12186,9 @@ static void M_SetPlayerSetupFollowItem(void)
 			multi_followitem_scale = FRACUNIT;
 			multi_followitem_yoffset = 0;
 
-			if ((state->frame & FF_SPR2MIDSTART) && (multi_followitem_numframes > 0) && M_RandomChance(FRACUNIT / 2))
+			if ((state->frame & FF_SPR2MIDSTART) && animator->animation != UINT16_MAX && M_RandomChance(FRACUNIT / 2))
 			{
-				multi_followitem_frame += multi_followitem_numframes / 2;
+				P_SetupAnimator(animator, animator->animation, animator->subanimation, multi_followitem_numframes / 2);
 			}
 			break;
 		}
@@ -12176,6 +12199,7 @@ static void M_SetPlayerSetupFollowItem(void)
 			if (!(state->frame & FF_ANIMATE))
 				break;
 
+			multi_followitem_animator.animation = UINT16_MAX;
 			multi_followitem_sprdef = &sprites[state->sprite];
 			multi_followitem_skinnum = TC_DEFAULT;
 			multi_followitem_numframes = state->var1 + 1;
@@ -12188,8 +12212,35 @@ static void M_SetPlayerSetupFollowItem(void)
 			break;
 		}
 		default:
+			multi_followitem_animator.animation = UINT16_MAX;
 			multi_followitem_sprdef = NULL;
 			break;
+	}
+}
+
+static void M_AnimatePlayerSetup(void)
+{
+	if (multi_animator.animation != UINT16_MAX)
+	{
+		P_DoAnimationPlayback(&multi_animator, NULL, renderdeltatics);
+		multi_tics = multi_animator.timer;
+		multi_frame = P_GetAnimatorFrame(&multi_animator);
+	}
+
+	if (multi_followitem_animator.animation != UINT16_MAX)
+	{
+		P_DoAnimationPlayback(&multi_followitem_animator, NULL, renderdeltatics);
+		multi_followitem_tics = multi_followitem_animator.timer;
+		multi_followitem_frame = P_GetAnimatorFrame(&multi_followitem_animator);
+	}
+	else if (multi_followitem_sprdef != NULL)
+	{
+		multi_followitem_tics -= renderdeltatics;
+		while (multi_followitem_tics <= 0)
+		{
+			multi_followitem_frame++;
+			multi_followitem_tics += multi_followitem_duration;
+		}
 	}
 }
 
@@ -12202,7 +12253,8 @@ static void M_DrawPlayerSetupFollowItem(INT32 x, INT32 y, fixed_t scale, INT32 f
 	if (multi_followitem_sprdef == NULL)
 		return;
 
-	if (multi_followitem_frame >= multi_followitem_startframe + multi_followitem_numframes)
+	if (multi_followitem_animator.animation == UINT16_MAX
+	&& multi_followitem_frame >= multi_followitem_startframe + multi_followitem_numframes)
 		multi_followitem_frame = multi_followitem_startframe;
 
 	colormap = R_GetTranslationColormap(multi_followitem_skinnum, setupm_fakecolor->color, GTC_CACHE);
@@ -12274,28 +12326,10 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	y += 11;
 
 	// anim the player in the box
-	// TODO: use an animator
-#if 0
 	if (!multi_paused)
 	{
-		multi_tics -= renderdeltatics;
-		while (multi_tics <= 0)
-		{
-			multi_frame++;
-			multi_tics += MULTI_DURATION;
-		}
-
-		if (multi_followitem_sprdef != NULL)
-		{
-			multi_followitem_tics -= renderdeltatics;
-			while (multi_followitem_tics <= 0)
-			{
-				multi_followitem_frame++;
-				multi_followitem_tics += multi_followitem_duration;
-			}
-		}
+		M_AnimatePlayerSetup();
 	}
-#endif
 
 #define charw 74
 
@@ -12303,7 +12337,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	V_DrawFill(x-(charw/2), y, charw, 84,
 		multi_invcolor ?skincolors[skincolors[setupm_fakecolor->color].invcolor].ramp[skincolors[setupm_fakecolor->color].invshade] : 159);
 
-	sprdef = P_GetSkinSpritedef(skins[setupm_fakeskin], multi_spr2, SKINSPRITES_BASE);
+	sprdef = multi_sprdef;
 
 	if (!setupm_fakecolor->color || !sprdef || !sprdef->numframes) // should never happen but hey, who knows
 		goto faildraw;
@@ -12593,8 +12627,9 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = numskins-1;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
+				multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
 				M_SetPlayerSetupFollowItem();
+				M_AnimatePlayerSetup();
 			}
 			else if (itemOn == 2) // player color
 			{
@@ -12634,8 +12669,9 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = 0;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
+				multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
 				M_SetPlayerSetupFollowItem();
+				M_AnimatePlayerSetup();
 			}
 			else if (itemOn == 2) // player color
 			{
@@ -12785,8 +12821,9 @@ static void M_SetupMultiPlayer(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
+	multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
 	M_SetPlayerSetupFollowItem();
+	M_AnimatePlayerSetup();
 
 	// allocate and/or clear Lua player setup draw list
 	M_InitPlayerSetupLua();
@@ -12830,8 +12867,9 @@ static void M_SetupMultiPlayer2(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = P_GetSkinSubanimation(skins[setupm_fakeskin], SPR2_WALK, SKINSPRITES_BASE, NULL, NULL);
+	multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
 	M_SetPlayerSetupFollowItem();
+	M_AnimatePlayerSetup();
 
 	// allocate and/or clear Lua player setup draw list
 	M_InitPlayerSetupLua();

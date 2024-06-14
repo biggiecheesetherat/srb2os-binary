@@ -56,11 +56,11 @@ void P_LoadAnimations(UINT16 wadnum);
 
 boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame);
 boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *entry_name, UINT16 start_frame);
-void P_DoAnimationPlayback(struct animator_s *animator, mobj_t *mobj);
+void P_DoAnimationPlayback(animator_t *animator, mobj_t *mobj, tic_t timedelta);
 
-struct animation_list_s *P_FindOrCreateAnimation(const char *animation_name);
-struct animation_s *P_FindOrCreateSubAnimation(struct animation_list_s *animation, const char *subanimation_name);
-struct animation_s *P_FindOrCreateSubAnimationAt(struct animation_list_s *animation, const char *subanimation_name, unsigned index);
+animation_list_t *P_FindOrCreateAnimation(const char *animation_name);
+animation_t *P_FindOrCreateSubAnimation(animation_list_t *animation, const char *subanimation_name);
+animation_t *P_FindOrCreateSubAnimationAt(animation_list_t *animation, const char *subanimation_name, unsigned index);
 
 UINT16 P_GetNamedAnimationID(const char *animation_name);
 UINT16 P_GetNamedSubanimationID(UINT16 animation_id, const char *entry_name);
@@ -69,6 +69,9 @@ const char *P_GetAnimationNameByID(UINT16 animation_id);
 const char *P_GetSubanimationNameByID(UINT16 animation_id, UINT16 subanimation_id);
 
 UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id);
+
+boolean P_SetupAnimator(animator_t *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame);
+UINT32 P_GetAnimatorFrame(animator_t *animator);
 
 #ifdef __cplusplus
 } // extern "C"

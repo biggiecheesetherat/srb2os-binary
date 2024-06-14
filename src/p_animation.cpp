@@ -75,20 +75,35 @@ static void P_UpdateMobjAnimationFrame(mobj_t *mobj, animation_frame_s *frame)
 	mobj->frame |= (frame->frame_num & FF_FRAMEMASK) | (frame->frame_flags & ~FF_FRAMEMASK);
 }
 
-static void P_SetupMobjAnimation(mobj_t *mobj, animation_s *entry)
+boolean P_SetupAnimator(animator_s *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
 {
-	animator_s *animator = &mobj->animator;
+	animation_list_s *animation = get_animation_by_id(animation_id);
+	animation_s *entry;
+
+	if (animation == nullptr || animation->count == 0 || subanimation_id >= animation->count)
+	{
+		return false;
+	}
+
+	animator->animation = animation_id;
+	animator->subanimation = subanimation_id;
+	animator->timer = 0;
+
+	entry = animation->animations[subanimation_id];
 
 	if (animator->direction == ANIM_DIR_OSCILLATE && animator->speed_mul < 0)
 		animator->speed_mul = -animator->speed_mul;
 
-	animator->timer = 0;
 	animator->direction = entry->direction;
 
 	if (entry->num_frames == 0)
 	{
-		return;
+		animator->frame = 0;
+		animator->frame_duration = 0;
+		return false;
 	}
+
+	animator->frame = start_frame;
 
 	if (animator->frame == UINT16_MAX)
 	{
@@ -100,11 +115,48 @@ static void P_SetupMobjAnimation(mobj_t *mobj, animation_s *entry)
 	else
 		animator->frame %= entry->num_frames;
 
-	animation_frame_s *frame = &entry->frames[animator->frame];
+	animator->frame_duration = entry->frames[animator->frame].duration * FRACUNIT;
 
-	P_UpdateMobjAnimationFrame(mobj, frame);
+	return true;
+}
 
-	animator->frame_duration = frame->duration * FRACUNIT;
+static boolean P_SetupMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
+{
+	if (P_SetupAnimator(&mobj->animator, animation_id, subanimation_id, start_frame))
+	{
+		animation_list_s *animation = animation_defs[animation_id];
+		animation_s *entry = animation->animations[subanimation_id];
+		P_UpdateMobjAnimationFrame(mobj, &entry->frames[mobj->animator.frame]);
+		return true;
+	}
+
+	return false;
+}
+
+UINT32 P_GetAnimatorFrame(animator_s *animator)
+{
+	animation_frame_s *anim_frame;
+
+	if (!animator || animator->animation == 0 || animator->animation > animation_defs.size())
+	{
+		return 0;
+	}
+
+	animation_list_s *animation = animation_defs[animator->animation - 1];
+	if (animator->subanimation >= animation->count)
+	{
+		return 0;
+	}
+
+	animation_s *entry = animation->animations[animator->subanimation];
+	if (animator->frame >= entry->num_frames)
+	{
+		return 0;
+	}
+
+	anim_frame = &entry->frames[animator->frame];
+
+	return (anim_frame->frame_num & FF_FRAMEMASK) | (anim_frame->frame_flags & ~FF_FRAMEMASK);
 }
 
 boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
@@ -131,11 +183,7 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
 		return true;
 
-	mobj->animator.animation = animation_id;
-	mobj->animator.subanimation = subanimation_id;
-	mobj->animator.frame = start_frame;
-
-	P_SetupMobjAnimation(mobj, animation->animations[mobj->animator.subanimation]);
+	P_SetupMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
 
 	return true;
 }
@@ -166,16 +214,12 @@ boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const 
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
 		return true;
 
-	mobj->animator.animation = animation_id;
-	mobj->animator.subanimation = subanimation_id;
-	mobj->animator.frame = start_frame;
-
-	P_SetupMobjAnimation(mobj, animation->animations[mobj->animator.subanimation]);
+	P_SetupMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
 
 	return true;
 }
 
-void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
+void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)
 {
 	if (animator->animation == 0 || animator->animation > animation_defs.size())
 	{
@@ -197,7 +241,7 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj)
 	unsigned i = 0;
 	animation_frame_s *anim_frame;
 
-	fixed_t anim_speed = FixedMul(entry->speed, animator->speed_mul);
+	fixed_t anim_speed = FixedMul(FixedMul(entry->speed, animator->speed_mul), timedelta);
 	if (anim_speed == 0)
 		return;
 

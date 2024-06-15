@@ -32,6 +32,7 @@
 #include "p_setup.h"
 #include "m_random.h"
 #include "m_misc.h"
+#include "m_easing.h"
 #include "i_video.h"
 #include "p_slopes.h"
 #include "p_spec.h"
@@ -8906,85 +8907,73 @@ void P_AdjustPlayerAnimSpeed(player_t *player)
 	if (disableSpeedAdjust || player->charflags & SF_NOSPEEDADJUST)
 		return;
 
-	INT32 animtics = 1;
+	fixed_t anim_speed = FRACUNIT;
+
+	fixed_t base_anim_speed = P_GetSubanimationSpeed(mobj->animator.animation, mobj->animator.subanimation);
 
 	if (player->panim == PA_FALL)
 	{
 		fixed_t speed = FixedDiv(abs(mobj->momz), mobj->scale);
-		if (speed < 10<<FRACBITS)
-			animtics = 4;
-		else if (speed < 20<<FRACBITS)
-			animtics = 3;
-		else if (speed < 30<<FRACBITS)
-			animtics = 2;
-		else
-			animtics = 1;
+		speed = FixedDiv(min(speed, 30<<FRACBITS), 30<<FRACBITS);
+		anim_speed = Easing_Linear(speed, FRACUNIT / 2, FRACUNIT);
 	}
 	else if (player->panim == PA_ABILITY2 && player->charability2 == CA2_SPINDASH)
 	{
 		fixed_t step = (player->maxdash - player->mindash)/4;
 		fixed_t speed = (player->dashspeed - player->mindash);
-		if (speed > 3*step)
-			animtics = 1;
-		else if (speed > step)
-			animtics = 2;
-		else
-			animtics = 3;
+
+		if (speed <= 3*step)
+		{
+			if (speed > step)
+				anim_speed = FRACUNIT / 2;
+			else
+				anim_speed = FRACUNIT / 3;
+
+			anim_speed = FixedDiv(anim_speed, base_anim_speed);
+		}
 	}
 	else
 	{
 		fixed_t speed = FixedDiv(player->speed, FixedMul(mobj->scale, player->mo->movefactor));
+
 		if (player->panim == PA_ROLL || player->panim == PA_JUMP)
 		{
-			if (speed > 16<<FRACBITS)
-				animtics = 1;
-			else
-				animtics = 2;
+			if (speed <= 16<<FRACBITS)
+				anim_speed = FixedDiv(FRACUNIT / 2, base_anim_speed);
 		}
 		else if (player->mo->state == &states[S_PLAY_SKID] && !P_IsSkinAnimationValid(skins[player->skin], SPR2_SKID, P_GetPlayerSpriteset(mobj, player->mo->state)))
 		{
-			animtics = 0;
+			anim_speed = 0;
 		}
 		else if (P_IsObjectOnGround(mobj) || ((player->charability == CA_FLOAT || player->charability == CA_SLOWFALL) && player->secondjump == 1) || player->powers[pw_super]) // Only if on the ground or superflying.
 		{
 			if (player->panim == PA_WALK)
 			{
-				if (speed > 12<<FRACBITS)
-					animtics = 2;
-				else if (speed > 6<<FRACBITS)
-					animtics = 3;
-				else
-					animtics = 4;
+				speed = min(speed, 12<<FRACBITS);
+				anim_speed += FixedDiv(speed, 12<<FRACBITS);
 			}
 			else if (player->panim == PA_RUN || player->panim == PA_DASH)
 			{
-				if (speed > 52<<FRACBITS)
-					animtics = 1;
-				else
-					animtics = 2;
+				if (speed <= 52<<FRACBITS)
+					anim_speed = FixedDiv(FRACUNIT / 2, base_anim_speed);
 			}
 		}
 		else if (!P_IsObjectOnGround(mobj))
 		{
 			if (player->panim == PA_WALK)
 			{
-				animtics = 4;
+				anim_speed = FRACUNIT / 4;
 			}
 			else if (player->panim == PA_RUN || player->panim == PA_DASH)
 			{
-				animtics = 2;
+				anim_speed = FRACUNIT / 2;
 			}
+
+			anim_speed = FixedDiv(anim_speed, base_anim_speed);
 		}
 	}
 
-	if (animtics > 0)
-	{
-		mobj->animator.speed_mul = FRACUNIT / animtics;
-	}
-	else
-	{
-		mobj->animator.speed_mul = 0;
-	}
+	mobj->animator.speed_mul = anim_speed;
 }
 
 static void P_DoZoomTube(player_t *player)

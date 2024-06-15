@@ -14,6 +14,7 @@
 #include "nlohmann/json.hpp"
 
 #include "doomdef.h"
+#include "r_skins.h"
 #include "p_pspr.h"
 #include "w_wad.h"
 #include "z_zone.h"
@@ -111,17 +112,14 @@ static animation_frame_s *P_GetNextSubanimationFramePtr(UINT16 frame, animation_
 	return &entry->frames[P_GetNextSubanimationFrame(frame, entry, direction)];
 }
 
-fixed_t P_GetAnimatorSpeed(animator_s *animator)
+static boolean is_valid_subanimation_id(animation_list_s *animation, UINT16 subanimation_id)
 {
-	animation_list_s *animation = get_animation_by_id(animator->animation);
-	if (animation == nullptr || animation->count == 0 || animator->subanimation >= animation->count)
+	if (animation == nullptr || animation->count == 0 || subanimation_id >= animation->count)
 	{
-		return 0;
+		return false;
 	}
 
-	animation_s *entry = animation->animations[animator->subanimation];
-
-	return FixedMul(entry->speed, animator->speed_mul);
+	return animation->animations[subanimation_id] != nullptr;
 }
 
 static void P_UpdateAnimatorCurNextFrames(animator_s *animator, animation_s *entry)
@@ -152,7 +150,7 @@ boolean P_SetupAnimator(animator_s *animator, UINT16 animation_id, UINT16 subani
 	animation_list_s *animation = get_animation_by_id(animation_id);
 	animation_s *entry;
 
-	if (animation == nullptr || animation->count == 0 || subanimation_id >= animation->count)
+	if (!is_valid_subanimation_id(animation, subanimation_id))
 	{
 		return false;
 	}
@@ -222,14 +220,21 @@ UINT32 P_GetAnimatorNextFrame(animator_s *animator)
 
 boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
 {
-	animation_list_s *animation = get_animation_by_id(animation_id);
+	animation_list_s *animation;
+
+	if (animation_id == 0)
+	{
+		return false;
+	}
+
+	animation = get_animation_by_id(animation_id);
 	if (animation == nullptr)
 	{
 		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid animation ID %d\n", animation_id);
 		return false;
 	}
 
-	if (animation->count == 0)
+	if (!is_valid_subanimation_id(animation, subanimation_id))
 	{
 		return false;
 	}
@@ -239,6 +244,14 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 		CONS_Alert(CONS_ERROR, "P_SetMobjAnimation: Invalid subanimation ID %d/%s for animation '%s'\n", subanimation_id, sizeu1(animation->count), P_GetAnimationNameByID(animation_id));
 
 		subanimation_id = 0;
+	}
+
+	skin_t *skin = P_IsAnimationForSkin(NULL, animation_id);
+	if (skin != NULL)
+	{
+		spritenum_t sprite = P_GetSkinSpriteID(skin, subanimation_id, P_GetPlayerSpriteset(mobj, mobj->state));
+		if (sprite != SPR_NULL)
+			mobj->sprite = sprite;
 	}
 
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
@@ -259,17 +272,22 @@ boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const 
 	}
 
 	animation_list_s *animation = animation_defs[animation_id];
-	if (animation->count == 0)
-	{
-		return false;
-	}
 
 	UINT16 subanimation_id = get_subanimation_id(animation, subanimation_name);
 	if (subanimation_id == UINT16_MAX)
 	{
 		subanimation_id = 0;
 
+		if (!is_valid_subanimation_id(animation, subanimation_id))
+		{
+			return false;
+		}
+
 		CONS_Alert(CONS_ERROR, "P_SetNamedMobjAnimation: No subanimation named '%s' in animation '%s'\n", subanimation_name, animation_name);
+	}
+	else if (!is_valid_subanimation_id(animation, subanimation_id))
+	{
+		return false;
 	}
 
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
@@ -288,7 +306,7 @@ void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)
 	}
 
 	animation_list_s *animation = animation_defs[animator->animation - 1];
-	if (animator->subanimation >= animation->count)
+	if (!is_valid_subanimation_id(animation, animator->subanimation))
 	{
 		return;
 	}
@@ -469,7 +487,7 @@ const char *P_GetSubanimationNameByID(UINT16 animation_id, UINT16 subanimation_i
 		return nullptr;
 	}
 
-	if (subanimation_id < animation->count)
+	if (is_valid_subanimation_id(animation, subanimation_id))
 	{
 		return animation->animations[subanimation_id]->name;
 	}
@@ -485,7 +503,7 @@ UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id)
 		return 0;
 	}
 
-	if (subanimation_id < animation->count)
+	if (is_valid_subanimation_id(animation, subanimation_id))
 	{
 		return animation->animations[subanimation_id]->num_frames;
 	}
@@ -493,14 +511,23 @@ UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id)
 	return 0;
 }
 
-static animation_list_s *find_or_create_animation(const char *name)
+fixed_t P_GetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id)
 {
-	animation_list_s *animation = find_animation_by_name(name);
-	if (animation != nullptr)
-		return animation;
+	animation_list_s *animation = get_animation_by_id(animation_id);
+	if (!is_valid_subanimation_id(animation, subanimation_id))
+	{
+		return 0;
+	}
 
-	animation = static_cast<animation_list_s *>(
-		Z_Calloc(sizeof(animation_list_s), PU_STATIC, NULL)
+	animation_s *entry = animation->animations[subanimation_id];
+
+	return entry->speed;
+}
+
+static animation_list_s *create_animation(const char *name)
+{
+	animation_list_s *animation = static_cast<animation_list_s *>(
+		Z_Calloc(sizeof(animation_list_s), PU_STATIC, nullptr)
 	);
 
 	animation->name = Z_StrDup(name);
@@ -510,39 +537,60 @@ static animation_list_s *find_or_create_animation(const char *name)
 	return animation;
 }
 
-static animation_s *find_or_create_subanimation(animation_list_s *list, const char *name, int index)
+static animation_list_s *find_or_create_animation(const char *name)
 {
-	for (size_t i = 0; i < list->count; i++)
-	{
-		if (!strcmp(list->animations[i]->name, name))
-			return list->animations[i];
-	}
+	animation_list_s *animation = find_animation_by_name(name);
+	if (animation != nullptr)
+		return animation;
 
+	return create_animation(name);
+}
+
+static animation_s *create_subanimation(const char *name)
+{
 	animation_s *subanimation = static_cast<animation_s *>(
-		Z_Calloc(sizeof(animation_s), PU_STATIC, NULL)
+		Z_Calloc(sizeof(animation_s), PU_STATIC, nullptr)
 	);
 	subanimation->name = Z_StrDup(name);
 	subanimation->speed = FRACUNIT;
 	subanimation->loop_index = UINT16_MAX;
 	subanimation->direction = ANIM_DIR_FORWARDS;
+	return subanimation;
+}
 
-	list->animations = static_cast<animation_s **>(
-		Z_Realloc(list->animations, (list->count + 1) * sizeof(animation_s **), PU_STATIC, NULL)
-	);
+static animation_s *find_or_create_subanimation(animation_list_s *list, const char *name)
+{
+	animation_s *subanimation;
 
-	if (index < 0 || (unsigned)index >= list->count)
+	size_t found_idx = list->count;
+
+	if (list->animations != nullptr)
 	{
-		list->animations[list->count] = subanimation;
-	}
-	else
-	{
-		memmove(&list->animations[index + 1], &list->animations[index], list->count - index);
-		list->animations[index] = subanimation;
+		for (size_t i = 0; i < list->count; i++)
+		{
+			if (!strcmp(list->animations[i]->name, name))
+				return list->animations[i];
+		}
 	}
 
-	list->count++;
+	subanimation = create_subanimation(name);
+
+	if (found_idx == list->count)
+	{
+		list->count++;
+		list->animations = static_cast<animation_s **>(
+			Z_Realloc(list->animations, list->count * sizeof(animation_s **), PU_STATIC, nullptr)
+		);
+	}
+
+	list->animations[found_idx] = subanimation;
 
 	return subanimation;
+}
+
+animation_list_s *P_FindAnimation(const char *animation_name)
+{
+	return find_animation_by_name(animation_name);
 }
 
 animation_list_s *P_FindOrCreateAnimation(const char *animation_name)
@@ -550,19 +598,146 @@ animation_list_s *P_FindOrCreateAnimation(const char *animation_name)
 	return find_or_create_animation(animation_name);
 }
 
+animation_list_s *P_DuplicateAnimation(const char *animation_name, animation_list_s *base, boolean copy_frames)
+{
+	animation_list_s *animation = find_animation_by_name(animation_name);
+	if (animation != nullptr)
+	{
+		return animation;
+	}
+
+	animation = create_animation(animation_name);
+
+	if (base)
+	{
+		animation->count = base->count;
+		animation->animations = static_cast<animation_s **>(
+			Z_Realloc(animation->animations, animation->count * sizeof(animation_s **), PU_STATIC, nullptr)
+		);
+
+		for (size_t i = 0; i < base->count; i++)
+		{
+			animation_s *subanimation = static_cast<animation_s *>(
+				Z_Calloc(sizeof(animation_s), PU_STATIC, nullptr)
+			);
+			animation->animations[i] = subanimation;
+
+			if (is_valid_subanimation_id(base, i))
+			{
+				animation_s *base_subanim = base->animations[i];
+				subanimation->name = Z_StrDup(base_subanim->name);
+				subanimation->speed = base_subanim->speed;
+				subanimation->loop_index = base_subanim->loop_index;
+				subanimation->direction = base_subanim->direction;
+
+				if (copy_frames && base_subanim->num_frames)
+				{
+					subanimation->num_frames = base_subanim->num_frames;
+					subanimation->frames = static_cast<animation_frame_s *>(
+						Z_Malloc(subanimation->num_frames * sizeof(animation_frame_s), PU_STATIC, nullptr)
+					);
+					memcpy(subanimation->frames, base_subanim->frames, subanimation->num_frames * sizeof(animation_frame_s));
+				}
+			}
+		}
+	}
+
+	return animation;
+}
+
+static void P_DeleteAnimation(animation_list_s *animation)
+{
+	for (size_t i = 0; i < animation->count; i++)
+	{
+		Z_Free(animation->animations[i]->frames);
+		Z_Free(animation->animations[i]);
+	}
+
+	Z_Free(animation->animations);
+	Z_Free(animation);
+}
+
+animation_list_s *P_MergeAnimations(const char *name, animation_list_s *anim_a, animation_list_s *anim_b)
+{
+	animation_list_s *output = create_animation(name);
+
+	for (size_t i = 0; i < anim_a->count + anim_b->count; i++)
+	{
+		animation_s *subanimation, *base_subanim;
+
+		if (i >= anim_a->count)
+		{
+			base_subanim = anim_b->animations[i - anim_a->count];
+		}
+		else
+		{
+			base_subanim = anim_a->animations[i];
+		}
+
+		if (base_subanim == nullptr)
+			continue;
+
+		subanimation = find_or_create_subanimation(output, base_subanim->name);
+		subanimation->speed = base_subanim->speed;
+		subanimation->loop_index = base_subanim->loop_index;
+		subanimation->direction = base_subanim->direction;
+
+		if (base_subanim->num_frames)
+		{
+			subanimation->num_frames = base_subanim->num_frames;
+			subanimation->frames = static_cast<animation_frame_s *>(
+				Z_Realloc(subanimation->frames, subanimation->num_frames * sizeof(animation_frame_s), PU_STATIC, nullptr)
+			);
+			memcpy(subanimation->frames, base_subanim->frames, subanimation->num_frames * sizeof(animation_frame_s));
+		}
+	}
+
+	UINT16 existing = get_animation_id(name);
+	if (existing != 0)
+	{
+		existing--;
+		P_DeleteAnimation(animation_defs[existing]);
+		animation_defs[existing] = output;
+	}
+
+	return output;
+}
+
 animation_s *P_FindOrCreateSubAnimation(animation_list_s *animation, const char *subanimation_name)
 {
-	return find_or_create_subanimation(animation, subanimation_name, -1);
+	return find_or_create_subanimation(animation, subanimation_name);
 }
 
-animation_s *P_FindOrCreateSubAnimationAt(animation_list_s *animation, const char *subanimation_name, unsigned index)
+animation_s *P_GetSubAnimationByID(animation_list_s *animation, UINT16 subanimation_id)
 {
-	return find_or_create_subanimation(animation, subanimation_name, (int)index);
+	if (subanimation_id >= animation->count)
+		return nullptr;
+
+	return animation->animations[subanimation_id];
 }
 
-void P_InitAnimations(void)
+static void set_subanim_speed(animation_list_s *animation, UINT16 subanimation_id, fixed_t speed)
 {
-	// TODO: Create a preset player animation that skins inherit from.
+	animation_t *subanim = P_GetSubAnimationByID(animation, subanimation_id);
+	if (subanim != nullptr)
+	{
+		subanim->speed = speed;
+	}
+}
+
+void P_SetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id, fixed_t speed)
+{
+	animation_list_s *animation = get_animation_by_id(animation_id);
+
+	if (is_valid_subanimation_id(animation, subanimation_id))
+	{
+		set_subanim_speed(animation, subanimation_id, speed);
+	}
+}
+
+void P_InitAnimations()
+{
+	R_InitSkinAnimations();
 }
 
 // Animation parsing
@@ -697,7 +872,7 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 	if (animation->frames)
 	{
 		Z_Free(animation->frames);
-		animation->frames = NULL;
+		animation->frames = nullptr;
 		animation->num_frames = 0;
 	}
 
@@ -705,7 +880,7 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 	{
 		animation->num_frames = num_entry_frames;
 		animation->frames = static_cast<animation_frame_s *>(
-			Z_Calloc(num_entry_frames * sizeof(animation_frame_s), PU_STATIC, NULL)
+			Z_Calloc(num_entry_frames * sizeof(animation_frame_s), PU_STATIC, nullptr)
 		);
 
 		for (json& frame_entry_obj : entry_frames)
@@ -731,10 +906,6 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 			animation->loop_index = (UINT16)loop_index;
 		}
 	}
-	else
-	{
-		throw std::runtime_error("no frames in subanimation");
-	}
 }
 
 static void parse_anim_list(std::string name, json& entry)
@@ -744,7 +915,7 @@ static void parse_anim_list(std::string name, json& entry)
 	for (json& anim_list_entry : entry)
 	{
 		std::string subanimation_name = anim_list_entry.at("name");
-		animation_s *entry = find_or_create_subanimation(animation, subanimation_name.c_str(), -1);
+		animation_s *entry = find_or_create_subanimation(animation, subanimation_name.c_str());
 		parse_anim_entry(entry, anim_list_entry);
 	}
 

@@ -522,9 +522,8 @@ void readfreeslots(MYFILE *f)
 					continue;
 				// Copy in the spr2 name and increment free_spr2.
 				if (free_spr2 < NUMPLAYERSPRITES) {
-					strncpy(spr2names[free_spr2],word,4);
-					spr2defaults[free_spr2] = 0;
-					spr2names[free_spr2++][4] = 0;
+					strlwr(word);
+					P_GetOrCreatePlayerSubanim(word);
 				} else
 					deh_warning("Ran out of free SPR2 slots!\n");
 			}

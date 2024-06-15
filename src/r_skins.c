@@ -37,7 +37,12 @@
 INT32 numskins = 0;
 skin_t **skins = NULL;
 
-static const char *player_anim_names[] =
+#define PLAYER_ANIMATION_NAME "player"
+
+static animation_list_t *base_skin_animation;
+static UINT16 base_skin_animation_id;
+
+static const char *player_anim_names[NUMPLAYERSPRITES] =
 {
 	"stand",
 	"wait",
@@ -115,33 +120,96 @@ UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset)
 
 const char *P_GetPlayerAnimName(UINT16 playeranim)
 {
-	if (playeranim >= SPR2_XTRA)
-		return NULL;
-
 	return player_anim_names[playeranim];
 }
 
-boolean P_IsSkinSprite(skin_t *skin, spritenum_t spritenum)
+UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name)
+{
+	for (UINT16 i = 0; i < free_spr2; i++)
+	{
+		if (stricmp(player_anim_names[i], subanim_name) == 0)
+			return i;
+	}
+
+	if (free_spr2 == NUMPLAYERSPRITES)
+		return NUMPLAYERSPRITES;
+
+	player_anim_names[free_spr2] = Z_StrDup(subanim_name);
+
+	if (base_skin_animation != NULL)
+	{
+		P_FindOrCreateSubAnimation(base_skin_animation, subanim_name);
+	}
+
+	strlcpy(spr2names[free_spr2], subanim_name, 5);
+	spr2defaults[free_spr2] = 0;
+	strupr(spr2names[free_spr2]);
+
+	free_spr2++;
+
+	return free_spr2 - 1;
+}
+
+UINT8 P_GetPlayerSpriteset(mobj_t *mobj, state_t *st)
+{
+	UINT8 spriteset = mobj->skinspriteset;
+
+	if (P_ShouldUseSuperSprites(mobj, spriteset == SKINSPRITES_BASE && st->frame & SPR2F_SUPER))
+	{
+		spriteset = SKINSPRITES_SUPER;
+	}
+
+	return spriteset;
+}
+
+skin_t *P_IsSkinSprite(skin_t *skin, spritenum_t spritenum)
 {
 	// Cannot possibly be a skin sprite
 	if (spritenum < SPR_FIRSTFREESLOT)
-		return false;
+		return NULL;
 
 	if (skin)
 	{
 		if (in_bit_array(used_skinspr, spritenum - SPR_FIRSTFREESLOT))
-			return true;
+			return skin;
 	}
 	else
 	{
 		for (INT32 i = 0; i < numskins; i++)
 		{
-			if (P_IsSkinSprite(skins[i], spritenum))
-				return true;
+			skin = P_IsSkinSprite(skins[i], spritenum);
+			if (skin != NULL)
+				return skin;
 		}
 	}
 
-	return false;
+	return NULL;
+}
+
+skin_t *P_IsAnimationForSkin(skin_t *skin, UINT16 animation_id)
+{
+	if (animation_id == 0)
+		return NULL;
+
+	if (skin)
+	{
+		for (skinspriteset_t spriteset = SKINSPRITES_BASE; spriteset < NUMSKINSPRITESETS; spriteset++)
+		{
+			if (skin->sprites[spriteset].animation_id == animation_id)
+				return skin;
+		}
+	}
+	else
+	{
+		for (INT32 i = 0; i < numskins; i++)
+		{
+			skin = P_IsAnimationForSkin(skins[i], animation_id);
+			if (skin != NULL)
+				return skin;
+		}
+	}
+
+	return NULL;
 }
 
 // Checks if an object should use super sprites
@@ -377,6 +445,90 @@ void R_InitSkins(void)
 {
 	// no default skin!
 	numskins = 0;
+}
+
+void R_InitSkinAnimations(void)
+{
+	// Create a preset player animation that skins inherit from.
+	base_skin_animation = P_FindOrCreateAnimation(PLAYER_ANIMATION_NAME);
+	base_skin_animation_id = P_GetNamedAnimationID(PLAYER_ANIMATION_NAME);
+
+	// Create all subanimations
+	for (UINT16 i = 0; i < free_spr2; i++)
+	{
+		const char *subanim_name = P_GetPlayerAnimName(i);
+		if (subanim_name)
+		{
+			P_FindOrCreateSubAnimation(base_skin_animation, subanim_name);
+		}
+	}
+
+#define SET_SPEED(spr2, speed) P_SetSubanimationSpeed(base_skin_animation_id, spr2, speed)
+
+	// Set default subanimation speeds
+	SET_SPEED(SPR2_STND, FRACUNIT / 7);
+	SET_SPEED(SPR2_WAIT, FRACUNIT / 16);
+	// SET_SPEED(SPR2_WALK, FRACUNIT / 4);
+	// SET_SPEED(SPR2_RUN,  FRACUNIT / 2);
+	// SET_SPEED(SPR2_DASH, FRACUNIT / 2);
+	SET_SPEED(SPR2_SKID, 0);
+	SET_SPEED(SPR2_PAIN, FRACUNIT / 4);
+	SET_SPEED(SPR2_STUN, FRACUNIT / 4);
+	SET_SPEED(SPR2_DEAD, FRACUNIT / 4);
+	SET_SPEED(SPR2_DRWN, FRACUNIT / 4);
+	SET_SPEED(SPR2_GASP, FRACUNIT / 4);
+	SET_SPEED(SPR2_SPNG, FRACUNIT / 2);
+	SET_SPEED(SPR2_FALL, FRACUNIT / 2);
+	SET_SPEED(SPR2_EDGE, FRACUNIT / 12);
+	SET_SPEED(SPR2_RIDE, FRACUNIT / 4);
+
+	SET_SPEED(SPR2_SPIN, FRACUNIT / 2);
+
+	SET_SPEED(SPR2_FLY,  FRACUNIT / 2);
+	SET_SPEED(SPR2_SWIM, FRACUNIT / 4);
+	SET_SPEED(SPR2_TIRE, FRACUNIT / 12);
+
+	SET_SPEED(SPR2_GLID, FRACUNIT / 2);
+	SET_SPEED(SPR2_LAND, FRACUNIT / 7);
+	SET_SPEED(SPR2_CLNG, FRACUNIT / 4);
+	SET_SPEED(SPR2_CLMB, FRACUNIT / 5);
+
+	SET_SPEED(SPR2_FLT,  FRACUNIT / 7);
+	SET_SPEED(SPR2_FRUN, FRACUNIT / 7);
+
+	SET_SPEED(SPR2_BNCE, FRACUNIT / 4);
+	SET_SPEED(SPR2_LAND, FRACUNIT / 2);
+
+	SET_SPEED(SPR2_FIRE, FRACUNIT / 2);
+
+	SET_SPEED(SPR2_TWIN, FRACUNIT / 2);
+
+	SET_SPEED(SPR2_MLEE, FRACUNIT / 2);
+	SET_SPEED(SPR2_MLEL, FRACUNIT / 35);
+
+	SET_SPEED(SPR2_TRNS, FRACUNIT / 4);
+
+	SET_SPEED(SPR2_NSTD, FRACUNIT / 7);
+	SET_SPEED(SPR2_NFLT, FRACUNIT / 7);
+	SET_SPEED(SPR2_NFLY, FRACUNIT / 2);
+	SET_SPEED(SPR2_NDRL, FRACUNIT / 2);
+	SET_SPEED(SPR2_NSTN, FRACUNIT / 2);
+
+	SET_SPEED(SPR2_TAL0, FRACUNIT / 5);
+	SET_SPEED(SPR2_TAL1, FRACUNIT / 2);
+	SET_SPEED(SPR2_TAL2, FRACUNIT / 2);
+	SET_SPEED(SPR2_TAL3, FRACUNIT / 2);
+	SET_SPEED(SPR2_TAL4, FRACUNIT / 2);
+	SET_SPEED(SPR2_TAL5, FRACUNIT / 2);
+	SET_SPEED(SPR2_TAL6, FRACUNIT / 2);
+	SET_SPEED(SPR2_TAL7, FRACUNIT / 4);
+	SET_SPEED(SPR2_TAL8, FRACUNIT / 4);
+	SET_SPEED(SPR2_TAL9, FRACUNIT / 2);
+	SET_SPEED(SPR2_TALA, FRACUNIT / 2);
+	SET_SPEED(SPR2_TALB, FRACUNIT / 2);
+	SET_SPEED(SPR2_TALC, FRACUNIT / 2);
+
+#undef SET_SPEED
 }
 
 UINT32 R_GetSkinAvailabilities(void)
@@ -743,25 +895,25 @@ static void InitSubanimationForSpritedef(animation_t *subanim, spritedef_t *spri
 	}
 }
 
-static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *def, const char *spr_name, UINT16 subanimation_id, UINT16 wadnum, UINT16 newlastlump, UINT16 lastlump)
+static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *def, const char *spritename, const char *lumpname, UINT16 subanimation_id, UINT16 wadnum, UINT16 startlump, UINT16 endlump)
 {
 	spritedef_t spritedef = { 0 };
 
 	if (def->spritenum[subanimation_id] != SPR_NULL)
 		memcpy(&spritedef, &sprites[def->spritenum[subanimation_id]], sizeof(spritedef_t));
 
-	// The subanimation entries are created in order even if they end up having no frames.
-	// This ensures the subanimation order matches the player sprite constants.
-	animation_t *subanim = P_FindOrCreateSubAnimationAt(animation, player_anim_names[subanimation_id], subanimation_id);
+	animation_t *subanim = P_FindOrCreateSubAnimation(animation, player_anim_names[subanimation_id]);
 
-	if (R_AddSingleSpriteDef(spr2names[subanimation_id], &spritedef, wadnum, newlastlump, lastlump, false) && spritedef.numframes > 0)
+	boolean longname = R_IsNumericFrameName(lumpname);
+
+	if (R_AddSingleSpriteDef(lumpname, &spritedef, wadnum, startlump, endlump, longname) && spritedef.numframes > 0)
 	{
 		if (def->spritenum[subanimation_id] == SPR_NULL)
 		{
-			spritenum_t sprnum = DEH_FindSpriteByName(spr_name);
+			spritenum_t sprnum = DEH_FindSpriteByName(spritename);
 			if (sprnum == NUMSPRITES)
 			{
-				sprnum = DEH_AddSpriteName(spr_name);
+				sprnum = DEH_AddSpriteName(spritename);
 				if (sprnum == NUMSPRITES)
 				{
 					Z_Free(spritedef.spriteframes);
@@ -784,6 +936,133 @@ static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *
 	return true;
 }
 
+static animation_list_t *GetSkinAnimation(const char *anim_name)
+{
+	animation_list_t *animation = P_FindAnimation(anim_name);
+
+	if (!animation || animation->count < SPR2_FIRSTFREESLOT - 1)
+	{
+		if (base_skin_animation == NULL)
+			I_Error("No animation named \"%s\"", PLAYER_ANIMATION_NAME);
+
+		if (animation)
+		{
+			// Merge this animation with the base "player" animation
+			// This also ensures that player subanimations come first
+			return P_MergeAnimations(anim_name, base_skin_animation, animation);
+		}
+		else
+		{
+			// Duplicate the base "player" animation for this skin
+			return P_DuplicateAnimation(anim_name, base_skin_animation, true);
+		}
+	}
+
+	return animation;
+}
+
+static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
+{
+	size_t anim_name_size = 0;
+	char *anim_name = NULL;
+
+	size_t spr_name_size = 0;
+	char *spr_name = NULL;
+
+	char *folderpath = W_GetLumpFolderPathPK3(wadnum, *lump);
+
+	(*lump)++;
+	*lastlump = W_CheckNumForFolderEndPK3(folderpath, wadnum, *lump);
+
+	for (UINT16 i = *lump; i < *lastlump; i++)
+	{
+		char *underscore;
+		char *fullname, *name_p;
+		char *spriteset_name, *subanim_name;
+		boolean is_base_spriteset = false;
+		UINT16 startlump, endlump;
+		UINT8 spriteset;
+		size_t len;
+
+		if (W_IsLumpFolder(wadnum, i))
+			continue;
+
+		fullname = Z_StrDup(wadfiles[wadnum]->lumpinfo[i].fullname);
+		name_p = fullname + strlen(folderpath) + 1;
+
+		underscore = strchr(name_p, '/');
+		if (underscore == NULL)
+		{
+			Z_Free(fullname);
+			continue;
+		}
+
+		len = underscore - name_p;
+		spriteset_name = Z_Calloc(len + 1, PU_STATIC, NULL);
+		memcpy(spriteset_name, name_p, len);
+		name_p += len + 1;
+
+		underscore = strchr(name_p, '/');
+		if (underscore == NULL)
+		{
+			Z_Free(fullname);
+			Z_Free(spriteset_name);
+			continue;
+		}
+
+		len = underscore - name_p;
+		subanim_name = Z_Calloc(len + 1, PU_STATIC, NULL);
+		memcpy(subanim_name, name_p, len);
+		name_p += len;
+		*name_p = '\0';
+
+		startlump = W_CheckNumForFolderStartPK3(fullname, wadnum, *lump);
+		endlump = W_CheckNumForFolderEndPK3(fullname, wadnum, startlump);
+
+		anim_name_size = strlen(skin->name) + 6; // "skin_" + skin name + '/0'
+		if (stricmp(spriteset_name, "base") == 0)
+		{
+			spriteset = SKINSPRITES_BASE;
+			is_base_spriteset = true;
+		}
+		else
+		{
+			spriteset = SKINSPRITES_BASE; // todo
+			anim_name_size += strlen(spriteset_name) + 1; // spriteset + "_"
+		}
+
+		anim_name = Z_Realloc(anim_name, anim_name_size, PU_STATIC, NULL);
+		if (is_base_spriteset)
+			snprintf(anim_name, anim_name_size, "skin_%s", skin->name);
+		else
+			snprintf(anim_name, anim_name_size, "skin_%s_%s", skin->name, spriteset_name);
+
+		UINT16 subanim = P_GetOrCreatePlayerSubanim(subanim_name);
+		if (subanim != NUMPLAYERSPRITES && subanim >= start_spr2)
+		{
+			animation_list_t *animation = GetSkinAnimation(anim_name);
+
+			skin->sprites[spriteset].animation_id = P_GetNamedAnimationID(anim_name);
+
+			spr_name_size = strlen(anim_name) + strlen(player_anim_names[subanim]) + 2;
+			spr_name = Z_Realloc(spr_name, spr_name_size, PU_STATIC, NULL);
+			snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[subanim]);
+			strupr(spr_name);
+
+			if (!R_AddSkinSpriteDef(animation, &skin->sprites[spriteset], spr_name, wadfiles[wadnum]->lumpinfo[i].fullname, subanim, wadnum, startlump, endlump))
+				I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
+		}
+
+		Z_Free(fullname);
+		Z_Free(spriteset_name);
+		Z_Free(subanim_name);
+	}
+
+	Z_Free(folderpath);
+	Z_Free(anim_name);
+	Z_Free(spr_name);
+}
+
 static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
 {
 	size_t anim_name_size = strlen(skin->name) + 12 + 1; // "skin_" + skin name + "_super"
@@ -796,7 +1075,7 @@ static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlum
 	animation_list_t *animation;
 
 	UINT16 newlastlump;
-	UINT16 sprite2;
+	UINT16 sprite2, subanim;
 
 	*lump += 1; // start after S_SKIN
 	*lastlump = W_CheckNumForNamePwad("S_END",wadnum,*lump); // stop at S_END
@@ -816,7 +1095,7 @@ static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlum
 		newlastlump++;
 
 		snprintf(anim_name, anim_name_size, "skin_%s_super", skin->name);
-		animation = P_FindOrCreateAnimation(anim_name);
+		animation = GetSkinAnimation(anim_name);
 		skin->sprites[SKINSPRITES_SUPER].animation_id = P_GetNamedAnimationID(anim_name);
 
 		// load all sprite sets we are aware of... for super!
@@ -827,7 +1106,9 @@ static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlum
 			snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[sprite2]);
 			strupr(spr_name);
 
-			if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_SUPER], spr_name, sprite2, wadnum, newlastlump, *lastlump))
+			subanim = P_GetOrCreatePlayerSubanim(player_anim_names[sprite2]);
+
+			if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_SUPER], spr_name, spr2names[sprite2], subanim, wadnum, newlastlump, *lastlump))
 				I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
 		}
 
@@ -840,7 +1121,7 @@ static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlum
 	}
 
 	snprintf(anim_name, anim_name_size, "skin_%s", skin->name);
-	animation = P_FindOrCreateAnimation(anim_name);
+	animation = GetSkinAnimation(anim_name);
 	skin->sprites[SKINSPRITES_BASE].animation_id = P_GetNamedAnimationID(anim_name);
 
 	// load all sprite sets we are aware of... for normal stuff.
@@ -851,21 +1132,17 @@ static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlum
 		snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[sprite2]);
 		strupr(spr_name);
 
-		if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_BASE], spr_name, sprite2, wadnum, *lump, *lastlump))
+		subanim = P_GetOrCreatePlayerSubanim(player_anim_names[sprite2]);
+
+		if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_BASE], spr_name, spr2names[sprite2], sprite2, wadnum, *lump, *lastlump))
 			I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
 	}
 
 	if (!P_IsSkinAnimationValid(skin, SPR2_STND, SKINSPRITES_BASE))
-		CONS_Alert(CONS_ERROR, M_GetText("No frames found for subanimation '%s'\n"), player_anim_names[SPR2_STND]);
+		CONS_Alert(CONS_ERROR, M_GetText("No frames found for skin %s subanimation '%s'\n"), skin->name, player_anim_names[SPR2_STND]);
 
 	Z_Free(anim_name);
 	Z_Free(spr_name);
-}
-
-static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
-{
-	// TODO: lol
-	R_LoadSkinAnimationsWAD(wadnum, lump, lastlump, skin, start_spr2);
 }
 
 static void R_LoadSkinSprites(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
@@ -1160,7 +1437,6 @@ next_token:
 
 		// Add sprites
 		R_LoadSkinSprites(wadnum, &lump, &lastlump, skin, 0);
-		//ST_LoadFaceGraphics(numskins); -- nah let's do this elsewhere
 
 		R_FlushTranslationColormapCache();
 
@@ -1297,7 +1573,6 @@ next_token:
 
 		// Patch sprites
 		R_LoadSkinSprites(wadnum, &lump, &lastlump, skin, 0);
-		//ST_LoadFaceGraphics(skinnum); -- nah let's do this elsewhere
 
 		R_FlushTranslationColormapCache();
 

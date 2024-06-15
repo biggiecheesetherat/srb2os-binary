@@ -1262,6 +1262,9 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		spriteframe_t *sprframe;
 		INT32 mod;
 		interpmobjstate_t interp;
+		boolean is_player_sprite;
+		boolean is_using_animator;
+		UINT8 spriteset = 0;
 
 		if (R_UsingFrameInterpolation() && !paused)
 		{
@@ -1288,7 +1291,11 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 
 		// don't forget to enable the depth test because we can't do this
 		// like before: model polygons are not sorted
-		boolean is_player_sprite = spr->mobj->skin && P_IsSkinSprite(spr->mobj->skin, spr->mobj->sprite);
+		is_player_sprite = spr->mobj->skin && P_IsSkinSprite(spr->mobj->skin, spr->mobj->sprite);
+		is_using_animator = spr->mobj->animator.animation != 0;
+
+		if (is_player_sprite)
+			spriteset = spr->mobj->skinspriteset;
 
 		// 1. load model+texture if not already loaded
 		// 2. draw model with correct position, rotation,...
@@ -1421,8 +1428,6 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		sprdef = &sprites[spr->mobj->sprite];
 		frame = spr->mobj->frame & FF_FRAMEMASK;
 
-		UINT8 spriteset = spr->mobj->skinspriteset;
-
 		if (is_player_sprite)
 		{
 			spr2 = HWR_GetSkinModelSubanim(md2, spr->mobj->skin, spr->mobj->animator.subanimation, spriteset, spr->mobj->player, &spriteset);
@@ -1441,7 +1446,10 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 				mod = 1;
 			frame = spr2frames->frames[frame % mod];
 			nextFrame = frame;
+		}
 
+		if (is_using_animator)
+		{
 			// OpenGL interpolation factor is inverted
 			tics = FixedToFloat(spr->mobj->animator.frame_duration - spr->mobj->animator.timer);
 			durs = FixedToFloat(spr->mobj->animator.frame_duration);
@@ -1455,9 +1463,11 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 
 #ifdef USE_MODEL_NEXTFRAME
 		// Interpolate the model interpolation
-		if (spr2frames && rendertimefrac != 0)
+		if (is_using_animator && rendertimefrac != 0)
 		{
-			tics -= FixedToFloat(FixedMul(P_GetAnimatorSpeed(&spr->mobj->animator), rendertimefrac));
+			fixed_t anim_speed = P_GetSubanimationSpeed(spr->mobj->animator.animation, spr->mobj->animator.subanimation);
+			anim_speed = FixedMul(anim_speed, spr->mobj->animator.speed_mul);
+			tics -= FixedToFloat(FixedMul(anim_speed, rendertimefrac));
 			if (tics < 0.0)
 				tics = 0.0;
 			else if (tics > durs)
@@ -1491,14 +1501,22 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 					&& spriteset == next_spriteset
 					&& ((P_GetSkinSubanimation(spr->mobj->skin, state->anim_entry, next_spriteset, spr->mobj->player, NULL) == spr->mobj->animator.subanimation)))))
 				{
-					nextFrame = P_GetAnimatorNextFrame(&spr->mobj->animator) & FF_FRAMEMASK;
+					if (is_using_animator)
+						nextFrame = P_GetAnimatorNextFrame(&spr->mobj->animator) & FF_FRAMEMASK;
+					else
+						nextFrame = (spr->mobj->frame & FF_FRAMEMASK) + 1;
+
 					nextFrame = spr2frames->frames[nextFrame];
 				}
 			}
 			else if (HWR_CanInterpolateModel(spr->mobj, md2->model))
 			{
+				if (is_using_animator)
+				{
+					nextFrame = P_GetAnimatorNextFrame(&spr->mobj->animator) & FF_FRAMEMASK;
+				}
 				// frames are handled differently for states with FF_ANIMATE, so get the next frame differently for the interpolation
-				if (spr->mobj->frame & FF_ANIMATE)
+				else if (spr->mobj->frame & FF_ANIMATE)
 				{
 					nextFrame = (spr->mobj->frame & FF_FRAMEMASK) + 1;
 					if (nextFrame >= (INT32)(spr->mobj->state->var1 + (spr->mobj->state->frame & FF_FRAMEMASK)))

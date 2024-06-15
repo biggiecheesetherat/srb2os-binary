@@ -21,6 +21,10 @@
 #include "r_picformats.h" // spriteinfo_t
 #include "r_defs.h" // spritedef_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// Defaults
 #define SKINNAMESIZE 16
 // should be all lowercase!! S_SKIN processing does a strlwr
@@ -95,6 +99,7 @@ extern skin_t **skins;
 
 /// Function prototypes
 void R_InitSkins(void);
+void R_InitSkinAnimations(void);
 
 INT32 GetPlayerDefaultSkin(INT32 playernum);
 void SetPlayerSkin(INT32 playernum,const char *skinname);
@@ -109,6 +114,7 @@ void R_PatchSkins(UINT16 wadnum, boolean mainfile);
 UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset);
 UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset);
 UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 subanim, player_t *player);
+UINT8 P_GetPlayerSpriteset(mobj_t *mobj, state_t *st);
 boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super);
 spritenum_t P_GetSkinSpriteID(skin_t *skin, UINT16 subanim, UINT8 spriteset);
 spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 subanim, UINT8 spriteset);
@@ -116,9 +122,15 @@ spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 subanim, UINT8 spriteset)
 spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim);
 spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, UINT16 subanim);
 boolean P_IsSkinAnimationValid(skin_t *skin, UINT16 subanim, UINT8 spriteset);
-boolean P_IsSkinSprite(skin_t *skin, spritenum_t spritenum);
+skin_t *P_IsSkinSprite(skin_t *skin, spritenum_t spritenum);
+skin_t *P_IsAnimationForSkin(skin_t *skin, UINT16 animation_id);
 const char *P_GetPlayerAnimName(UINT16 playeranim);
+UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name);
 
 void R_RefreshSprite2(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //__R_SKINS__

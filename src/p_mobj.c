@@ -203,21 +203,19 @@ static void P_CyclePlayerMobjState(mobj_t *mobj)
 
 static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
 {
+	UINT16 animation, subanimation;
+	UINT8 spriteset;
+	UINT8 starting_frame;
+
 	skin_t *skin = ((skin_t *)mobj->skin);
-	UINT16 animation;
-	UINT16 subanimation = st->anim_entry;
-	UINT8 spriteset = mobj->skinspriteset;
-	UINT8 starting_frame = st->frame & FF_FRAMEMASK;
+	if (skin == NULL)
+		return;
 
-	if (P_ShouldUseSuperSprites(mobj, spriteset == SKINSPRITES_BASE && st->frame & SPR2F_SUPER))
-	{
-		spriteset = SKINSPRITES_SUPER;
-	}
-
+	spriteset = P_GetPlayerSpriteset(mobj, st);
 	animation = P_GetSkinAnimation(skin, spriteset);
-	subanimation = P_GetSkinSubanimation(skin, subanimation, spriteset, mobj->player, &spriteset);
+	subanimation = P_GetSkinSubanimation(skin, st->anim_entry, spriteset, mobj->player, &spriteset);
 
-	mobj->sprite = P_GetSkinSpriteID(skin, subanimation, spriteset);
+	starting_frame = st->frame & FF_FRAMEMASK;
 
 	if ((st->frame & FF_SPR2MIDSTART) && P_RandomChance(FRACUNIT / 2))
 	{
@@ -229,7 +227,7 @@ static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
 	if (mobj->player && P_PlayerFullbright(mobj->player))
 		mobj->frame |= FF_FULLBRIGHT;
 
-	spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, mobj->animator.subanimation);
+	spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, animation, subanimation);
 	if (sprdef && st == &states[S_PLAY_STND] && spriteset == SKINSPRITES_SUPER && sprdef[SPR2_WAIT].numframes == 0)
 		mobj->tics = -1; // If no super wait, don't wait at all
 }
@@ -244,7 +242,6 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 {
 	state_t *st;
 	player_t *player = mobj->player;
-	INT32 animtics = 0;
 
 	// remember states seen, to detect cycles:
 	static statenum_t seenstate_tab[NUMSTATES]; // fast transition table
@@ -380,90 +377,15 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 		mobj->state = st;
 		mobj->tics = st->tics;
 
-		// NOTE: currently for backwards compat -- should just use the animation's speed instead
-		if (st->nextstate == state)
-			animtics = mobj->tics;
-		else
-			animtics = st->var2 != 0 ? st->var2 : mobj->tics;
-
-		// Adjust the player's animation speed to match their velocity.
-		if (player->panim == PA_EDGE && (player->charflags & SF_FASTEDGE))
-			animtics = 2;
-		else if (!(disableSpeedAdjust || player->charflags & SF_NOSPEEDADJUST))
-		{
-			fixed_t speed;
-			if (player->panim == PA_FALL)
-			{
-				speed = FixedDiv(abs(mobj->momz), mobj->scale);
-				if (speed < 10<<FRACBITS)
-					animtics = 4;
-				else if (speed < 20<<FRACBITS)
-					animtics = 3;
-				else if (speed < 30<<FRACBITS)
-					animtics = 2;
-				else
-					animtics = 1;
-			}
-			else if (player->panim == PA_ABILITY2 && player->charability2 == CA2_SPINDASH)
-			{
-				fixed_t step = (player->maxdash - player->mindash)/4;
-				speed = (player->dashspeed - player->mindash);
-				if (speed > 3*step)
-					animtics = 1;
-				else if (speed > step)
-					animtics = 2;
-				else
-					animtics = 3;
-			}
-			else
-			{
-				speed = FixedDiv(player->speed, FixedMul(mobj->scale, player->mo->movefactor));
-				if (player->panim == PA_ROLL || player->panim == PA_JUMP)
-				{
-					if (speed > 16<<FRACBITS)
-						animtics = 1;
-					else
-						animtics = 2;
-				}
-				else if (P_IsObjectOnGround(mobj) || ((player->charability == CA_FLOAT || player->charability == CA_SLOWFALL) && player->secondjump == 1) || player->powers[pw_super]) // Only if on the ground or superflying.
-				{
-					if (player->panim == PA_WALK)
-					{
-						if (speed > 12<<FRACBITS)
-							animtics = 2;
-						else if (speed > 6<<FRACBITS)
-							animtics = 3;
-						else
-							animtics = 4;
-					}
-					else if ((player->panim == PA_RUN) || (player->panim == PA_DASH))
-					{
-						if (speed > 52<<FRACBITS)
-							animtics = 1;
-						else
-							animtics = 2;
-					}
-				}
-			}
-		}
-
-		if (animtics > 0)
-		{
-			mobj->animator.speed_mul = FRACUNIT / animtics;
-		}
-		else
-		{
-			mobj->animator.speed_mul = 0;
-		}
+		if (mobj->player && mobj->animator.animation)
+			P_AdjustPlayerAnimSpeed(mobj->player);
 
 		// Player animations
 		if (st->sprite == SPR_PLAY && mobj->skin)
-		{
 			P_SetupPlayerMobjAnimation(mobj, st);
-		}
-		// Regular sprites
 		else
 		{
+			// Regular sprites
 			mobj->sprite = st->sprite;
 			mobj->frame = st->frame;
 
@@ -532,12 +454,10 @@ boolean P_SetMobjState(mobj_t *mobj, statenum_t state)
 
 		// Player animations
 		if (st->sprite == SPR_PLAY && mobj->skin)
-		{
 			P_SetupPlayerMobjAnimation(mobj, st);
-		}
-		// Regular sprites
 		else
 		{
+			// Regular sprites
 			mobj->sprite = st->sprite;
 			mobj->frame = st->frame;
 

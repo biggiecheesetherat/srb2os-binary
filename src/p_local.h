@@ -191,6 +191,7 @@ void P_PlayerAfterThink(player_t *player);
 void P_DoPlayerFinish(player_t *player);
 void P_DoPlayerExit(player_t *player, boolean finishedflag);
 void P_NightserizePlayer(player_t *player, INT32 ptime);
+void P_AdjustPlayerAnimSpeed(player_t *player);
 
 void P_InstaThrust(mobj_t *mo, angle_t angle, fixed_t move);
 fixed_t P_ReturnThrustX(mobj_t *mo, angle_t angle, fixed_t move);

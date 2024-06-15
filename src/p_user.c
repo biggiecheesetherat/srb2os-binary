@@ -8898,6 +8898,95 @@ void P_MovePlayer(player_t *player)
 		player->mo->pmomz = 0;
 }
 
+// Adjust the player's animation speed to match their velocity.
+void P_AdjustPlayerAnimSpeed(player_t *player)
+{
+	mobj_t *mobj = player->mo;
+
+	if (disableSpeedAdjust || player->charflags & SF_NOSPEEDADJUST)
+		return;
+
+	INT32 animtics = 1;
+
+	if (player->panim == PA_FALL)
+	{
+		fixed_t speed = FixedDiv(abs(mobj->momz), mobj->scale);
+		if (speed < 10<<FRACBITS)
+			animtics = 4;
+		else if (speed < 20<<FRACBITS)
+			animtics = 3;
+		else if (speed < 30<<FRACBITS)
+			animtics = 2;
+		else
+			animtics = 1;
+	}
+	else if (player->panim == PA_ABILITY2 && player->charability2 == CA2_SPINDASH)
+	{
+		fixed_t step = (player->maxdash - player->mindash)/4;
+		fixed_t speed = (player->dashspeed - player->mindash);
+		if (speed > 3*step)
+			animtics = 1;
+		else if (speed > step)
+			animtics = 2;
+		else
+			animtics = 3;
+	}
+	else
+	{
+		fixed_t speed = FixedDiv(player->speed, FixedMul(mobj->scale, player->mo->movefactor));
+		if (player->panim == PA_ROLL || player->panim == PA_JUMP)
+		{
+			if (speed > 16<<FRACBITS)
+				animtics = 1;
+			else
+				animtics = 2;
+		}
+		else if (player->mo->state == &states[S_PLAY_SKID] && !P_IsSkinAnimationValid(skins[player->skin], SPR2_SKID, P_GetPlayerSpriteset(mobj, player->mo->state)))
+		{
+			animtics = 0;
+		}
+		else if (P_IsObjectOnGround(mobj) || ((player->charability == CA_FLOAT || player->charability == CA_SLOWFALL) && player->secondjump == 1) || player->powers[pw_super]) // Only if on the ground or superflying.
+		{
+			if (player->panim == PA_WALK)
+			{
+				if (speed > 12<<FRACBITS)
+					animtics = 2;
+				else if (speed > 6<<FRACBITS)
+					animtics = 3;
+				else
+					animtics = 4;
+			}
+			else if (player->panim == PA_RUN || player->panim == PA_DASH)
+			{
+				if (speed > 52<<FRACBITS)
+					animtics = 1;
+				else
+					animtics = 2;
+			}
+		}
+		else if (!P_IsObjectOnGround(mobj))
+		{
+			if (player->panim == PA_WALK)
+			{
+				animtics = 4;
+			}
+			else if (player->panim == PA_RUN || player->panim == PA_DASH)
+			{
+				animtics = 2;
+			}
+		}
+	}
+
+	if (animtics > 0)
+	{
+		mobj->animator.speed_mul = FRACUNIT / animtics;
+	}
+	else
+	{
+		mobj->animator.speed_mul = 0;
+	}
+}
+
 static void P_DoZoomTube(player_t *player)
 {
 	fixed_t speed;
@@ -11316,7 +11405,7 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 	boolean doroll = (player->panim == PA_ROLL || (player->panim == PA_JUMP && !(player->charflags & SF_NOJUMPSPIN)) || doswim);
 	angle_t rollangle = 0;
 	boolean panimchange;
-	INT32 ticnum = 0;
+	fixed_t anim_speed = 0;
 	statenum_t chosenstate;
 
 	if (!tails->skin)
@@ -11465,21 +11554,21 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 	if (player->panim == PA_SPRING || player->panim == PA_FALL || player->mo->state-states == S_PLAY_RIDE)
 	{
 		if (FixedDiv(abs(player->mo->momz), player->mo->scale) < 20<<FRACBITS)
-			ticnum = 2;
+			anim_speed = FRACUNIT / 2;
 		else
-			ticnum = 1;
+			anim_speed = FRACUNIT;
 	}
 	else if (player->panim == PA_PAIN)
-		ticnum = 2;
-	else if (player->mo->state-states == S_PLAY_GASP)
-		tails->tics = -1;
+		anim_speed = FRACUNIT / 2;
 	else if (player->mo->animator.subanimation == SPR2_TIRE)
-		ticnum = (doswim ? 2 : 4);
+		anim_speed = FRACUNIT / (doswim ? 2 : 4);
 	else if (player->panim != PA_IDLE)
-		ticnum = player->mo->tics;
+		anim_speed = player->mo->animator.speed_mul;
 
-	if (ticnum && tails->tics > ticnum)
-		tails->tics = ticnum;
+	if (anim_speed != 0)
+		tails->animator.speed_mul = anim_speed;
+	else
+		tails->animator.speed_mul = FRACUNIT;
 
 	// final handling...
 	tails->color = player->mo->color;
@@ -11947,6 +12036,9 @@ void P_PlayerThink(player_t *player)
 #endif
 	G_GametypeUsesCoopStarposts() && (netgame || multiplayer) && cv_coopstarposts.value == 2)
 		P_ConsiderAllGone();
+
+	if (player->mo->animator.animation)
+		P_AdjustPlayerAnimSpeed(player);
 
 	if (player->playerstate == PST_DEAD)
 	{

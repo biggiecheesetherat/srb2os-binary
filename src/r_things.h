@@ -317,4 +317,6 @@ FUNCMATH FUNCINLINE static ATTRINLINE UINT8 R_Char2Rotation(char cn)
 	return 255;
 }
 
+boolean R_IsNumericFrameName(const char *name);
+
 #endif //__R_THINGS__

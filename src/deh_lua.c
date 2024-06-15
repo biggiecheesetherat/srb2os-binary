@@ -139,11 +139,10 @@ static inline int lib_freeslot(lua_State *L)
 				if (free_spr2 < NUMPLAYERSPRITES)
 				{
 					CONS_Printf("Sprite SPR2_%s allocated.\n",word);
-					strncpy(spr2names[free_spr2],word,4);
-					spr2defaults[free_spr2] = 0;
+					strlwr(word);
+					P_GetOrCreatePlayerSubanim(word);
 					lua_pushinteger(L, free_spr2);
 					r++;
-					spr2names[free_spr2++][4] = 0;
 				} else
 					CONS_Alert(CONS_WARNING, "Ran out of free SPR2 slots!\n");
 			}

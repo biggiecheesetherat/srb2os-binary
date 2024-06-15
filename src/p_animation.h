@@ -58,9 +58,12 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *entry_name, UINT16 start_frame);
 void P_DoAnimationPlayback(animator_t *animator, mobj_t *mobj, tic_t timedelta);
 
+animation_list_t *P_FindAnimation(const char *animation_name);
 animation_list_t *P_FindOrCreateAnimation(const char *animation_name);
+animation_list_t *P_DuplicateAnimation(const char *animation_name, animation_list_t *base, boolean copy_frames);
+animation_list_t *P_MergeAnimations(const char *name, animation_list_t *anim_a, animation_list_t *anim_b);
 animation_t *P_FindOrCreateSubAnimation(animation_list_t *animation, const char *subanimation_name);
-animation_t *P_FindOrCreateSubAnimationAt(animation_list_t *animation, const char *subanimation_name, unsigned index);
+animation_t *P_GetSubAnimationByID(animation_list_t *animation, UINT16 subanimation_id);
 
 UINT16 P_GetNamedAnimationID(const char *animation_name);
 UINT16 P_GetNamedSubanimationID(UINT16 animation_id, const char *entry_name);
@@ -69,11 +72,13 @@ const char *P_GetAnimationNameByID(UINT16 animation_id);
 const char *P_GetSubanimationNameByID(UINT16 animation_id, UINT16 subanimation_id);
 
 UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id);
+fixed_t P_GetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id);
+
+void P_SetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id, fixed_t speed);
 
 boolean P_SetupAnimator(animator_t *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame);
 UINT32 P_GetAnimatorFrame(animator_t *animator);
 UINT32 P_GetAnimatorNextFrame(animator_t *animator);
-fixed_t P_GetAnimatorSpeed(animator_t *animator);
 
 #ifdef __cplusplus
 } // extern "C"

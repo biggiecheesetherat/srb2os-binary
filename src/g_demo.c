@@ -101,7 +101,7 @@ demoghost *ghosts = NULL;
 // DEMO RECORDING
 //
 
-#define DEMOVERSION 0x0012
+#define DEMOVERSION 0x0013
 #define DEMOHEADER  "\xF0" "SRB2Replay" "\x0F"
 
 #define DF_GHOST        0x01 // This demo contains ghost data too!
@@ -415,7 +415,7 @@ void G_WriteGhostTic(mobj_t *ghost)
 	{
 		oldghost.skinspriteset = ghost->skinspriteset;
 		ziptic |= GZT_SPRSET;
-		WRITEUINT16(demo_p,oldghost.skinspriteset);
+		WRITEUINT8(demo_p,oldghost.skinspriteset);
 	}
 
 	// Check for sprite changes
@@ -515,7 +515,7 @@ void G_WriteGhostTic(mobj_t *ghost)
 		temp = ghost->player->followmobj->z-ghost->z;
 		WRITEFIXED(demo_p,temp);
 		if (followtic & FZT_SKIN)
-			WRITEUINT16(demo_p,ghost->player->followmobj->skinspriteset);
+			WRITEUINT8(demo_p,ghost->player->followmobj->skinspriteset);
 		WRITEUINT16(demo_p,ghost->player->followmobj->sprite);
 		WRITEUINT8(demo_p,(ghost->player->followmobj->frame & FF_FRAMEMASK));
 		WRITEUINT16(demo_p,ghost->player->followmobj->color);
@@ -580,7 +580,12 @@ void G_ConsGhostTic(void)
 	if (ziptic & GZT_FRAME)
 		demo_p++;
 	if (ziptic & GZT_SPRSET)
-		demo_p += (demoversion < 0x0011) ? sizeof(UINT8) : sizeof(UINT16);
+	{
+		if (demoversion < 0x0013)
+			demo_p += (demoversion < 0x0011) ? sizeof(UINT8) : sizeof(UINT16);
+		else
+			demo_p += sizeof(UINT8);
+	}
 
 	if (ziptic & GZT_EXTRA)
 	{ // But wait, there's more!
@@ -649,7 +654,12 @@ void G_ConsGhostTic(void)
 		// momx, momy and momz
 		demo_p += (demoversion < 0x000e) ? sizeof(INT16) * 3 : sizeof(fixed_t) * 3;
 		if (followtic & FZT_SKIN)
-			demo_p += (demoversion < 0x0011) ? sizeof(UINT8) : sizeof(UINT16);
+		{
+			if (demoversion < 0x0013)
+				demo_p += (demoversion < 0x0011) ? sizeof(UINT8) : sizeof(UINT16);
+			else
+				demo_p += sizeof(UINT8);
+		}
 		demo_p += sizeof(UINT16);
 		demo_p++;
 		demo_p += (demoversion==0x000c) ? 1 : sizeof(UINT16);
@@ -734,7 +744,12 @@ void G_GhostTicker(void)
 		if (ziptic & GZT_FRAME)
 			g->oldmo.frame = READUINT8(g->p);
 		if (ziptic & GZT_SPRSET)
-			g->oldmo.skinspriteset = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
+		{
+			if (g->version < 0x0013)
+				g->oldmo.animator.subanimation = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
+			else
+				g->oldmo.skinspriteset = READUINT8(g->p);
+		}
 
 		// Update ghost
 		P_UnsetThingPosition(g->mo);
@@ -742,13 +757,37 @@ void G_GhostTicker(void)
 		g->mo->y = g->oldmo.y;
 		g->mo->z = g->oldmo.z;
 		P_SetThingPosition(g->mo);
-		g->mo->frame = g->oldmo.frame | tr_trans30<<FF_TRANSSHIFT;
+		if (ziptic & GZT_SPRSET)
+		{
+			if (g->version < 0x0013)
+			{
+				P_SetMobjAnimation(g->mo, P_GetSkinAnimation(g->mo->skin, g->mo->skinspriteset), g->oldmo.animator.subanimation, g->oldmo.frame & FF_FRAMEMASK);
+				g->mo->frame |= g->oldmo.frame & ~FF_FRAMEMASK;
+			}
+			else
+			{
+				if (ziptic & GZT_FRAME)
+				{
+					g->mo->frame = g->oldmo.frame;
+				}
+				g->mo->skinspriteset = g->oldmo.skinspriteset;
+			}
+		}
+		else if (ziptic & GZT_FRAME)
+		{
+			g->mo->frame = g->oldmo.frame;
+		}
 		if (g->fadein)
 		{
-			g->mo->frame += (((--g->fadein)/6)<<FF_TRANSSHIFT); // this calc never exceeds 9 unless g->fadein is bad, and it's only set once, so...
+			unsigned fadein = max(((g->fadein - 1) / 6), 3);
+			g->fadein--;
+			g->mo->frame |= fadein << FF_TRANSSHIFT;
 			g->mo->flags2 &= ~MF2_DONTDRAW;
 		}
-		g->mo->skinspriteset = g->oldmo.skinspriteset;
+		else
+		{
+			g->mo->frame |= tr_trans30<<FF_TRANSSHIFT;
+		}
 
 		if (ziptic & GZT_EXTRA)
 		{ // But wait, there's more!
@@ -876,7 +915,11 @@ void G_GhostTicker(void)
 				}
 			}
 			if (xziptic & EZT_SPRITE)
-				g->mo->sprite = READUINT16(g->p);
+			{
+				UINT16 sprite = READUINT16(g->p);
+				if (sprite != SPR_PLAY)
+					g->mo->sprite = sprite;
+			}
 			if (xziptic & EZT_HEIGHT)
 			{
 				fixed_t temp = (g->version < 0x000e) ? READINT16(g->p)<<FRACBITS : READFIXED(g->p);
@@ -933,6 +976,10 @@ void G_GhostTicker(void)
 			}
 			if (follow)
 			{
+				UINT16 subanim = 0, sprite = 0;
+				UINT8 spriteset = 0;
+				UINT32 frame = 0;
+
 				if (followtic & FZT_SCALE)
 					follow->destscale = READFIXED(g->p);
 				else
@@ -948,12 +995,38 @@ void G_GhostTicker(void)
 				temp = (g->version < 0x000e) ? READINT16(g->p)<<8 : READFIXED(g->p);
 				follow->z = g->mo->z + temp;
 				P_SetThingPosition(follow);
+
 				if (followtic & FZT_SKIN)
-					follow->skinspriteset = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
+				{
+					if (g->version < 0x0013)
+						subanim = (g->version < 0x0011) ? READUINT8(g->p) : READUINT16(g->p);
+					else
+						spriteset = READUINT8(g->p);
+				}
+
+				sprite = READUINT16(g->p);
+				frame = READUINT8(g->p);
+
+				if (followtic & FZT_SKIN)
+				{
+					if (g->version < 0x0013 && sprite == SPR_PLAY)
+					{
+						P_SetMobjAnimation(follow, P_GetSkinAnimation(follow->skin, follow->skinspriteset), subanim, frame);
+					}
+					else
+					{
+						follow->sprite = sprite;
+						follow->frame = frame;
+						follow->skinspriteset = spriteset;
+					}
+				}
 				else
-					follow->skinspriteset = 0;
-				follow->sprite = READUINT16(g->p);
-				follow->frame = (READUINT8(g->p)) | (g->mo->frame & FF_TRANSMASK);
+				{
+					follow->sprite = sprite;
+					follow->frame = frame;
+				}
+
+				follow->frame |= (g->mo->frame & FF_TRANSMASK);
 				follow->angle = g->mo->angle;
 				follow->color = (g->version==0x000c) ? READUINT8(g->p) : READUINT16(g->p);
 
@@ -1064,7 +1137,12 @@ void G_ReadMetalTic(mobj_t *metal)
 			oldmetal.frame = G_ConvertOldFrameFlags(oldmetal.frame);
 	}
 	if (ziptic & GZT_SPRSET)
-		oldmetal.skinspriteset = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
+	{
+		if (metalversion < 0x0013)
+			oldmetal.animator.subanimation = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
+		else
+			oldmetal.skinspriteset = READUINT8(metal_p);
+	}
 
 	// Set movement, position, and angle
 	// oldmetal contains where you're supposed to be.
@@ -1076,8 +1154,6 @@ void G_ReadMetalTic(mobj_t *metal)
 	metal->y = oldmetal.y;
 	metal->z = oldmetal.z;
 	P_SetThingPosition(metal);
-	metal->frame = oldmetal.frame;
-	metal->skinspriteset = oldmetal.skinspriteset;
 
 	if (ziptic & GZT_EXTRA)
 	{ // But wait, there's more!
@@ -1162,6 +1238,24 @@ void G_ReadMetalTic(mobj_t *metal)
 		}
 	}
 
+	if (ziptic & GZT_SPRSET)
+	{
+		if (metalversion < 0x0013 && metal->sprite == SPR_PLAY)
+		{
+			P_SetMobjAnimation(metal, P_GetSkinAnimation(metal->skin, metal->skinspriteset), oldmetal.animator.subanimation, oldmetal.frame & FF_FRAMEMASK);
+			metal->frame |= oldmetal.frame & ~FF_FRAMEMASK;
+		}
+		else
+		{
+			metal->frame = oldmetal.frame;
+			metal->skinspriteset = oldmetal.skinspriteset;
+		}
+	}
+	else
+	{
+		metal->frame = oldmetal.frame;
+	}
+
 #define follow metal->tracer
 		if (ziptic & GZT_FOLLOW)
 		{ // Even more...
@@ -1191,6 +1285,10 @@ void G_ReadMetalTic(mobj_t *metal)
 			}
 			if (follow)
 			{
+				UINT16 sprite, subanim = 0;
+				UINT32 frame;
+				UINT8 spriteset = 0;
+
 				if (followtic & FZT_SCALE)
 					follow->destscale = READFIXED(metal_p);
 				else
@@ -1207,13 +1305,37 @@ void G_ReadMetalTic(mobj_t *metal)
 				follow->z = metal->z + temp;
 				P_SetThingPosition(follow);
 				if (followtic & FZT_SKIN)
-					follow->skinspriteset = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
-				else
-					follow->skinspriteset = 0;
-				follow->sprite = READUINT16(metal_p);
-				follow->frame = READUINT32(metal_p); // NOT & FF_FRAMEMASK here, so 32 bits
+				{
+					if (metalversion < 0x0013)
+						subanim = (metalversion < 0x0011) ? READUINT8(metal_p) : READUINT16(metal_p);
+					else
+						spriteset = READUINT8(metal_p);
+				}
+				sprite = READUINT16(metal_p);
+				frame = READUINT32(metal_p); // NOT & FF_FRAMEMASK here, so 32 bits
 				if (metalversion < 0x000f)
-					follow->frame = G_ConvertOldFrameFlags(follow->frame);
+					frame = G_ConvertOldFrameFlags(frame);
+
+				if (followtic & FZT_SKIN)
+				{
+					if (metalversion < 0x0013 && sprite == SPR_PLAY)
+					{
+						P_SetMobjAnimation(follow, P_GetSkinAnimation(follow->skin, follow->skinspriteset), subanim, frame & FF_FRAMEMASK);
+						follow->frame |= frame & ~FF_FRAMEMASK;
+					}
+					else
+					{
+						follow->sprite = sprite;
+						follow->frame = frame;
+						follow->skinspriteset = spriteset;
+					}
+				}
+				else
+				{
+					follow->sprite = sprite;
+					follow->frame = frame;
+				}
+
 				follow->angle = metal->angle;
 				follow->color = (metalversion == 0x000c) ? READUINT8(metal_p) : READUINT16(metal_p);
 
@@ -1390,7 +1512,7 @@ void G_WriteMetalTic(mobj_t *metal)
 		temp = metal->player->followmobj->z-metal->z;
 		WRITEFIXED(demo_p,temp);
 		if (followtic & FZT_SKIN)
-			WRITEUINT16(demo_p,metal->player->followmobj->skinspriteset);
+			WRITEUINT8(demo_p,metal->player->followmobj->skinspriteset);
 		WRITEUINT16(demo_p,metal->player->followmobj->sprite);
 		WRITEUINT32(demo_p,metal->player->followmobj->frame); // NOT & FF_FRAMEMASK here, so 32 bits
 		WRITEUINT16(demo_p,metal->player->followmobj->color);

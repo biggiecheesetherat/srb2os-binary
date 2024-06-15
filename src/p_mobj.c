@@ -10932,6 +10932,11 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 		}
 	}
 
+	if (mobj->sprite == SPR_PLAY && mobj->skin)
+	{
+		P_SetupPlayerMobjAnimation(mobj, mobj->state);
+	}
+
 	if (mobj->animator.animation)
 	{
 		P_DoAnimationPlayback(&mobj->animator, mobj, FRACUNIT);

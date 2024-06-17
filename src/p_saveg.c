@@ -20,6 +20,7 @@
 #include "m_misc.h"
 #include "p_local.h"
 #include "p_setup.h"
+#include "p_animation.h"
 #include "p_saveg.h"
 #include "r_data.h"
 #include "r_fps.h"
@@ -1747,7 +1748,8 @@ typedef enum
 	MD2_DRAWONLYFORPLAYER   = 1<<24,
 	MD2_DONTDRAWFORVIEWMOBJ = 1<<25,
 	MD2_TRANSLATION         = 1<<26,
-	MD2_SKINSPRITESET       = 1<<27
+	MD2_SKINSPRITESET       = 1<<27,
+	MD2_ANIMATION           = 1<<28
 } mobj_diff2_t;
 
 typedef enum
@@ -1938,6 +1940,8 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		diff2 |= MD2_TRANSLATION;
 	if (mobj->skinspriteset)
 		diff2 |= MD2_SKINSPRITESET;
+	if (mobj->animator.animation)
+		diff2 |= MD2_ANIMATION;
 	if (mobj->skin)
 		diff2 |= MD2_SKIN;
 	if (mobj->extravalue1)
@@ -2172,6 +2176,16 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		WRITEUINT16(save_p, mobj->translation);
 	if (diff2 & MD2_SKINSPRITESET)
 		WRITEUINT8(save_p, mobj->skinspriteset);
+	if (diff2 & MD2_ANIMATION)
+	{
+		WRITEUINT16(save_p, mobj->animator.animation);
+		WRITEUINT16(save_p, mobj->animator.subanimation);
+		WRITEUINT16(save_p, mobj->animator.frame);
+		WRITEFIXED(save_p, mobj->animator.timer);
+		WRITEFIXED(save_p, mobj->animator.frame_duration);
+		WRITEFIXED(save_p, mobj->animator.speed_mul);
+		WRITEUINT8(save_p, mobj->animator.direction);
+	}
 
 	WRITEUINT32(save_p, mobj->mobjnum);
 }
@@ -3234,6 +3248,17 @@ static thinker_t* LoadMobjThinker(actionf_p1 thinker)
 		mobj->translation = READUINT16(save_p);
 	if (diff2 & MD2_SKINSPRITESET)
 		mobj->skinspriteset = READUINT8(save_p);
+	if (diff2 & MD2_ANIMATION)
+	{
+		mobj->animator.animation = READUINT16(save_p);
+		mobj->animator.subanimation = READUINT16(save_p);
+		mobj->animator.frame = READUINT16(save_p);
+		mobj->animator.timer = READFIXED(save_p);
+		mobj->animator.frame_duration = READFIXED(save_p);
+		mobj->animator.speed_mul = READFIXED(save_p);
+		mobj->animator.direction = READUINT8(save_p);
+		P_UpdateAnimatorCurNextFrames(&mobj->animator);
+	}
 
 	if (diff & MD_REDFLAG)
 	{

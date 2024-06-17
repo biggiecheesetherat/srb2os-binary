@@ -145,6 +145,24 @@ static void P_UpdateAnimatorCurNextFrames(animator_s *animator, animation_s *ent
 	animator->next_frame = frame->frame_num | (frame->frame_flags & ~FF_FRAMEMASK);
 }
 
+// for p_saveg.c
+void P_UpdateAnimatorCurNextFrames(animator_s *animator)
+{
+	animation_list_s *animation = get_animation_by_id(animator->animation);
+
+	animator->current_frame = animator->next_frame = 0;
+
+	if (is_valid_subanimation_id(animation, animator->subanimation))
+	{
+		animation_s *entry = animation->animations[animator->subanimation];
+
+		if (entry->num_frames > 0)
+		{
+			P_UpdateAnimatorCurNextFrames(animator, entry);
+		}
+	}
+}
+
 boolean P_SetupAnimator(animator_s *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
 {
 	animation_list_s *animation = get_animation_by_id(animation_id);

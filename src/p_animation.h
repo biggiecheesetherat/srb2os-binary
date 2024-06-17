@@ -42,6 +42,7 @@ typedef struct animation_s
 	animation_direction_t direction;
 	animation_frame_t *frames;
 	unsigned num_frames;
+	char *fallback;
 } animation_t;
 
 typedef struct animation_list_s
@@ -64,7 +65,10 @@ animation_list_t *P_FindAnimation(const char *animation_name);
 animation_list_t *P_DuplicateAnimation(const char *animation_name, animation_list_t *base, boolean copy_frames);
 animation_list_t *P_MergeAnimations(const char *name, animation_list_t *anim_a, animation_list_t *anim_b);
 animation_t *P_FindOrCreateSubAnimation(animation_list_t *animation, const char *subanimation_name);
+animation_list_t *P_GetAnimationByID(UINT16 animation_id);
 animation_t *P_GetSubAnimationByID(animation_list_t *animation, UINT16 subanimation_id);
+
+void P_InitAnimationFrame(animation_frame_t *frame);
 
 UINT16 P_GetNamedAnimationID(const char *animation_name);
 UINT16 P_GetNamedSubanimationID(UINT16 animation_id, const char *entry_name);
@@ -76,6 +80,7 @@ UINT16 P_GetSubanimationFrameCount(UINT16 animation_id, UINT16 subanimation_id);
 fixed_t P_GetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id);
 
 void P_SetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id, fixed_t speed);
+void P_SetSubanimationFallback(UINT16 animation_id, UINT16 subanimation_id, const char *fallback);
 
 boolean P_SetupAnimator(animator_t *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame);
 UINT32 P_GetAnimatorFrame(animator_t *animator);

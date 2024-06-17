@@ -614,6 +614,7 @@ static void P_DeleteAnimation(animation_list_s *animation)
 {
 	for (size_t i = 0; i < animation->count; i++)
 	{
+		Z_Free(animation->animations[i]->fallback);
 		Z_Free(animation->animations[i]->frames);
 		Z_Free(animation->animations[i]);
 	}
@@ -682,6 +683,10 @@ animation_list_s *P_DuplicateAnimation(const char *animation_name, animation_lis
 				subanimation->speed = base_subanim->speed;
 				subanimation->loop_index = base_subanim->loop_index;
 				subanimation->direction = base_subanim->direction;
+				if (base_subanim->fallback != nullptr)
+				{
+					subanimation->fallback = Z_StrDup(base_subanim->fallback);
+				}
 
 				if (copy_frames && base_subanim->num_frames)
 				{
@@ -730,6 +735,10 @@ animation_list_s *P_MergeAnimations(const char *name, animation_list_s *anim_a, 
 			subanimation->speed = base_subanim->speed;
 			subanimation->loop_index = base_subanim->loop_index;
 			subanimation->direction = base_subanim->direction;
+			if (base_subanim->fallback != nullptr)
+			{
+				subanimation->fallback = Z_StrDup(base_subanim->fallback);
+			}
 
 			if (base_subanim->num_frames && subanimation->num_frames == 0)
 			{
@@ -755,6 +764,11 @@ animation_s *P_FindOrCreateSubAnimation(animation_list_s *animation, const char 
 	return find_or_create_subanimation(animation, subanimation_name);
 }
 
+animation_list_s *P_GetAnimationByID(UINT16 animation_id)
+{
+	return get_animation_by_id(animation_id);
+}
+
 animation_s *P_GetSubAnimationByID(animation_list_s *animation, UINT16 subanimation_id)
 {
 	if (subanimation_id >= animation->count)
@@ -772,6 +786,16 @@ static void set_subanim_speed(animation_list_s *animation, UINT16 subanimation_i
 	}
 }
 
+static void set_subanim_fallback(animation_list_s *animation, UINT16 subanimation_id, const char *fallback)
+{
+	animation_t *subanim = P_GetSubAnimationByID(animation, subanimation_id);
+	if (subanim != nullptr)
+	{
+		Z_Free(subanim->fallback);
+		subanim->fallback = Z_StrDup(fallback);
+	}
+}
+
 void P_SetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id, fixed_t speed)
 {
 	animation_list_s *animation = get_animation_by_id(animation_id);
@@ -780,6 +804,23 @@ void P_SetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id, fixed_t
 	{
 		set_subanim_speed(animation, subanimation_id, speed);
 	}
+}
+
+void P_SetSubanimationFallback(UINT16 animation_id, UINT16 subanimation_id, const char *fallback)
+{
+	animation_list_s *animation = get_animation_by_id(animation_id);
+
+	if (is_valid_subanimation_id(animation, subanimation_id))
+	{
+		set_subanim_fallback(animation, subanimation_id, fallback);
+	}
+}
+
+void P_InitAnimationFrame(animation_frame_s *frame)
+{
+	frame->frame_num = 0;
+	frame->frame_flags = 0;
+	frame->duration = 1;
 }
 
 void P_InitAnimations()
@@ -952,7 +993,7 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 
 			for (size_t j = animation->num_frames; j < num_entry_frames; j++)
 			{
-				animation->frames[j].duration = 1;
+				P_InitAnimationFrame(&animation->frames[j]);
 			}
 
 			animation->num_frames = num_entry_frames;

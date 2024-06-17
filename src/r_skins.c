@@ -326,28 +326,36 @@ boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super)
 	return use_super;
 }
 
-UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 spr2, player_t *player)
+UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 subanim_id, UINT8 spriteset, player_t *player)
 {
-	switch (spr2)
+	UINT16 animation_id;
+	animation_t *subanimation;
+
+	switch (subanim_id)
 	{
 	// Normal special cases.
 	case SPR2_JUMP:
 		return ((player ? player->charflags : skin->flags) & SF_NOJUMPSPIN) ? SPR2_SPNG : SPR2_ROLL;
 	case SPR2_TIRE:
 		return ((player ? player->charability : skin->ability) == CA_SWIM) ? SPR2_SWIM : SPR2_FLY;
-	// Use the handy list, that's what it's there for!
-	default:
-		return spr2defaults[spr2];
 	}
+
+	animation_id = P_GetSkinAnimation(skin, spriteset);
+	subanimation = P_GetSubAnimationByID(P_GetAnimationByID(animation_id), subanim_id);
+
+	if (subanimation != NULL && subanimation->fallback != NULL)
+	{
+		return P_GetNamedSubanimationID(animation_id, subanimation->fallback);
+	}
+
+	return UINT16_MAX;
 }
 
-// For the default spritesets, this tries each subanimation's immediate predecessor until
-// it finds one with a number of frames or ends up at standing.
-// For non-default spritesets, does the same as above - but tries the spriteset for each
-// subanimation before the default spriteset.
+// Walks a subanimation replacement chain.
+// If P_GetPlayerSubanimReplacement cannot find a suitable fallback, this tries again with a fallback spriteset.
 UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset)
 {
-	UINT8 stored_spriteset = spriteset;
+	UINT16 original_subanim = subanim;
 	UINT8 i = 0;
 
 	if (!skin)
@@ -359,21 +367,26 @@ UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, play
 
 	while (!P_IsSkinAnimationValid(skin, subanim, spriteset)
 		&& subanim != SPR2_STND
-		&& ++i < 32) // recursion limiter
+		&& ++i < 64) // recursion limiter
 	{
-		if (spriteset != SKINSPRITES_BASE)
+		subanim = P_GetPlayerSubanimReplacement(skin, subanim, spriteset, player);
+		if (subanim == UINT16_MAX)
 		{
-			stored_spriteset = spriteset;
-			spriteset = SKINSPRITES_BASE;
-			continue;
+			if (spriteset == SKINSPRITES_BASE)
+			{
+				subanim = SPR2_STND;
+				break;
+			}
+			else
+			{
+				spriteset = skin->sprites[spriteset].fallback_spriteset;
+			}
+
+			subanim = original_subanim;
 		}
-
-		subanim = P_GetPlayerSubanimReplacement(skin, subanim, player);
-
-		spriteset = stored_spriteset;
 	}
 
-	if (i >= 32) // probably an infinite loop...
+	if (i >= 64) // probably an infinite loop...
 	{
 		subanim = SPR2_STND;
 		spriteset = SKINSPRITES_BASE;
@@ -640,6 +653,66 @@ void R_InitSkinAnimations(void)
 	SET_SPEED(SPR2_TALC, FRACUNIT / 2);
 
 #undef SET_SPEED
+
+#define SET_FALLBACK(spr2, def) P_SetSubanimationFallback(base_anim_id, spr2, player_anim_names[def])
+
+	// Set default subanimation fallbacks
+	SET_FALLBACK(SPR2_SKID, SPR2_WALK);
+	SET_FALLBACK(SPR2_RUN,  SPR2_WALK);
+	SET_FALLBACK(SPR2_DASH, SPR2_FRUN);
+	SET_FALLBACK(SPR2_STUN, SPR2_PAIN);
+	SET_FALLBACK(SPR2_DEAD, SPR2_PAIN);
+	SET_FALLBACK(SPR2_DRWN, SPR2_DEAD);
+	SET_FALLBACK(SPR2_GASP, SPR2_SPNG);
+	SET_FALLBACK(SPR2_SPNG, SPR2_FALL);
+	SET_FALLBACK(SPR2_FALL, SPR2_WALK);
+	SET_FALLBACK(SPR2_RIDE, SPR2_FALL);
+
+	SET_FALLBACK(SPR2_SPIN, SPR2_ROLL);
+
+	SET_FALLBACK(SPR2_FLY,  SPR2_SPNG);
+	SET_FALLBACK(SPR2_SWIM, SPR2_FLY);
+
+	SET_FALLBACK(SPR2_GLID, SPR2_FLY);
+	SET_FALLBACK(SPR2_LAND, SPR2_ROLL);
+	SET_FALLBACK(SPR2_CLNG, SPR2_CLMB);
+	SET_FALLBACK(SPR2_CLMB, SPR2_ROLL);
+
+	SET_FALLBACK(SPR2_FLT,  SPR2_WALK);
+	SET_FALLBACK(SPR2_FRUN, SPR2_RUN);
+
+	SET_FALLBACK(SPR2_BNCE, SPR2_FALL);
+
+	SET_FALLBACK(SPR2_TWIN, SPR2_ROLL);
+
+	SET_FALLBACK(SPR2_MLEE, SPR2_TWIN);
+
+	SET_FALLBACK(SPR2_NSTD, SPR2_STND);
+	SET_FALLBACK(SPR2_NFLT, SPR2_FALL);
+	SET_FALLBACK(SPR2_NDRL, SPR2_NFLY);
+	SET_FALLBACK(SPR2_NSTN, SPR2_STUN);
+	SET_FALLBACK(SPR2_NPUL, SPR2_NSTN);
+	SET_FALLBACK(SPR2_NATK, SPR2_ROLL);
+
+	SET_FALLBACK(SPR2_TAL1, SPR2_TAL0);
+	SET_FALLBACK(SPR2_TAL2, SPR2_TAL1);
+	SET_FALLBACK(SPR2_TAL3, SPR2_TAL2);
+	SET_FALLBACK(SPR2_TAL4, SPR2_TAL1);
+	SET_FALLBACK(SPR2_TAL5, SPR2_TAL4);
+	SET_FALLBACK(SPR2_TAL6, SPR2_TAL0);
+	SET_FALLBACK(SPR2_TAL7, SPR2_TAL3);
+	SET_FALLBACK(SPR2_TAL8, SPR2_TAL7);
+	SET_FALLBACK(SPR2_TAL9, SPR2_TAL0);
+	SET_FALLBACK(SPR2_TALA, SPR2_TAL9);
+	SET_FALLBACK(SPR2_TALB, SPR2_TAL0);
+	SET_FALLBACK(SPR2_TALC, SPR2_TAL6);
+
+	SET_FALLBACK(SPR2_CNT1, SPR2_WAIT);
+	SET_FALLBACK(SPR2_CNT2, SPR2_FALL);
+	SET_FALLBACK(SPR2_CNT3, SPR2_SPNG);
+	SET_FALLBACK(SPR2_CNT4, SPR2_CNT1);
+
+#undef SET_FALLBACK
 
 	base_skin_animations[SKINSPRITES_BASE] = base_anim;
 	base_skin_animation_ids[SKINSPRITES_BASE] = base_anim_id;
@@ -1013,9 +1086,8 @@ static void InitSubanimationForSpritedef(animation_t *subanim, spritedef_t *spri
 	for (unsigned i = subanim->num_frames; i < spritedef->numframes; i++)
 	{
 		animation_frame_t *frame = &subanim->frames[i];
+		P_InitAnimationFrame(frame);
 		frame->frame_num = i;
-		frame->frame_flags = 0;
-		frame->duration = 1;
 	}
 
 	subanim->num_frames = spritedef->numframes;

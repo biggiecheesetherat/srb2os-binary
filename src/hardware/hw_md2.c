@@ -1075,7 +1075,6 @@ static boolean HWR_CanInterpolateSprite2(modelspr2frames_t *spr2frame)
 	return spr2frame->interpolate;
 }
 
-// FIXME: This sucks
 static modelspr2frames_t *HWR_GetSkinModelFrames(md2_t *md2, UINT16 subanim, UINT8 spriteset)
 {
 	if (!md2 || !md2->model || subanim >= free_spr2)
@@ -1096,42 +1095,8 @@ static modelspr2frames_t *HWR_GetSkinModelFrames(md2_t *md2, UINT16 subanim, UIN
 
 static UINT16 HWR_GetSkinModelSubanim(md2_t *md2, skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset)
 {
-	UINT8 stored_spriteset = spriteset;
-	UINT8 i = 0;
-
-	if (!skin)
-	{
-		if (found_spriteset)
-			*found_spriteset = SKINSPRITES_BASE;
-		return SPR2_STND;
-	}
-
-	while (!HWR_GetSkinModelFrames(md2, subanim, spriteset)
-		&& subanim != SPR2_STND
-		&& ++i < 32) // recursion limiter
-	{
-		if (spriteset != SKINSPRITES_BASE)
-		{
-			stored_spriteset = spriteset;
-			spriteset = SKINSPRITES_BASE;
-			continue;
-		}
-
-		subanim = P_GetPlayerSubanimReplacement(skin, subanim, player);
-
-		spriteset = stored_spriteset;
-	}
-
-	if (i >= 32) // probably an infinite loop...
-	{
-		subanim = SPR2_STND;
-		spriteset = SKINSPRITES_BASE;
-	}
-
-	if (found_spriteset)
-		*found_spriteset = spriteset;
-
-	return subanim;
+	(void)md2;
+	return P_GetSkinSubanimation(skin, subanim, spriteset, player, found_spriteset);
 }
 
 // Adjust texture coords of model to fit into a patch's max_s and max_t

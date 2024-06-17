@@ -35,6 +35,7 @@ extern "C" {
 typedef struct skinspritedef_s
 {
 	UINT16 animation_id;
+	UINT8 fallback_spriteset;
 	spritenum_t spritenum[NUMPLAYERSPRITES];
 } skinspritedef_t;
 
@@ -113,7 +114,7 @@ void R_PatchSkins(UINT16 wadnum, boolean mainfile);
 
 UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset);
 UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset);
-UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 subanim, player_t *player);
+UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 subanim_id, UINT8 spriteset, player_t *player);
 UINT8 P_GetMobjSkinSpriteset(mobj_t *mobj, state_t *st);
 UINT8 P_GetPlayerSpritesetID(const char *spriteset_name);
 const char *P_GetPlayerSpritesetName(UINT8 id);

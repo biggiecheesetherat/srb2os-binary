@@ -65,6 +65,7 @@ enum mobj_e {
 	mobj_eflags,
 	mobj_renderflags,
 	mobj_skin,
+	mobj_skinspriteset,
 	mobj_color,
 	mobj_translation,
 	mobj_blendmode,
@@ -145,6 +146,7 @@ static const char *const mobj_opt[] = {
 	"eflags",
 	"renderflags",
 	"skin",
+	"skinspriteset",
 	"color",
 	"translation",
 	"blendmode",
@@ -332,6 +334,9 @@ static int mobj_get(lua_State *L)
 		if (!mo->skin)
 			return 0;
 		lua_pushstring(L, ((skin_t *)mo->skin)->name);
+		break;
+	case mobj_skinspriteset:
+		lua_pushstring(L, P_GetPlayerSpritesetName(mo->skinspriteset));
 		break;
 	case mobj_color:
 		lua_pushinteger(L, mo->color);
@@ -695,6 +700,20 @@ static int mobj_set(lua_State *L)
 			}
 		return luaL_error(L, "mobj.skin '%s' not found!", skin);
 	}
+	case mobj_skinspriteset: // set spriteset by name
+		if (!lua_isnil(L, 3)) {
+			const char *spritesetname = luaL_checkstring(L, 3);
+			UINT8 id = P_GetPlayerSpritesetID(spritesetname);
+			if (id == NUMSKINSPRITESETS) {
+				return luaL_error(L, "mobj.skinspriteset '%s' not found!", spritesetname);
+			}
+			mo->skinspriteset = id;
+		}
+		else
+			mo->skinspriteset = SKINSPRITES_BASE;
+		if (mo->skin && mo->state->sprite == SPR_PLAY)
+			P_SetupSkinAnimation(mo, mo->state);
+		break;
 	case mobj_color:
 	{
 		UINT16 newcolor = (UINT16)luaL_checkinteger(L, 3);

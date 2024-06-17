@@ -201,19 +201,30 @@ static void P_CyclePlayerMobjState(mobj_t *mobj)
 	}
 }
 
-static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
+UINT8 P_SetupSkinAnimation(mobj_t *mobj, state_t *st)
 {
 	UINT16 animation, subanimation;
 	UINT8 spriteset;
 	UINT8 starting_frame;
+	spritenum_t sprite;
 
-	skin_t *skin = ((skin_t *)mobj->skin);
+	skin_t *skin = (skin_t *)mobj->skin;
 	if (skin == NULL)
-		return;
+		return NUMSKINSPRITESETS;
 
-	spriteset = P_GetPlayerSpriteset(mobj, st);
-	animation = P_GetSkinAnimation(skin, spriteset);
+	spriteset = P_GetMobjSkinSpriteset(mobj, st);
 	subanimation = P_GetSkinSubanimation(skin, st->anim_entry, spriteset, mobj->player, &spriteset);
+	animation = P_GetSkinAnimation(skin, spriteset);
+
+	if (animation == 0)
+	{
+		CONS_Alert(CONS_ERROR, "Missing animation for skin \"%s\" spriteset \"%s\"", skin->name, P_GetPlayerSpritesetName(spriteset));
+		return NUMSKINSPRITESETS;
+	}
+
+	sprite = P_GetSkinSpriteID(skin, subanimation, spriteset);
+	if (sprite != SPR_NULL)
+		mobj->sprite = sprite;
 
 	starting_frame = st->frame & FF_FRAMEMASK;
 
@@ -222,14 +233,31 @@ static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
 		starting_frame += P_GetSubanimationFrameCount(animation, subanimation) / 2;
 	}
 
-	P_SetMobjAnimation(mobj, animation, subanimation, starting_frame);
+	if (!P_SetMobjAnimation(mobj, animation, subanimation, starting_frame))
+		return NUMSKINSPRITESETS;
 
 	if (mobj->player && P_PlayerFullbright(mobj->player))
 		mobj->frame |= FF_FULLBRIGHT;
 
-	spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, animation, subanimation);
-	if (sprdef && st == &states[S_PLAY_STND] && spriteset == SKINSPRITES_SUPER && sprdef[SPR2_WAIT].numframes == 0)
-		mobj->tics = -1; // If no super wait, don't wait at all
+	return spriteset;
+}
+
+static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
+{
+	UINT8 spriteset;
+
+	skin_t *skin = (skin_t *)mobj->skin;
+	if (skin == NULL)
+		return;
+
+	spriteset = P_SetupSkinAnimation(mobj, st);
+
+	if (spriteset == SKINSPRITES_SUPER && st == &states[S_PLAY_STND])
+	{
+		spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, SPR2_WAIT);
+		if (!sprdef || sprdef->numframes == 0)
+			mobj->tics = -1; // If no super wait, don't wait at all
+	}
 }
 
 //
@@ -10933,9 +10961,7 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type, ...)
 	}
 
 	if (mobj->sprite == SPR_PLAY && mobj->skin)
-	{
 		P_SetupPlayerMobjAnimation(mobj, mobj->state);
-	}
 
 	if (mobj->animator.animation)
 	{
@@ -11538,7 +11564,7 @@ void P_SpawnPlayer(INT32 playernum)
 	mobj->color = P_GetPlayerColor(p);
 
 	// Set proper player sprite and start animation
-	if (mobj->sprite == SPR_PLAY)
+	if (mobj->sprite == SPR_PLAY && mobj->skin)
 		P_SetupPlayerMobjAnimation(mobj, mobj->state);
 
 	P_SetupStateAnimation(mobj, mobj->state);

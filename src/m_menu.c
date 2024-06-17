@@ -12145,8 +12145,8 @@ static menucolor_t *M_GridIndexToMenuColor(UINT16 index)
 static UINT8 M_SetupPlayerMenuAnimator(animator_t *animator, skin_t *skin, UINT16 player_anim, spritedef_t **sprdef)
 {
 	UINT8 spriteset = SKINSPRITES_BASE;
-	UINT16 animation = P_GetSkinAnimation(skin, spriteset);
 	UINT16 subanimation = P_GetSkinSubanimation(skin, player_anim, spriteset, NULL, &spriteset);
+	UINT16 animation = P_GetSkinAnimation(skin, spriteset);
 
 	*sprdef = P_GetSkinSpritedef(skin, subanimation, spriteset);
 

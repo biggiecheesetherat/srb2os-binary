@@ -239,6 +239,7 @@ UINT32 P_GetAnimatorNextFrame(animator_s *animator)
 boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame)
 {
 	animation_list_s *animation;
+	skin_t *skin;
 
 	if (animation_id == 0)
 	{
@@ -264,20 +265,30 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 		subanimation_id = 0;
 	}
 
-	skin_t *skin = P_IsAnimationForSkin(NULL, animation_id);
-	if (skin != NULL)
+	// Set appropriate sprite if this animation belongs to a skin
+	skin = (skin_t *)mobj->skin;
+
+	if (!P_IsSkinSprite(skin, mobj->sprite))
 	{
-		spritenum_t sprite = P_GetSkinSpriteID(skin, subanimation_id, P_GetPlayerSpriteset(mobj, mobj->state));
-		if (sprite != SPR_NULL)
-			mobj->sprite = sprite;
+		skin = P_IsAnimationForSkin(NULL, animation_id);
+		if (skin != NULL)
+		{
+			spritenum_t sprite;
+			UINT8 spriteset = P_GetMobjSkinSpriteset(mobj, mobj->state);
+
+			subanimation_id = P_GetSkinSubanimation(skin, subanimation_id, spriteset, mobj->player, &spriteset);
+			animation_id = P_GetSkinAnimation(skin, spriteset);
+
+			sprite = P_GetSkinSpriteID(skin, subanimation_id, spriteset);
+			if (sprite != SPR_NULL)
+				mobj->sprite = sprite;
+		}
 	}
 
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
 		return true;
 
-	P_SetupMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
-
-	return true;
+	return P_SetupMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
 }
 
 boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *subanimation_name, UINT16 start_frame)
@@ -311,9 +322,7 @@ boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const 
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
 		return true;
 
-	P_SetupMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
-
-	return true;
+	return P_SetupMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
 }
 
 void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)

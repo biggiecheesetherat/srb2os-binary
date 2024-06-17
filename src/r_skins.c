@@ -110,6 +110,14 @@ static const char *player_anim_names[NUMPLAYERSPRITES] =
 	"extra"
 };
 
+static UINT16 num_player_spritesets = SKINSPRITES_FIRSTFREESLOT;
+
+static const char *player_spriteset_names[NUMSKINSPRITESETS] =
+{
+	"base",
+	"super"
+};
+
 UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset)
 {
 	if (spriteset >= NUMSKINSPRITESETS)
@@ -125,6 +133,8 @@ const char *P_GetPlayerAnimName(UINT16 playeranim)
 
 UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name)
 {
+	char *subanim;
+
 	for (UINT16 i = 0; i < free_spr2; i++)
 	{
 		if (stricmp(player_anim_names[i], subanim_name) == 0)
@@ -134,7 +144,13 @@ UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name)
 	if (free_spr2 == NUMPLAYERSPRITES)
 		return NUMPLAYERSPRITES;
 
-	player_anim_names[free_spr2] = Z_StrDup(subanim_name);
+	subanim = Z_StrDup(subanim_name);
+	player_anim_names[free_spr2] = subanim;
+	while (*subanim)
+	{
+		*subanim = tolower(*subanim);
+		subanim++;
+	}
 
 	if (base_skin_animation != NULL)
 	{
@@ -150,7 +166,50 @@ UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name)
 	return free_spr2 - 1;
 }
 
-UINT8 P_GetPlayerSpriteset(mobj_t *mobj, state_t *st)
+static UINT16 P_GetOrCreatePlayerSpriteset(const char *spriteset_name)
+{
+	char *sprset, *p;
+
+	for (UINT16 i = 0; i < num_player_spritesets; i++)
+	{
+		if (stricmp(player_spriteset_names[i], spriteset_name) == 0)
+			return i;
+	}
+
+	if (num_player_spritesets == NUMSKINSPRITESETS)
+		return NUMSKINSPRITESETS;
+
+	sprset = p = Z_StrDup(spriteset_name);
+	player_spriteset_names[num_player_spritesets++] = sprset;
+	while (*p)
+	{
+		*p = tolower(*p);
+		p++;
+	}
+
+	return num_player_spritesets - 1;
+}
+
+UINT8 P_GetPlayerSpritesetID(const char *spriteset_name)
+{
+	for (UINT16 i = 0; i < num_player_spritesets; i++)
+	{
+		if (stricmp(player_spriteset_names[i], spriteset_name) == 0)
+			return i;
+	}
+
+	return NUMSKINSPRITESETS;
+}
+
+const char *P_GetPlayerSpritesetName(UINT8 id)
+{
+	if (id >= num_player_spritesets)
+		return NULL;
+
+	return player_spriteset_names[id];
+}
+
+UINT8 P_GetMobjSkinSpriteset(mobj_t *mobj, state_t *st)
 {
 	UINT8 spriteset = mobj->skinspriteset;
 
@@ -963,11 +1022,18 @@ static animation_list_t *GetSkinAnimation(const char *anim_name)
 
 static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
 {
-	size_t anim_name_size = 0;
 	char *anim_name = NULL;
-
-	size_t spr_name_size = 0;
 	char *spr_name = NULL;
+	char *spriteset_name = NULL;
+	char *subanim_name = NULL;
+	char *fullname_buf = NULL;
+	char sprname[5] = { 0 };
+
+	size_t anim_name_size = 0;
+	size_t spr_name_size = 0;
+	size_t spriteset_name_size = 0;
+	size_t subanim_name_size = 0;
+	size_t fullname_buf_size = 0;
 
 	char *folderpath = W_GetLumpFolderPathPK3(wadnum, *lump);
 
@@ -978,89 +1044,157 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 	{
 		char *underscore;
 		char *fullname, *name_p;
-		char *spriteset_name, *subanim_name;
-		boolean is_base_spriteset = false;
 		UINT16 startlump, endlump;
+		UINT16 anim_id, subanim;
 		UINT8 spriteset;
-		size_t len;
+		size_t len, name_size;
+		animation_list_t *animation;
 
+		// Ignore lumps that are folders
 		if (W_IsLumpFolder(wadnum, i))
 			continue;
 
-		fullname = Z_StrDup(wadfiles[wadnum]->lumpinfo[i].fullname);
-		name_p = fullname + strlen(folderpath) + 1;
+		fullname = wadfiles[wadnum]->lumpinfo[i].fullname;
+		name_p = fullname + strlen(folderpath) + 1; // Skip parent folder of S_SKIN lump
 
+		// Get spriteset name
 		underscore = strchr(name_p, '/');
 		if (underscore == NULL)
 		{
-			Z_Free(fullname);
 			continue;
 		}
 
 		len = underscore - name_p;
-		spriteset_name = Z_Calloc(len + 1, PU_STATIC, NULL);
+		name_size = len + 1;
+		if (spriteset_name == NULL || name_size > spriteset_name_size)
+		{
+			spriteset_name_size = name_size;
+			spriteset_name = Z_Realloc(spriteset_name, spriteset_name_size, PU_STATIC, NULL);
+		}
 		memcpy(spriteset_name, name_p, len);
-		name_p += len + 1;
+		spriteset_name[len] = '\0';
+		name_p += name_size;
 
+		// Find or create a new spriteset
+		spriteset = P_GetOrCreatePlayerSpriteset(spriteset_name);
+		if (spriteset == NUMSKINSPRITESETS)
+		{
+			CONS_Alert(CONS_ERROR, "Could not create player spriteset \"%s\" while adding skin \"%s\" (exceeded limit)\n", spriteset_name, skin->name);
+			break;
+		}
+
+		// Get subanimation name
 		underscore = strchr(name_p, '/');
 		if (underscore == NULL)
 		{
-			Z_Free(fullname);
-			Z_Free(spriteset_name);
 			continue;
 		}
 
 		len = underscore - name_p;
-		subanim_name = Z_Calloc(len + 1, PU_STATIC, NULL);
+		name_size = len + 1;
+		if (subanim_name == NULL || name_size > subanim_name_size)
+		{
+			subanim_name_size = name_size;
+			subanim_name = Z_Realloc(subanim_name, subanim_name_size, PU_STATIC, NULL);
+		}
 		memcpy(subanim_name, name_p, len);
-		name_p += len;
-		*name_p = '\0';
+		subanim_name[len] = '\0';
 
-		startlump = W_CheckNumForFolderStartPK3(fullname, wadnum, *lump);
-		endlump = W_CheckNumForFolderEndPK3(fullname, wadnum, startlump);
-
-		anim_name_size = strlen(skin->name) + 6; // "skin_" + skin name + '/0'
-		if (stricmp(spriteset_name, "base") == 0)
+		// Get player subanimation ID
+		subanim = P_GetOrCreatePlayerSubanim(subanim_name);
+		if (subanim < start_spr2)
 		{
-			spriteset = SKINSPRITES_BASE;
-			is_base_spriteset = true;
+			continue;
 		}
-		else
+		else if (subanim == NUMPLAYERSPRITES)
 		{
-			spriteset = SKINSPRITES_BASE; // todo
-			anim_name_size += strlen(spriteset_name) + 1; // spriteset + "_"
+			CONS_Alert(CONS_ERROR, "Could not create player animation \"%s\" while adding skin \"%s\" (exceeded limit)\n", subanim_name, skin->name);
+			break;
 		}
 
-		anim_name = Z_Realloc(anim_name, anim_name_size, PU_STATIC, NULL);
-		if (is_base_spriteset)
+		// Get path to where the sprites are located
+		name_p += name_size;
+		len = name_p - fullname;
+		name_size = len + 1;
+		if (fullname_buf == NULL || name_size > fullname_buf_size)
+		{
+			fullname_buf_size = name_size;
+			fullname_buf = Z_Realloc(fullname_buf, fullname_buf_size, PU_STATIC, NULL);
+		}
+		memcpy(fullname_buf, fullname, len);
+		fullname_buf[len] = '\0';
+
+		// Find range of files where the sprites are in
+		startlump = W_CheckNumForFolderStartPK3(fullname_buf, wadnum, *lump);
+		endlump = W_CheckNumForFolderEndPK3(fullname_buf, wadnum, startlump);
+
+		if (startlump == wadfiles[wadnum]->numlumps || startlump >= endlump)
+		{
+			continue;
+		}
+
+		// Create combined animation name
+		name_size = strlen(skin->name) + 6; // "skin_" + skin name + '/0'
+		if (spriteset != SKINSPRITES_BASE)
+		{
+			name_size += strlen(spriteset_name) + 1; // spriteset + "_"
+		}
+
+		if (anim_name == NULL || name_size > anim_name_size)
+		{
+			anim_name_size = name_size;
+			anim_name = Z_Realloc(anim_name, anim_name_size, PU_STATIC, NULL);
+		}
+
+		if (spriteset == SKINSPRITES_BASE)
+		{
+			// If this is the base spriteset, "skin_name"
 			snprintf(anim_name, anim_name_size, "skin_%s", skin->name);
+		}
 		else
-			snprintf(anim_name, anim_name_size, "skin_%s_%s", skin->name, spriteset_name);
-
-		UINT16 subanim = P_GetOrCreatePlayerSubanim(subanim_name);
-		if (subanim != NUMPLAYERSPRITES && subanim >= start_spr2)
 		{
-			animation_list_t *animation = GetSkinAnimation(anim_name);
-
-			skin->sprites[spriteset].animation_id = P_GetNamedAnimationID(anim_name);
-
-			spr_name_size = strlen(anim_name) + strlen(player_anim_names[subanim]) + 2;
-			spr_name = Z_Realloc(spr_name, spr_name_size, PU_STATIC, NULL);
-			snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[subanim]);
-			strupr(spr_name);
-
-			if (!R_AddSkinSpriteDef(animation, &skin->sprites[spriteset], spr_name, wadfiles[wadnum]->lumpinfo[i].fullname, subanim, wadnum, startlump, endlump))
-				I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
+			// If this is not the base spriteset, "skin_name_spriteset"
+			snprintf(anim_name, anim_name_size, "skin_%s_%s", skin->name, spriteset_name);
 		}
 
-		Z_Free(fullname);
-		Z_Free(spriteset_name);
-		Z_Free(subanim_name);
+		// Get or create the animation
+		animation = GetSkinAnimation(anim_name);
+
+		// Now get that animation's ID
+		// FIXME: do this and the above in one step
+		anim_id = P_GetNamedAnimationID(anim_name);
+		if (anim_id == 0)
+		{
+			I_Error("Missing animation \"%s\" while adding skin \"%s\"", anim_name, skin->name);
+		}
+
+		skin->sprites[spriteset].animation_id = anim_id;
+
+		// Create the sprite name
+		name_size = strlen(anim_name) + strlen(player_anim_names[subanim]) + 2;
+		if (spr_name == NULL || name_size > spr_name_size)
+		{
+			spr_name_size = name_size;
+			spr_name = Z_Realloc(spr_name, spr_name_size, PU_STATIC, NULL);
+		}
+		snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[subanim]);
+		strupr(spr_name);
+
+		// Finally, add the sprites
+		i = endlump;
+
+		strlcpy(sprname, wadfiles[wadnum]->lumpinfo[startlump].name, sizeof sprname);
+
+		if (!R_AddSkinSpriteDef(animation, &skin->sprites[spriteset], spr_name, sprname, subanim, wadnum, startlump, endlump))
+			I_Error("No more free sprite slots when adding skin animation \"%s\"", anim_name);
 	}
 
 	Z_Free(folderpath);
 	Z_Free(anim_name);
 	Z_Free(spr_name);
+	Z_Free(spriteset_name);
+	Z_Free(subanim_name);
+	Z_Free(fullname_buf);
 }
 
 static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
@@ -1107,9 +1241,11 @@ static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlum
 			strupr(spr_name);
 
 			subanim = P_GetOrCreatePlayerSubanim(player_anim_names[sprite2]);
-
-			if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_SUPER], spr_name, spr2names[sprite2], subanim, wadnum, newlastlump, *lastlump))
-				I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
+			if (subanim != NUMPLAYERSPRITES) // This shouldn't really happen
+			{
+				if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_SUPER], spr_name, spr2names[sprite2], subanim, wadnum, newlastlump, *lastlump))
+					I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
+			}
 		}
 
 		newlastlump--;
@@ -1133,9 +1269,11 @@ static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlum
 		strupr(spr_name);
 
 		subanim = P_GetOrCreatePlayerSubanim(player_anim_names[sprite2]);
-
-		if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_BASE], spr_name, spr2names[sprite2], sprite2, wadnum, *lump, *lastlump))
-			I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
+		if (subanim != NUMPLAYERSPRITES) // This shouldn't really happen
+		{
+			if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_BASE], spr_name, spr2names[sprite2], sprite2, wadnum, *lump, *lastlump))
+				I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
+		}
 	}
 
 	if (!P_IsSkinAnimationValid(skin, SPR2_STND, SKINSPRITES_BASE))

@@ -8941,7 +8941,7 @@ void P_AdjustPlayerAnimSpeed(player_t *player)
 			if (speed <= 16<<FRACBITS)
 				anim_speed = FixedDiv(FRACUNIT / 2, base_anim_speed);
 		}
-		else if (player->mo->state == &states[S_PLAY_SKID] && !P_IsSkinAnimationValid(skins[player->skin], SPR2_SKID, P_GetPlayerSpriteset(mobj, player->mo->state)))
+		else if (player->mo->state == &states[S_PLAY_SKID] && !P_IsSkinAnimationValid(skins[player->skin], SPR2_SKID, P_GetMobjSkinSpriteset(mobj, player->mo->state)))
 		{
 			anim_speed = 0;
 		}

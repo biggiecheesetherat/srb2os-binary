@@ -298,6 +298,7 @@ void P_RemoveMobj(mobj_t *th);
 boolean P_MobjWasRemoved(mobj_t *th);
 void P_RemoveSavegameMobj(mobj_t *th);
 boolean P_SetMobjState(mobj_t *mobj, statenum_t state);
+UINT8 P_SetupSkinAnimation(mobj_t *mobj, state_t *st);
 void P_RunShields(void);
 void P_RunOverlays(void);
 void P_HandleMinecartSegments(mobj_t *mobj);

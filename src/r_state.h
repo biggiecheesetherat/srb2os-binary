@@ -49,13 +49,15 @@ extern INT32 *texturetranslation;
 // Sprites
 extern size_t numspritelumps, max_spritelumps;
 
+extern size_t numsprites;
+extern spritedef_t *sprites;
+
+extern bitarray_t *missing_sprites;
+
 //
 // Lookup tables for map data.
 //
 extern boolean udmf;
-
-extern size_t numsprites;
-extern spritedef_t *sprites;
 
 extern size_t numvertexes;
 extern vertex_t *vertexes;

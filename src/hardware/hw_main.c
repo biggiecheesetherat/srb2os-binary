@@ -4371,25 +4371,29 @@ static void HWR_ProjectSprite(mobj_t *thing)
 
 	if (rot >= sprdef->numframes)
 	{
-		if (thing->animator.animation)
+		if (!in_bit_array(missing_sprites, thing->sprite))
 		{
-			CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for animation %s subanimation %s\n"),
-				sizeu1(rot), sizeu2(sprdef->numframes),
-				P_GetAnimationNameByID(thing->animator.animation),
-				P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation));
+			set_bit_array(missing_sprites, thing->sprite);
+
+			if (thing->animator.animation)
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for animation %s subanimation %s\n"),
+					sizeu1(rot), sizeu2(sprdef->numframes),
+					P_GetAnimationNameByID(thing->animator.animation),
+					P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation));
+			}
+			else
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
+					sizeu1(rot), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
+			}
 		}
-		else
-		{
-			CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
-				sizeu1(rot), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
-		}
-		thing->sprite = states[S_UNKNOWN].sprite;
-		thing->frame = states[S_UNKNOWN].frame;
-		sprdef = &sprites[thing->sprite];
+
+		sprdef = &sprites[states[S_UNKNOWN].sprite];
 #ifdef ROTSPRITE
-		sprinfo = &spriteinfo[thing->sprite];
+		sprinfo = &spriteinfo[states[S_UNKNOWN].sprite];
 #endif
-		rot = thing->frame&FF_FRAMEMASK;
+		rot = states[S_UNKNOWN].frame&FF_FRAMEMASK;
 	}
 
 	sprframe = &sprdef->spriteframes[rot];

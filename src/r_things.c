@@ -78,6 +78,8 @@ spriteinfo_t spriteinfo[NUMSPRITES];
 spritedef_t *sprites;
 size_t numsprites;
 
+bitarray_t *missing_sprites;
+
 static spriteframe_t sprtemp[MAXFRAMENUM];
 static size_t maxframe;
 static const char *spritename;
@@ -805,6 +807,7 @@ void R_InitSprites(void)
 		I_Error("R_AddSpriteDefs: no sprites in namelist\n");
 
 	sprites = Z_Calloc(numsprites * sizeof (*sprites), PU_STATIC, NULL);
+	missing_sprites = Z_Calloc(BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS), PU_STATIC, NULL);
 
 	// find sprites in each -file added pwad
 	for (i = 0; i < numwadfiles; i++)
@@ -1864,24 +1867,29 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	if (frame >= sprdef->numframes)
 	{
-		if (thing->animator.animation)
+		if (!in_bit_array(missing_sprites, thing->sprite))
 		{
-			CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid sprite frame %s/%s for animation %s subanimation %s\n"),
-				sizeu1(frame), sizeu2(sprdef->numframes),
-				P_GetAnimationNameByID(thing->animator.animation),
-				P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation));
-		}
-		else
-		{
-			CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
-				sizeu1(frame), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
+			set_bit_array(missing_sprites, thing->sprite);
+
+			if (thing->animator.animation)
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid sprite frame %s/%s for animation %s subanimation %s\n"),
+					sizeu1(frame), sizeu2(sprdef->numframes),
+					P_GetAnimationNameByID(thing->animator.animation),
+					P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation));
+			}
+			else
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
+					sizeu1(frame), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
+			}
 		}
 
-		thing->sprite = states[S_UNKNOWN].sprite;
-		thing->frame = states[S_UNKNOWN].frame;
-		sprdef = &sprites[thing->sprite];
-		sprinfo = &spriteinfo[thing->sprite];
-		frame = thing->frame&FF_FRAMEMASK;
+		sprdef = &sprites[states[S_UNKNOWN].sprite];
+#ifdef ROTSPRITE
+		sprinfo = &spriteinfo[states[S_UNKNOWN].sprite];
+#endif
+		frame = states[S_UNKNOWN].frame&FF_FRAMEMASK;
 	}
 
 	sprframe = &sprdef->spriteframes[frame];

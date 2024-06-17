@@ -207,7 +207,7 @@ boolean P_SetupAnimator(animator_s *animator, UINT16 animation_id, UINT16 subani
 	else
 		animator->frame %= entry->num_frames;
 
-	animator->frame_duration = entry->frames[animator->frame].duration * FRACUNIT;
+	animator->frame_duration = std::max((int)entry->frames[animator->frame].duration, 1) * FRACUNIT;
 
 	// Set current and next frame
 	P_UpdateAnimatorCurNextFrames(animator, entry);
@@ -270,8 +270,8 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 
 	if (!P_IsSkinSprite(skin, mobj->sprite))
 	{
-		skin = P_IsAnimationForSkin(NULL, animation_id);
-		if (skin != NULL)
+		skin = P_IsAnimationForSkin(nullptr, animation_id);
+		if (skin != nullptr)
 		{
 			spritenum_t sprite;
 			UINT8 spriteset = P_GetMobjSkinSpriteset(mobj, mobj->state);
@@ -559,18 +559,7 @@ static animation_list_s *create_animation(const char *name)
 
 	animation->name = Z_StrDup(name);
 
-	animation_defs.push_back(animation);
-
 	return animation;
-}
-
-static animation_list_s *find_or_create_animation(const char *name)
-{
-	animation_list_s *animation = find_animation_by_name(name);
-	if (animation != nullptr)
-		return animation;
-
-	return create_animation(name);
 }
 
 static animation_s *create_subanimation(const char *name)
@@ -585,34 +574,29 @@ static animation_s *create_subanimation(const char *name)
 	return subanimation;
 }
 
-static animation_s *find_or_create_subanimation(animation_list_s *list, const char *name)
+static animation_s *create_and_add_subanimation(animation_list_s *list, const char *name)
 {
-	animation_s *subanimation;
+	animation_s *subanimation = create_subanimation(name);
 
-	size_t found_idx = list->count;
+	list->count++;
+	list->animations = static_cast<animation_s **>(
+		Z_Realloc(list->animations, list->count * sizeof(animation_s **), PU_STATIC, nullptr)
+	);
 
-	if (list->animations != nullptr)
-	{
-		for (size_t i = 0; i < list->count; i++)
-		{
-			if (!strcmp(list->animations[i]->name, name))
-				return list->animations[i];
-		}
-	}
-
-	subanimation = create_subanimation(name);
-
-	if (found_idx == list->count)
-	{
-		list->count++;
-		list->animations = static_cast<animation_s **>(
-			Z_Realloc(list->animations, list->count * sizeof(animation_s **), PU_STATIC, nullptr)
-		);
-	}
-
-	list->animations[found_idx] = subanimation;
+	list->animations[list->count - 1] = subanimation;
 
 	return subanimation;
+}
+
+static animation_s *find_or_create_subanimation(animation_list_s *list, const char *name)
+{
+	for (size_t i = 0; i < list->count; i++)
+	{
+		if (!strcmp(list->animations[i]->name, name))
+			return list->animations[i];
+	}
+
+	return create_and_add_subanimation(list, name);
 }
 
 animation_list_s *P_FindAnimation(const char *animation_name)
@@ -620,17 +604,59 @@ animation_list_s *P_FindAnimation(const char *animation_name)
 	return find_animation_by_name(animation_name);
 }
 
-animation_list_s *P_FindOrCreateAnimation(const char *animation_name)
+// NOTE: This does not add it to the list. You must use P_AddAnimation as well.
+animation_list_s *P_CreateAnimation(const char *animation_name)
 {
-	return find_or_create_animation(animation_name);
+	return create_animation(animation_name);
 }
 
+static void P_DeleteAnimation(animation_list_s *animation)
+{
+	for (size_t i = 0; i < animation->count; i++)
+	{
+		Z_Free(animation->animations[i]->frames);
+		Z_Free(animation->animations[i]);
+	}
+
+	Z_Free(animation->animations);
+	Z_Free(animation);
+}
+
+static boolean P_ReplaceAnimation(animation_list_s *animation)
+{
+	UINT16 existing = get_animation_id(animation->name);
+	if (existing != 0)
+	{
+		existing--;
+		P_DeleteAnimation(animation_defs[existing]);
+		animation_defs[existing] = animation;
+		return true;
+	}
+
+	return false;
+}
+
+void P_AddAnimation(animation_list_s *animation)
+{
+	UINT16 existing = get_animation_id(animation->name);
+	if (existing != 0)
+	{
+		CONS_Alert(CONS_ERROR, "Animation %s already exists\n", animation->name);
+		return;
+	}
+
+	animation_defs.push_back(animation);
+}
+
+// NOTE: If there already is an animation with that name, this returns nullptr.
+// You must check if the animation already exists before calling this.
 animation_list_s *P_DuplicateAnimation(const char *animation_name, animation_list_s *base, boolean copy_frames)
 {
 	animation_list_s *animation = find_animation_by_name(animation_name);
 	if (animation != nullptr)
 	{
-		return animation;
+		CONS_Alert(CONS_ERROR, "Animation %s already exists\n", animation->name);
+		return nullptr;
 	}
 
 	animation = create_animation(animation_name);
@@ -669,21 +695,13 @@ animation_list_s *P_DuplicateAnimation(const char *animation_name, animation_lis
 		}
 	}
 
+	P_AddAnimation(animation);
+
 	return animation;
 }
 
-static void P_DeleteAnimation(animation_list_s *animation)
-{
-	for (size_t i = 0; i < animation->count; i++)
-	{
-		Z_Free(animation->animations[i]->frames);
-		Z_Free(animation->animations[i]);
-	}
-
-	Z_Free(animation->animations);
-	Z_Free(animation);
-}
-
+// Merges animations anim_a and anim_b. The subanimations of anim_a come first, then the subanimations in anim_b.
+// NOTE: If it exists, this replaces the animation that has the same name.
 animation_list_s *P_MergeAnimations(const char *name, animation_list_s *anim_a, animation_list_s *anim_b)
 {
 	animation_list_s *output = create_animation(name);
@@ -704,27 +722,29 @@ animation_list_s *P_MergeAnimations(const char *name, animation_list_s *anim_a, 
 		if (base_subanim == nullptr)
 			continue;
 
-		subanimation = find_or_create_subanimation(output, base_subanim->name);
-		subanimation->speed = base_subanim->speed;
-		subanimation->loop_index = base_subanim->loop_index;
-		subanimation->direction = base_subanim->direction;
+		subanimation = find_subanimation(output, base_subanim->name);
 
-		if (base_subanim->num_frames)
+		if (subanimation == nullptr)
 		{
-			subanimation->num_frames = base_subanim->num_frames;
-			subanimation->frames = static_cast<animation_frame_s *>(
-				Z_Realloc(subanimation->frames, subanimation->num_frames * sizeof(animation_frame_s), PU_STATIC, nullptr)
-			);
-			memcpy(subanimation->frames, base_subanim->frames, subanimation->num_frames * sizeof(animation_frame_s));
+			subanimation = create_and_add_subanimation(output, base_subanim->name);
+			subanimation->speed = base_subanim->speed;
+			subanimation->loop_index = base_subanim->loop_index;
+			subanimation->direction = base_subanim->direction;
+
+			if (base_subanim->num_frames && subanimation->num_frames == 0)
+			{
+				subanimation->num_frames = base_subanim->num_frames;
+				subanimation->frames = static_cast<animation_frame_s *>(
+					Z_Realloc(subanimation->frames, subanimation->num_frames * sizeof(animation_frame_s), PU_STATIC, nullptr)
+				);
+				memcpy(subanimation->frames, base_subanim->frames, subanimation->num_frames * sizeof(animation_frame_s));
+			}
 		}
 	}
 
-	UINT16 existing = get_animation_id(name);
-	if (existing != 0)
+	if (!P_ReplaceAnimation(output))
 	{
-		existing--;
-		P_DeleteAnimation(animation_defs[existing]);
-		animation_defs[existing] = output;
+		P_AddAnimation(output);
 	}
 
 	return output;
@@ -817,45 +837,56 @@ void P_LoadAnimations(UINT16 wadnum)
 
 static void parse_anim_frame(animation_frame_s *frame, json& entry)
 {
-	UINT8 frame_num = 0;
-	tic_t duration = 1;
-	boolean flip_x = false;
-	boolean flip_y = false;
-
-	if (entry.is_object() == true)
+	if (entry.is_object() == false)
 	{
-		frame_num = entry.value("frame", 0);
-		duration = entry.value("duration", 1);
-		flip_x = entry.value("flip_x", false);
-		flip_y = entry.value("flip_y", false);
-	}
-	else
-	{
-		frame_num = (UINT8)entry;
+		frame->frame_num = (UINT8)entry;
+		return;
 	}
 
-	frame->frame_num = frame_num;
-	frame->frame_flags = 0;
-	frame->duration = duration;
-
-	if (flip_x == true)
+	if (entry.contains("frame"))
 	{
-		frame->frame_flags |= FF_HORIZONTALFLIP;
+		frame->frame_num = entry.at("frame");
 	}
-	if (flip_y == true)
+
+	if (entry.contains("duration"))
 	{
-		frame->frame_flags |= FF_VERTICALFLIP;
+		int duration = entry.at("duration");
+
+		if (duration < 1 || duration >= 32768)
+		{
+			throw std::runtime_error("invalid frame duration");
+		}
+
+		frame->duration = duration;
+	}
+
+	if (entry.contains("flip_x"))
+	{
+		if (entry.at("flip_x") == true)
+		{
+			frame->frame_flags |= FF_HORIZONTALFLIP;
+		}
+		else
+		{
+			frame->frame_flags &= ~FF_HORIZONTALFLIP;
+		}
+	}
+
+	if (entry.contains("flip_y"))
+	{
+		if (entry.at("flip_y") == true)
+		{
+			frame->frame_flags |= FF_VERTICALFLIP;
+		}
+		else
+		{
+			frame->frame_flags &= FF_VERTICALFLIP;
+		}
 	}
 }
 
 static void parse_anim_entry(animation_s *animation, json& entry)
 {
-	fixed_t speed = FRACUNIT;
-	std::string direction = entry.value("direction", "forwards");
-	animation_direction_e direction_type;
-	json& entry_frames = entry.at("frames");
-	size_t num_entry_frames = entry_frames.size(), i = 0;
-
 	if (entry.contains("speed"))
 	{
 		json speed_value = entry.at("speed");
@@ -868,47 +899,64 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 				throw std::runtime_error("invalid animation speed");
 			}
 
-			speed = FloatToFixed(speed_flt);
+			animation->speed = FloatToFixed(speed_flt);
 		}
 		else
 		{
-			speed = ((INT32)speed_value) * FRACUNIT;
+			animation->speed = ((INT32)speed_value) * FRACUNIT;
 		}
 	}
 
-	if (direction == "forwards")
+	if (entry.contains("direction"))
 	{
-		direction_type = ANIM_DIR_FORWARDS;
-	}
-	else if (direction == "reverse")
-	{
-		direction_type = ANIM_DIR_REVERSE;
-	}
-	else if (direction == "oscillate")
-	{
-		direction_type = ANIM_DIR_OSCILLATE;
-	}
-	else
-	{
-		throw std::runtime_error("invalid animation direction '" + direction + "'");
+		std::string direction = entry.value("direction", "forwards");
+
+		if (direction == "forwards")
+		{
+			animation->direction = ANIM_DIR_FORWARDS;
+		}
+		else if (direction == "reverse")
+		{
+			animation->direction = ANIM_DIR_REVERSE;
+		}
+		else if (direction == "oscillate")
+		{
+			animation->direction = ANIM_DIR_OSCILLATE;
+		}
+		else
+		{
+			throw std::runtime_error("invalid animation direction '" + direction + "'");
+		}
 	}
 
-	animation->speed = speed;
-	animation->direction = direction_type;
-
-	if (animation->frames)
+	if (entry.contains("frames"))
 	{
-		Z_Free(animation->frames);
-		animation->frames = nullptr;
-		animation->num_frames = 0;
-	}
+		json& entry_frames = entry.at("frames");
+		size_t num_entry_frames = entry_frames.size(), i = 0;
 
-	if (num_entry_frames)
-	{
-		animation->num_frames = num_entry_frames;
-		animation->frames = static_cast<animation_frame_s *>(
-			Z_Calloc(num_entry_frames * sizeof(animation_frame_s), PU_STATIC, nullptr)
-		);
+		if (num_entry_frames == 0)
+			return;
+
+		if (animation->frames)
+		{
+			Z_Free(animation->frames);
+			animation->frames = nullptr;
+			animation->num_frames = 0;
+		}
+
+		if (num_entry_frames > animation->num_frames)
+		{
+			animation->frames = static_cast<animation_frame_s *>(
+				Z_Realloc(animation->frames, num_entry_frames * sizeof(animation_frame_s), PU_STATIC, nullptr)
+			);
+
+			for (size_t j = animation->num_frames; j < num_entry_frames; j++)
+			{
+				animation->frames[j].duration = 1;
+			}
+
+			animation->num_frames = num_entry_frames;
+		}
 
 		for (json& frame_entry_obj : entry_frames)
 		{
@@ -937,7 +985,14 @@ static void parse_anim_entry(animation_s *animation, json& entry)
 
 static void parse_anim_list(std::string name, json& entry)
 {
-	animation_list_s *animation = find_or_create_animation(name.c_str());
+	animation_list_s *animation = find_animation_by_name(name.c_str());
+
+	if (animation == nullptr)
+	{
+		animation = create_animation(name.c_str());
+
+		P_AddAnimation(animation);
+	}
 
 	for (json& anim_list_entry : entry)
 	{

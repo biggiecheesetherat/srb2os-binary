@@ -58,8 +58,9 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const char *entry_name, UINT16 start_frame);
 void P_DoAnimationPlayback(animator_t *animator, mobj_t *mobj, tic_t timedelta);
 
+void P_AddAnimation(animation_list_t *animation);
+animation_list_t *P_CreateAnimation(const char *animation_name);
 animation_list_t *P_FindAnimation(const char *animation_name);
-animation_list_t *P_FindOrCreateAnimation(const char *animation_name);
 animation_list_t *P_DuplicateAnimation(const char *animation_name, animation_list_t *base, boolean copy_frames);
 animation_list_t *P_MergeAnimations(const char *name, animation_list_t *anim_a, animation_list_t *anim_b);
 animation_t *P_FindOrCreateSubAnimation(animation_list_t *animation, const char *subanimation_name);

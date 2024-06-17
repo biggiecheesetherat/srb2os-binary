@@ -4398,7 +4398,6 @@ typedef struct
 extern state_t states[NUMSTATES];
 extern char sprnames[NUMSPRITES + 1][MAXSPRITENAME + 1];
 extern char spr2names[NUMPLAYERSPRITES][MAXSPRITENAME + 1];
-extern playersprite_t spr2defaults[NUMPLAYERSPRITES];
 extern state_t *astate;
 extern playersprite_t free_spr2;
 

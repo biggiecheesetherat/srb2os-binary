@@ -162,7 +162,6 @@ UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name)
 	}
 
 	strlcpy(spr2names[free_spr2], subanim_name, 5);
-	spr2defaults[free_spr2] = 0;
 	strupr(spr2names[free_spr2]);
 
 	free_spr2++;

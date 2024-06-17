@@ -321,18 +321,6 @@ static void DEH_LoadDehackedFile(MYFILE *f, boolean mainfile)
 						ignorelines(f);
 					}
 				}
-				else if (fastcmp(word, "SPRITE2"))
-				{
-					if (i == 0 && word2[0] != '0') // If word2 isn't a number
-						i = get_sprite2(word2); // find a sprite by name
-					if (i < (INT32)free_spr2 && i >= (INT32)SPR2_FIRSTFREESLOT)
-						readsprite2(f, i);
-					else
-					{
-						deh_warning("Sprite2 number %d out of range (%d - %d)", i, SPR2_FIRSTFREESLOT, free_spr2-1);
-						ignorelines(f);
-					}
-				}
 #ifdef HWRENDER
 				else if (fastcmp(word, "LIGHT"))
 				{

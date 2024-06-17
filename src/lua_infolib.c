@@ -138,95 +138,6 @@ static int lib_getSpr2name(lua_State *L)
 	return 0;
 }
 
-static int lib_getSpr2default(lua_State *L)
-{
-	playersprite_t i;
-
-	lua_remove(L, 1); // don't care about spr2defaults[] dummy userdata.
-
-	if (lua_isnumber(L, 1))
-		i = lua_tonumber(L, 1);
-	else if (lua_isstring(L, 1))
-	{
-		const char *name = lua_tostring(L, 1);
-		for (i = 0; i < free_spr2; i++)
-			if (fastcmp(name, spr2names[i]))
-				break;
-	}
-	else
-		return luaL_error(L, "spr2defaults[] invalid index");
-
-	if (i >= free_spr2)
-		return luaL_error(L, "spr2defaults[] index %d out of range (%d - %d)", i, 0, free_spr2-1);
-
-	lua_pushinteger(L, spr2defaults[i]);
-	return 1;
-}
-
-static int lib_setSpr2default(lua_State *L)
-{
-	playersprite_t i;
-	UINT16 j = 0;
-
-	if (hud_running)
-		return luaL_error(L, "Do not alter spr2defaults[] in HUD rendering code!");
-	if (hook_cmd_running)
-		return luaL_error(L, "Do not alter spr2defaults[] in CMD building code!");
-
-// todo: maybe allow setting below first freeslot..? step 1 is toggling this, step 2 is testing to see whether it's net-safe
-#ifdef SETALLSPR2DEFAULTS
-#define FIRSTMODIFY 0
-#else
-#define FIRSTMODIFY SPR2_FIRSTFREESLOT
-	if (free_spr2 == SPR2_FIRSTFREESLOT)
-		return luaL_error(L, "You can only modify the spr2defaults[] entries of sprite2 freeslots, and none are currently added.");
-#endif
-
-	lua_remove(L, 1); // don't care about spr2defaults[] dummy userdata.
-
-	if (lua_isnumber(L, 1))
-		i = lua_tonumber(L, 1);
-	else if (lua_isstring(L, 1))
-	{
-		const char *name = lua_tostring(L, 1);
-		for (i = 0; i < free_spr2; i++)
-		{
-			if (fastcmp(name, spr2names[i]))
-				break;
-		}
-		if (i == free_spr2)
-			return luaL_error(L, "spr2defaults[] invalid index");
-	}
-	else
-		return luaL_error(L, "spr2defaults[] invalid index");
-
-	if (i < FIRSTMODIFY || i >= free_spr2)
-		return luaL_error(L, "spr2defaults[] index %d out of range (%d - %d)", i, FIRSTMODIFY, free_spr2-1);
-#undef FIRSTMODIFY
-
-	if (lua_isnumber(L, 2))
-		j = lua_tonumber(L, 2);
-	else if (lua_isstring(L, 2))
-	{
-		const char *name = lua_tostring(L, 2);
-		for (j = 0; j < free_spr2; j++)
-		{
-			if (fastcmp(name, spr2names[j]))
-				break;
-		}
-		if (j == free_spr2)
-			return luaL_error(L, "spr2defaults[] invalid set");
-	}
-	else
-		return luaL_error(L, "spr2defaults[] invalid set");
-
-	if (j >= free_spr2)
-		return luaL_error(L, "spr2defaults[] set %d out of range (%d - %d)", j, 0, free_spr2-1);
-
-	spr2defaults[i] = j;
-	return 0;
-}
-
 static int lib_spr2namelen(lua_State *L)
 {
 	lua_pushinteger(L, free_spr2);
@@ -1945,7 +1856,6 @@ int LUA_InfoLib(lua_State *L)
 
 	LUA_RegisterGlobalUserdata(L, "sprnames", lib_getSprname, NULL, lib_sprnamelen);
 	LUA_RegisterGlobalUserdata(L, "spr2names", lib_getSpr2name, NULL, lib_spr2namelen);
-	LUA_RegisterGlobalUserdata(L, "spr2defaults", lib_getSpr2default, lib_setSpr2default, lib_spr2namelen);
 	LUA_RegisterGlobalUserdata(L, "states", lib_getState, lib_setState, lib_statelen);
 	LUA_RegisterGlobalUserdata(L, "mobjinfo", lib_getMobjInfo, lib_setMobjInfo, lib_mobjinfolen);
 	LUA_RegisterGlobalUserdata(L, "skincolors", lib_getSkinColor, lib_setSkinColor, lib_skincolorslen);

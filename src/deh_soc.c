@@ -1064,21 +1064,6 @@ void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
 				skinnumbers[foundskins] = (UINT8)skinnum;
 				foundskins++;
 			}
-			else if (fastcmp(word, "DEFAULT"))
-			{
-				if (!sprite2)
-				{
-					deh_warning("Sprite %s: %s keyword found outside of SPRITE2INFO block, ignoring", spr2names[num], word);
-					continue;
-				}
-				if (num < (INT32)free_spr2 && num >= (INT32)SPR2_FIRSTFREESLOT)
-					spr2defaults[num] = get_number(word2);
-				else
-				{
-					deh_warning("Sprite2 %s: out of range (%d - %d), ignoring", spr2names[num], SPR2_FIRSTFREESLOT, free_spr2-1);
-					continue;
-				}
-			}
 			else if (fastcmp(word, "FRAME"))
 			{
 				UINT8 frame = R_Char2Frame(word2[0]);
@@ -1126,49 +1111,6 @@ void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
 	Z_Free(info);
 	if (skinnumbers)
 		Z_Free(skinnumbers);
-}
-
-void readsprite2(MYFILE *f, INT32 num)
-{
-	char *s = Z_Malloc(MAXLINELEN, PU_STATIC, NULL);
-	char *word, *word2;
-	char *tmp;
-
-	do
-	{
-		if (myfgets(s, MAXLINELEN, f))
-		{
-			if (s[0] == '\n')
-				break;
-
-			tmp = strchr(s, '#');
-			if (tmp)
-				*tmp = '\0';
-			if (s == tmp)
-				continue; // Skip comment lines, but don't break.
-
-			word = strtok(s, " ");
-			if (word)
-				strupr(word);
-			else
-				break;
-
-			word2 = strtok(NULL, " = ");
-			if (word2)
-				strupr(word2);
-			else
-				break;
-			if (word2[strlen(word2)-1] == '\n')
-				word2[strlen(word2)-1] = '\0';
-
-			if (fastcmp(word, "DEFAULT"))
-				spr2defaults[num] = get_number(word2);
-			else
-				deh_warning("Sprite2 %s: unknown word '%s'", spr2names[num], word);
-		}
-	} while (!myfeof(f)); // finish when the line is empty
-
-	Z_Free(s);
 }
 
 void readgametype(MYFILE *f, char *gtname)

@@ -209,10 +209,16 @@ enum side_e {
 	side_toptexture,
 	side_bottomtexture,
 	side_midtexture,
+	side_edge_top_upper,
+	side_edge_top_lower,
+	side_edge_bottom_upper,
+	side_edge_bottom_lower,
 	side_line,
 	side_sector,
 	side_special,
 	side_repeatcnt,
+	side_clipmidtex,
+	side_wrapmidtex,
 	side_text
 };
 
@@ -237,10 +243,16 @@ static const char *const side_opt[] = {
 	"toptexture",
 	"bottomtexture",
 	"midtexture",
+	"edge_top_upper",
+	"edge_top_lower",
+	"edge_bottom_upper",
+	"edge_bottom_lower",
 	"line",
 	"sector",
 	"special",
 	"repeatcnt",
+	"clipmidtex",
+	"wrapmidtex",
 	"text",
 	NULL};
 
@@ -1299,6 +1311,22 @@ static int side_get(lua_State *L)
 	case side_midtexture:
 		lua_pushinteger(L, side->midtexture);
 		return 1;
+	case side_edge_top_upper:
+		LUA_PushUserdata(L, &side->overlays[EDGE_TEXTURE_TOP_UPPER], META_SIDEOVERLAY);
+		return 1;
+	case side_edge_top_lower:
+		if (side->line->backsector == NULL)
+			return 0;
+		LUA_PushUserdata(L, &side->overlays[EDGE_TEXTURE_TOP_LOWER], META_SIDEOVERLAY);
+		return 1;
+	case side_edge_bottom_upper:
+		if (side->line->backsector == NULL)
+			return 0;
+		LUA_PushUserdata(L, &side->overlays[EDGE_TEXTURE_BOTTOM_UPPER], META_SIDEOVERLAY);
+		return 1;
+	case side_edge_bottom_lower:
+		LUA_PushUserdata(L, &side->overlays[EDGE_TEXTURE_BOTTOM_LOWER], META_SIDEOVERLAY);
+		return 1;
 	case side_line:
 		LUA_PushUserdata(L, side->line, META_LINE);
 		return 1;
@@ -1310,6 +1338,12 @@ static int side_get(lua_State *L)
 		return 1;
 	case side_repeatcnt:
 		lua_pushinteger(L, side->repeatcnt);
+		return 1;
+	case side_clipmidtex:
+		lua_pushinteger(L, side->flags & SIDEFLAG_CLIP_MIDTEX);
+		return 1;
+	case side_wrapmidtex:
+		lua_pushinteger(L, side->flags & SIDEFLAG_WRAP_MIDTEX);
 		return 1;
 	// TODO: 2.3: Delete
 	case side_text:
@@ -1354,6 +1388,10 @@ static int side_set(lua_State *L)
 	case side_sector:
 	case side_special:
 	case side_text:
+	case side_edge_top_upper:
+	case side_edge_top_lower:
+	case side_edge_bottom_upper:
+	case side_edge_bottom_lower:
 		return luaL_error(L, "side_t field " LUA_QS " cannot be set.", side_opt[field]);
 	default:
 		return luaL_error(L, "side_t has no field named " LUA_QS ".", lua_tostring(L, 2));
@@ -1413,6 +1451,18 @@ static int side_set(lua_State *L)
 	case side_repeatcnt:
 		side->repeatcnt = luaL_checkinteger(L, 3);
 		break;
+	case side_clipmidtex:
+		if (luaL_checkboolean(L, 3))
+			side->flags |= SIDEFLAG_CLIP_MIDTEX;
+		else
+			side->flags &= ~SIDEFLAG_CLIP_MIDTEX;
+		break;
+	case side_wrapmidtex:
+		if (luaL_checkboolean(L, 3))
+			side->flags |= SIDEFLAG_WRAP_MIDTEX;
+		else
+			side->flags &= ~SIDEFLAG_WRAP_MIDTEX;
+		break;
 	}
 	return 0;
 }
@@ -1422,6 +1472,171 @@ static int side_num(lua_State *L)
 	side_t *side = *((side_t **)luaL_checkudata(L, 1, META_SIDE));
 	lua_pushinteger(L, side-sides);
 	return 1;
+}
+
+////////////////////
+// side_overlay_t //
+////////////////////
+
+enum sideoverlay_e {
+	sideoverlay_valid = 0,
+	sideoverlay_texture,
+	sideoverlay_offsetx,
+	sideoverlay_offsety,
+	sideoverlay_scalex,
+	sideoverlay_scaley,
+	sideoverlay_repeatcnt,
+	sideoverlay_alpha,
+	sideoverlay_blendmode,
+	sideoverlay_noskew,
+	sideoverlay_noclip,
+	sideoverlay_wrap
+};
+
+static const char *const sideoverlay_opt[] = {
+	"valid",
+	"texture",
+	"offsetx",
+	"offsety",
+	"scalex",
+	"scaley",
+	"repeatcnt",
+	"alpha",
+	"blendmode",
+	"noskew",
+	"noclip",
+	"wrap",
+	NULL};
+
+static int sideoverlay_fields_ref = LUA_NOREF;
+
+static int sideoverlay_get(lua_State *L)
+{
+	side_overlay_t *overlay = *((side_overlay_t **)luaL_checkudata(L, 1, META_SIDEOVERLAY));
+	enum sideoverlay_e field = Lua_optoption(L, 2, sideoverlay_valid, sideoverlay_fields_ref);
+
+	if (!overlay)
+	{
+		if (field == sideoverlay_valid) {
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		return luaL_error(L, "accessed side_t.overlay doesn't exist anymore.");
+	}
+
+	switch(field)
+	{
+	case sideoverlay_valid:
+		lua_pushboolean(L, 1);
+		return 1;
+	case sideoverlay_texture:
+		lua_pushinteger(L, overlay->texture);
+		return 1;
+	case sideoverlay_offsetx:
+		lua_pushfixed(L, overlay->offsetx);
+		return 1;
+	case sideoverlay_offsety:
+		lua_pushfixed(L, overlay->offsety);
+		return 1;
+	case sideoverlay_scalex:
+		lua_pushfixed(L, overlay->scalex);
+		return 1;
+	case sideoverlay_scaley:
+		lua_pushfixed(L, overlay->scaley);
+		return 1;
+	case sideoverlay_repeatcnt:
+		lua_pushinteger(L, overlay->repeatcnt);
+		return 1;
+	case sideoverlay_alpha:
+		lua_pushfixed(L, overlay->alpha);
+		return 1;
+	case sideoverlay_blendmode:
+		lua_pushinteger(L, overlay->blendmode);
+		return 1;
+	case sideoverlay_noskew:
+		lua_pushboolean(L, overlay->flags & SIDEOVERLAYFLAG_NOSKEW);
+		return 1;
+	case sideoverlay_noclip:
+		lua_pushboolean(L, overlay->flags & SIDEOVERLAYFLAG_NOCLIP);
+		return 1;
+	case sideoverlay_wrap:
+		lua_pushboolean(L, overlay->flags & SIDEOVERLAYFLAG_WRAP);
+		return 1;
+	}
+	return 0;
+}
+
+static int sideoverlay_set(lua_State *L)
+{
+	side_overlay_t *overlay = *((side_overlay_t **)luaL_checkudata(L, 1, META_SIDEOVERLAY));
+	enum sideoverlay_e field = Lua_optoption(L, 2, sideoverlay_valid, sideoverlay_fields_ref);
+
+	if (!overlay)
+	{
+		if (field == sideoverlay_valid) {
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		return luaL_error(L, "accessed side_t.overlay doesn't exist anymore.");
+	}
+
+	switch(field)
+	{
+	case side_valid:
+		return luaL_error(L, "side_t.overlay field " LUA_QS " cannot be set.", side_opt[field]);
+	default:
+		return luaL_error(L, "side_t.overlay has no field named " LUA_QS ".", lua_tostring(L, 2));
+	case sideoverlay_texture:
+		overlay->texture = luaL_checkinteger(L, 3);
+		if (overlay->texture)
+			overlay->side->flags |= SIDEFLAG_HASEDGETEXTURES;
+		break;
+	case sideoverlay_offsetx:
+		overlay->offsetx = luaL_checkfixed(L, 3);
+		break;
+	case sideoverlay_offsety:
+		overlay->offsety = luaL_checkfixed(L, 3);
+		break;
+	case sideoverlay_scalex:
+		overlay->scalex = luaL_checkfixed(L, 3);
+		break;
+	case sideoverlay_scaley:
+		overlay->scaley = luaL_checkfixed(L, 3);
+		break;
+	case sideoverlay_repeatcnt:
+		overlay->repeatcnt = luaL_checkinteger(L, 3);
+		break;
+	case sideoverlay_alpha:
+		overlay->alpha = min(max(0, luaL_checkfixed(L, 3)), FRACUNIT);
+		break;
+	case sideoverlay_blendmode:
+	{
+		INT32 blendmode = luaL_checkinteger(L, 3);
+		if (blendmode < 0 || blendmode > AST_OVERLAY)
+			return luaL_error(L, "blendmode %d out of range (0 - %d).", blendmode, AST_OVERLAY);
+		overlay->blendmode = (UINT8)blendmode;
+		break;
+	}
+	case sideoverlay_noskew:
+		if (luaL_checkboolean(L, 3))
+			overlay->flags |= SIDEOVERLAYFLAG_NOSKEW;
+		else
+			overlay->flags &= ~SIDEOVERLAYFLAG_NOSKEW;
+		break;
+	case sideoverlay_noclip:
+		if (luaL_checkboolean(L, 3))
+			overlay->flags |= SIDEOVERLAYFLAG_NOCLIP;
+		else
+			overlay->flags &= ~SIDEOVERLAYFLAG_NOCLIP;
+		break;
+	case sideoverlay_wrap:
+		if (luaL_checkboolean(L, 3))
+			overlay->flags |= SIDEOVERLAYFLAG_WRAP;
+		else
+			overlay->flags &= ~SIDEOVERLAYFLAG_WRAP;
+		break;
+	}
+	return 0;
 }
 
 //////////////
@@ -3002,6 +3217,7 @@ int LUA_MapLib(lua_State *L)
 	LUA_RegisterUserdataMetatable(L, META_LINESTRINGARGS, linestringargs_get, NULL, linestringargs_len);
 	LUA_RegisterUserdataMetatable(L, META_SIDENUM, sidenum_get, NULL, NULL);
 	LUA_RegisterUserdataMetatable(L, META_SIDE, side_get, side_set, side_num);
+	LUA_RegisterUserdataMetatable(L, META_SIDEOVERLAY, sideoverlay_get, sideoverlay_set, NULL);
 	LUA_RegisterUserdataMetatable(L, META_VERTEX, vertex_get, NULL, vertex_num);
 	LUA_RegisterUserdataMetatable(L, META_FFLOOR, ffloor_get, ffloor_set, NULL);
 	LUA_RegisterUserdataMetatable(L, META_BBOX, bbox_get, NULL, NULL);
@@ -3014,6 +3230,7 @@ int LUA_MapLib(lua_State *L)
 	subsector_fields_ref = Lua_CreateFieldTable(L, subsector_opt);
 	line_fields_ref = Lua_CreateFieldTable(L, line_opt);
 	side_fields_ref = Lua_CreateFieldTable(L, side_opt);
+	sideoverlay_fields_ref = Lua_CreateFieldTable(L, sideoverlay_opt);
 	vertex_fields_ref = Lua_CreateFieldTable(L, vertex_opt);
 	ffloor_fields_ref = Lua_CreateFieldTable(L, ffloor_opt);
 	slope_fields_ref = Lua_CreateFieldTable(L, slope_opt);

@@ -1332,6 +1332,21 @@ static void P_WriteTics(INT32 tics, char **target)
 	P_WriteDuplicateText(text, target);
 }
 
+static void P_InitSideEdges(side_t *sd)
+{
+	for (unsigned j = 0; j < NUM_WALL_OVERLAYS; j++)
+	{
+		sd->overlays[j].texture = R_TextureNumForName("-");
+		sd->overlays[j].offsetx = sd->overlays[j].offsety = 0;
+		sd->overlays[j].scalex = sd->overlays[j].scaley = FRACUNIT;
+		sd->overlays[j].repeatcnt = 0;
+		sd->overlays[j].alpha = FRACUNIT;
+		sd->overlays[j].blendmode = AST_COPY;
+		sd->overlays[j].flags = 0;
+		sd->overlays[j].side = sd;
+	}
+}
+
 static void P_LoadSidedefs(UINT8 *data)
 {
 	mapsidedef_t *msd = (mapsidedef_t*)data;
@@ -1366,6 +1381,10 @@ static void P_LoadSidedefs(UINT8 *data)
 
 		sd->scalex_top = sd->scalex_mid = sd->scalex_bottom = FRACUNIT;
 		sd->scaley_top = sd->scaley_mid = sd->scaley_bottom = FRACUNIT;
+
+		sd->flags = 0;
+
+		P_InitSideEdges(sd);
 
 		P_SetSidedefSector(i, (UINT16)SHORT(msd->sector));
 
@@ -1937,6 +1956,50 @@ static void ParseTextmapSectorParameter(UINT32 i, const char *param, const char 
 	}
 }
 
+static void ParseTextmapSidedefOverlay(unsigned which, UINT32 i, const char *param, const char *val)
+{
+	side_overlay_t *overlay = &sides[i].overlays[which];
+	if (fastcmp(param, "texture"))
+	{
+		overlay->texture = R_TextureNumForName(val);
+		if (overlay->texture)
+			sides[i].flags |= SIDEFLAG_HASEDGETEXTURES;
+	}
+	else if (fastcmp(param, "offsetx"))
+		overlay->offsetx = FLOAT_TO_FIXED(atof(val));
+	else if (fastcmp(param, "offsety"))
+		overlay->offsety = FLOAT_TO_FIXED(atof(val));
+	else if (fastcmp(param, "scalex"))
+		overlay->scalex = FLOAT_TO_FIXED(atof(val));
+	else if (fastcmp(param, "scaley"))
+		overlay->scaley = FLOAT_TO_FIXED(atof(val));
+	else if (fastcmp(param, "repeatcnt"))
+		overlay->repeatcnt = atol(val);
+	else if (fastcmp(param, "alpha"))
+		overlay->alpha = FLOAT_TO_FIXED(atof(val));
+	else if (fastcmp(param, "renderstyle"))
+	{
+		if (fastcmp(val, "translucent"))
+			overlay->blendmode = AST_COPY;
+		else if (fastcmp(val, "add"))
+			overlay->blendmode = AST_ADD;
+		else if (fastcmp(val, "subtract"))
+			overlay->blendmode = AST_SUBTRACT;
+		else if (fastcmp(val, "reversesubtract"))
+			overlay->blendmode = AST_REVERSESUBTRACT;
+		else if (fastcmp(val, "modulate"))
+			overlay->blendmode = AST_MODULATE;
+		else if (fastcmp(val, "fog"))
+			overlay->blendmode = AST_FOG;
+	}
+	else if (fastcmp(param, "noskew") && fastcmp("true", val))
+		overlay->flags |= SIDEOVERLAYFLAG_NOSKEW;
+	else if (fastcmp(param, "noclip") && fastcmp("true", val))
+		overlay->flags |= SIDEOVERLAYFLAG_NOCLIP;
+	else if (fastcmp(param, "wrap") && fastcmp("true", val))
+		overlay->flags |= SIDEOVERLAYFLAG_WRAP;
+}
+
 static void ParseTextmapSidedefParameter(UINT32 i, const char *param, const char *val)
 {
 	if (fastcmp(param, "offsetx"))
@@ -1977,6 +2040,22 @@ static void ParseTextmapSidedefParameter(UINT32 i, const char *param, const char
 		P_SetSidedefSector(i, atol(val));
 	else if (fastcmp(param, "repeatcnt"))
 		sides[i].repeatcnt = atol(val);
+	else if (fastcmp(param, "clipmidtex") && fastcmp("true", val))
+		sides[i].flags |= SIDEFLAG_CLIP_MIDTEX;
+	else if (fastcmp(param, "wrapmidtex") && fastcmp("true", val))
+		sides[i].flags |= SIDEFLAG_WRAP_MIDTEX;
+	// Parse edge fields
+	else if (fastncmp(param, "edge_", 5) && strlen(param) > 5)
+	{
+		if (fastncmp(param, "edge_top_upper_", 15) && strlen(param) > 15)
+			ParseTextmapSidedefOverlay(EDGE_TEXTURE_TOP_UPPER, i, param + 15, val);
+		else if (fastncmp(param, "edge_top_lower_", 15) && strlen(param) > 15)
+			ParseTextmapSidedefOverlay(EDGE_TEXTURE_TOP_LOWER, i, param + 15, val);
+		else if (fastncmp(param, "edge_bottom_upper_", 18) && strlen(param) > 18)
+			ParseTextmapSidedefOverlay(EDGE_TEXTURE_BOTTOM_UPPER, i, param + 18, val);
+		else if (fastncmp(param, "edge_bottom_lower_", 18) && strlen(param) > 18)
+			ParseTextmapSidedefOverlay(EDGE_TEXTURE_BOTTOM_LOWER, i, param + 18, val);
+	}
 }
 
 static void ParseTextmapLinedefParameter(UINT32 i, const char *param, const char *val)
@@ -2032,7 +2111,7 @@ static void ParseTextmapLinedefParameter(UINT32 i, const char *param, const char
 			lines[i].blendmode = AST_REVERSESUBTRACT;
 		else if (fastcmp(val, "modulate"))
 			lines[i].blendmode = AST_MODULATE;
-		if (fastcmp(val, "fog"))
+		else if (fastcmp(val, "fog"))
 			lines[i].blendmode = AST_FOG;
 	}
 	else if (fastcmp(param, "executordelay"))
@@ -2059,10 +2138,10 @@ static void ParseTextmapLinedefParameter(UINT32 i, const char *param, const char
 		lines[i].flags |= ML_MIDPEG;
 	else if (fastcmp(param, "midsolid") && fastcmp("true", val))
 		lines[i].flags |= ML_MIDSOLID;
+	else if (fastcmp(param, "clipmidtex") && fastcmp("true", val))
+		lines[i].flags |= ML_CLIPMIDTEX;
 	else if (fastcmp(param, "wrapmidtex") && fastcmp("true", val))
 		lines[i].flags |= ML_WRAPMIDTEX;
-	/*else if (fastcmp(param, "effect6") && fastcmp("true", val))
-		lines[i].flags |= ML_EFFECT6;*/
 	else if (fastcmp(param, "nonet") && fastcmp("true", val))
 		lines[i].flags |= ML_NONET;
 	else if (fastcmp(param, "netonly") && fastcmp("true", val))
@@ -2242,6 +2321,53 @@ typedef struct
 	mapthing_t *altview;
 	mapthing_t *angleanchor;
 } sectorspecialthings_t;
+
+static void WriteTextmapEdgeTexture(const char *prefix, unsigned i, side_t *side, FILE *f)
+{
+	if (side->overlays[i].texture > 0 && side->overlays[i].texture < numtextures)
+		fprintf(f, "%s""texture = \"%.*s\";\n", prefix, 8, textures[side->overlays[i].texture]->name);
+	if (side->overlays[i].offsetx != 0)
+		fprintf(f, "%s""offsetx = %f;\n", prefix, FIXED_TO_FLOAT(side->overlays[i].offsetx));
+	if (side->overlays[i].offsety != 0)
+		fprintf(f, "%s""offsety = %f;\n", prefix, FIXED_TO_FLOAT(side->overlays[i].offsety));
+	if (side->overlays[i].scalex != FRACUNIT)
+		fprintf(f, "%s""scalex = %f;\n", prefix, FIXED_TO_FLOAT(side->overlays[i].scalex));
+	if (side->overlays[i].scaley != FRACUNIT)
+		fprintf(f, "%s""scaley = %f;\n", prefix, FIXED_TO_FLOAT(side->overlays[i].scaley));
+	if (side->overlays[i].repeatcnt != 0)
+		fprintf(f, "%s""repeatcnt = %d;\n", prefix, side->overlays[i].repeatcnt);
+	if (side->overlays[i].alpha != FRACUNIT)
+		fprintf(f, "%s""alpha = %f;\n", prefix, FIXED_TO_FLOAT(side->overlays[i].alpha));
+	if (side->overlays[i].blendmode != AST_COPY)
+	{
+		switch (side->overlays[i].blendmode)
+		{
+			case AST_ADD:
+				fprintf(f, "%s""renderstyle = \"add\";\n", prefix);
+				break;
+			case AST_SUBTRACT:
+				fprintf(f, "%s""renderstyle = \"subtract\";\n", prefix);
+				break;
+			case AST_REVERSESUBTRACT:
+				fprintf(f, "%s""renderstyle = \"reversesubtract\";\n", prefix);
+				break;
+			case AST_MODULATE:
+				fprintf(f, "%s""renderstyle = \"modulate\";\n", prefix);
+				break;
+			case AST_FOG:
+				fprintf(f, "%s""renderstyle = \"fog\";\n", prefix);
+				break;
+			default:
+				break;
+		}
+	}
+	if (side->overlays[i].flags & SIDEOVERLAYFLAG_NOSKEW)
+		fprintf(f, "%s""noskew = true;\n", prefix);
+	if (side->overlays[i].flags & SIDEOVERLAYFLAG_NOCLIP)
+		fprintf(f, "%s""noclip = true;\n", prefix);
+	if (side->overlays[i].flags & SIDEOVERLAYFLAG_WRAP)
+		fprintf(f, "%s""wrap = true;\n", prefix);
+}
 
 static void P_WriteTextmap_Things(FILE *f, const mapthing_t *wmapthings)
 {
@@ -2661,6 +2787,8 @@ static void P_WriteTextmap(void)
 			fprintf(f, "midpeg = true;\n");
 		if (wlines[i].flags & ML_MIDSOLID)
 			fprintf(f, "midsolid = true;\n");
+		if (wlines[i].flags & ML_CLIPMIDTEX)
+			fprintf(f, "clipmidtex = true;\n");
 		if (wlines[i].flags & ML_WRAPMIDTEX)
 			fprintf(f, "wrapmidtex = true;\n");
 		if (wlines[i].flags & ML_NONET)
@@ -2729,6 +2857,14 @@ static void P_WriteTextmap(void)
 			fprintf(f, "texturemiddle = \"%.*s\";\n", 8, textures[wsides[i].midtexture]->name);
 		if (wsides[i].repeatcnt != 0)
 			fprintf(f, "repeatcnt = %d;\n", wsides[i].repeatcnt);
+		if (wsides[i].flags & SIDEFLAG_CLIP_MIDTEX)
+			fprintf(f, "clipmidtex = true;\n");
+		if (wsides[i].flags & SIDEFLAG_WRAP_MIDTEX)
+			fprintf(f, "wrapmidtex = true;\n");
+		WriteTextmapEdgeTexture("edge_top_upper_", EDGE_TEXTURE_TOP_UPPER, &wsides[i], f);
+		WriteTextmapEdgeTexture("edge_top_lower_", EDGE_TEXTURE_TOP_LOWER, &wsides[i], f);
+		WriteTextmapEdgeTexture("edge_bottom_upper_", EDGE_TEXTURE_BOTTOM_UPPER, &wsides[i], f);
+		WriteTextmapEdgeTexture("edge_bottom_lower_", EDGE_TEXTURE_BOTTOM_LOWER, &wsides[i], f);
 		fprintf(f, "}\n");
 		fprintf(f, "\n");
 	}
@@ -3131,6 +3267,9 @@ static void P_LoadTextmap(void)
 		sd->bottomtexture = R_TextureNumForName("-");
 		sd->sector = NULL;
 		sd->repeatcnt = 0;
+		sd->flags = 0;
+
+		P_InitSideEdges(sd);
 
 		TextmapParse(sidedefBlocks.pos[i], i, ParseTextmapSidedefParameter);
 

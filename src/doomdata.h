@@ -152,6 +152,8 @@ typedef struct
 #define ML_ONEWAYMONSTERS     0x00040000
 #define ML_ONEWAYMISSILES     0x00080000
 
+#define ML_CLIPMIDTEX         0x00100000
+
 // Sector definition, from editing.
 typedef struct
 {

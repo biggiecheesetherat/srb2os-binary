@@ -109,6 +109,10 @@ const char * M_Ftrim (double);
 // Returns true if the string is empty.
 boolean M_IsStringEmpty(const char *s);
 
+const char *M_GetFilenameFromPath(const char *path);
+const char *M_GetExtensionFromFilename(const char *filename);
+const char *M_CheckFilenameExtension(const char *filename, const char *ext);
+
 // Converts a string containing a whole number into an int. Returns false if the conversion failed.
 boolean M_StringToNumber(const char *input, int *out);
 
@@ -120,6 +124,11 @@ FUNCMATH UINT8 M_CountBits(UINT32 num, UINT8 size);
 
 // Rounds off floating numbers and checks for 0 - 255 bounds
 int M_RoundUp(double number);
+
+// Hashes some message using FNV-1a
+UINT32 FNV1a_Hash(const char *message, size_t size);
+UINT32 FNV1a_HashString(const char *message);
+UINT32 FNV1a_HashLowercaseString(const char *message);
 
 #include "w_wad.h"
 extern char configfile[MAX_WADPATH];

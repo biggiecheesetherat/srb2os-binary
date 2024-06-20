@@ -80,6 +80,10 @@
 #include "config.h.in"
 #endif
 
+#ifdef DEVELOP
+#include "ini.h"
+#endif
+
 #ifdef HWRENDER
 #include "hardware/hw_main.h" // 3D View Rendering
 #endif
@@ -120,6 +124,35 @@ INT32 postimgparam2;
 boolean midi_disabled = false;
 boolean sound_disabled = false;
 boolean digital_disabled = false;
+
+typedef struct filelist_s
+{
+	char *filename;
+	char *md5;
+	boolean music;
+} filelist_t;
+
+static const struct {
+	const char *filename;
+	const char *md5;
+	boolean music;
+} base_file_list[] =
+{
+	{ "srb2.pk3", ASSET_HASH_SRB2_PK3, false },
+	{ "zones.pk3", ASSET_HASH_ZONES_PK3, false },
+	{ "player.dta", ASSET_HASH_PLAYER_DTA, false },
+#ifdef USE_PATCH_DTA
+	{ "patch.pk3", ASSET_HASH_PATCH_PK3, false },
+#endif
+	{ "music.dta", NULL, true },
+};
+
+static size_t num_files;
+static filelist_t *file_list;
+
+#ifdef DEVELOP
+static char devconfigfile[MAX_WADPATH];
+#endif
 
 //
 // DEMO LOOP
@@ -1113,14 +1146,75 @@ static void ChangeDirForUrlHandler(void)
 	}
 }
 
-// ==========================================================================
-// Identify the SRB2 version, and IWAD file to use.
-// ==========================================================================
-
-static void IdentifyVersion(void)
+static void DeleteFileList(void)
 {
-	char *srb2wad;
+	for (unsigned i = 0; i < num_files; i++)
+	{
+		Z_Free(file_list[i].filename);
+		Z_Free(file_list[i].md5);
+	}
+
+	Z_Free(file_list);
+
+	num_files = 0;
+	file_list = NULL;
+}
+
+static void CreateFileList(size_t count)
+{
+	DeleteFileList();
+
+	num_files = count;
+	file_list = Z_Malloc(num_files * sizeof(filelist_t), PU_STATIC, NULL);
+}
+
+#ifdef DEVELOP
+static void AddToFileList(const char *filename, const char *md5, boolean music)
+{
+	filelist_t *file;
+
+	num_files++;
+	file_list = Z_Realloc(file_list, num_files * sizeof(filelist_t), PU_STATIC, NULL);
+
+	file = &file_list[num_files - 1];
+
+	file->filename = Z_StrDup(filename);
+
+	if (md5 != NULL)
+	{
+		file->md5 = Z_StrDup(md5);
+	}
+	else
+	{
+		file->md5 = NULL;
+	}
+
+	file->music = music;
+}
+
+static int ParseDevConfig(void *userdata, const char *section, const char *name, const char *value)
+{
+	(void)userdata;
+
+	if (stricmp(section, "files") != 0)
+		return 1;
+
+	if (value && value[0] != '\0')
+	{
+		AddToFileList(value, NULL, strcmp(name, "music") == 0);
+	}
+
+	return 1;
+}
+#endif
+
+static void AddMainFiles(void)
+{
 	const char *srb2waddir = NULL;
+
+#ifdef DEVELOP
+	FILE *devcfgfile = NULL;
+#endif
 
 #if defined (__unix__) || defined (UNIXCOMMON) || defined (HAVE_SDL)
 	// change to the directory where 'srb2.pk3' is found
@@ -1142,61 +1236,65 @@ static void IdentifyVersion(void)
 		}
 	}
 
-#if defined (macintosh) && !defined (HAVE_SDL)
-	// cwd is always "/" when app is dbl-clicked
-	if (!stricmp(srb2waddir, "/"))
-		srb2waddir = I_GetWadDir();
-#endif
-	// Commercial.
-	srb2wad = malloc(strlen(srb2waddir)+1+8+1);
-	if (srb2wad == NULL)
-		I_Error("No more free memory to look in %s", srb2waddir);
-	else
-		sprintf(srb2wad, pandf, srb2waddir, "srb2.pk3");
+	CreateFileList(sizeof(base_file_list) / sizeof(base_file_list[0]));
 
-	// will be overwritten in case of -cdrom or unix/win home
-	snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, srb2waddir);
-	configfile[sizeof configfile - 1] = '\0';
-
-	// Load the IWAD
-	if (srb2wad != NULL && FIL_ReadFileOK(srb2wad))
-		D_AddFile(&startupwadfiles, srb2wad);
-	else
-		I_Error("srb2.pk3 not found! Expected in %s, ss file: %s\n", srb2waddir, srb2wad);
-
-	if (srb2wad)
-		free(srb2wad);
-
-	// if you change the ordering of this or add/remove a file, be sure to update the md5
-	// checking in D_SRB2Main
-
-	// Add the maps
-	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "zones.pk3"));
-
-	// Add the players
-	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "player.dta"));
-
-#ifdef USE_PATCH_DTA
-	// Add our crappy patches to fix our bugs
-	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "patch.pk3"));
-#endif
-
-#if !defined (HAVE_SDL) || defined (HAVE_MIXER)
+	for (unsigned i = 0; i < num_files; i++)
 	{
-#define MUSICTEST(str) \
-		{\
-			const char *musicpath = va(pandf,srb2waddir,str);\
-			int ms = W_VerifyNMUSlumps(musicpath, false); \
-			if (ms == 1) \
-				D_AddFile(&startupwadfiles, musicpath); \
-			else if (ms == 0) \
-				I_Error("File "str" has been modified with non-music/sound lumps"); \
+		const char *filename = base_file_list[i].filename;
+
+		file_list[i].filename = Z_Malloc(strlen(srb2waddir) + 1 + strlen(filename) + 1, PU_STATIC, NULL);
+
+		sprintf(file_list[i].filename, pandf, srb2waddir, filename);
+
+		if (base_file_list[i].md5)
+		{
+			file_list[i].md5 = Z_StrDup(base_file_list[i].md5);
+		}
+		else
+		{
+			file_list[i].md5 = NULL;
 		}
 
-		MUSICTEST("music.dta")
-		//MUSICTEST("patch_music.pk3")
+		file_list[i].music = base_file_list[i].music;
+	}
+
+#ifdef DEVELOP
+	devcfgfile = fopenfile(devconfigfile, "rb");
+
+	if (devcfgfile)
+	{
+		DeleteFileList();
+
+		if (ini_parse_file(devcfgfile, ParseDevConfig, NULL) < 0)
+		{
+			CONS_Alert(CONS_ERROR, "Could not load dev config file \"%s\"\n", devconfigfile);
+		}
+
+		fclose(devcfgfile);
 	}
 #endif
+
+	if (num_files == 0)
+		I_Error("No files to load");
+
+	if (FIL_ReadFileOK(file_list[0].filename))
+		D_AddFile(&startupwadfiles, file_list[0].filename);
+	else
+		I_Error("%s not found! Expected in %s", file_list[0].filename, srb2waddir);
+
+	for (unsigned i = 1; i < num_files; i++)
+	{
+#if !defined (HAVE_SDL) || defined (HAVE_MIXER)
+		if (file_list[i].music)
+		{
+			int ms = W_VerifyNMUSlumps(file_list[i].filename, false);
+			if (ms == 0)
+				I_Error("File %s has been modified with non-music/sound lumps", file_list[i].filename);
+		}
+#endif
+
+		D_AddFile(&startupwadfiles, file_list[i].filename);
+	}
 }
 
 static void
@@ -1276,9 +1374,6 @@ void D_SRB2Main(void)
 	// Netgame URL special case: change working dir to EXE folder.
 	ChangeDirForUrlHandler();
 
-	// identify the main IWAD file to use
-	IdentifyVersion();
-
 #if !defined(NOTERMIOS)
 	setbuf(stdout, NULL); // non-buffered output
 #endif
@@ -1313,6 +1408,10 @@ void D_SRB2Main(void)
 				snprintf(configfile, sizeof configfile, "d"CONFIGFILENAME);
 			else
 				snprintf(configfile, sizeof configfile, CONFIGFILENAME);
+
+#ifdef DEVELOP
+			snprintf(devconfigfile, sizeof devconfigfile, DEVCONFIGFILENAME);
+#endif
 #endif
 		}
 		else
@@ -1325,6 +1424,10 @@ void D_SRB2Main(void)
 				snprintf(configfile, sizeof configfile, "%s" PATHSEP "d"CONFIGFILENAME, srb2home);
 			else
 				snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, srb2home);
+
+#ifdef DEVELOP
+			snprintf(devconfigfile, sizeof devconfigfile, "%s" PATHSEP DEVCONFIGFILENAME, srb2home);
+#endif
 
 			// can't use sprintf since there is %u in savegamename
 			strcatbf(savegamename, srb2home, PATHSEP);
@@ -1339,6 +1442,10 @@ void D_SRB2Main(void)
 			else
 				snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, userhome);
 
+#ifdef DEVELOP
+			snprintf(devconfigfile, sizeof devconfigfile, "%s" PATHSEP DEVCONFIGFILENAME, userhome);
+#endif
+
 			// can't use sprintf since there is %u in savegamename
 			strcatbf(savegamename, userhome, PATHSEP);
 			strcatbf(liveeventbackup, userhome, PATHSEP);
@@ -1349,6 +1456,12 @@ void D_SRB2Main(void)
 
 		configfile[sizeof configfile - 1] = '\0';
 	}
+
+	CONS_Printf("Z_Init(): Init zone memory allocation daemon. \n");
+	Z_Init();
+
+	// Add main files
+	AddMainFiles();
 
 	// Create addons dir
 	snprintf(addonsdir, sizeof addonsdir, "%s%s%s", srb2home, PATHSEP, "addons");
@@ -1367,9 +1480,6 @@ void D_SRB2Main(void)
 	// player setup menu colors must be initialized before
 	// any wad file is added, as they may contain colors themselves
 	M_InitPlayerSetupColors();
-
-	CONS_Printf("Z_Init(): Init zone memory allocation daemon. \n");
-	Z_Init();
 
 	G_InitMaps();
 
@@ -1440,15 +1550,19 @@ void D_SRB2Main(void)
 #ifndef DEVELOP // md5s last updated 22/02/20 (ddmmyy)
 
 	// Check MD5s of autoloaded files
-	W_VerifyFileMD5(0, ASSET_HASH_SRB2_PK3); // srb2.pk3
-	W_VerifyFileMD5(1, ASSET_HASH_ZONES_PK3); // zones.pk3
-	W_VerifyFileMD5(2, ASSET_HASH_PLAYER_DTA); // player.dta
-#ifdef USE_PATCH_DTA
-	W_VerifyFileMD5(3, ASSET_HASH_PATCH_PK3); // patch.pk3
-#endif
-	// don't check music.dta because people like to modify it, and it doesn't matter if they do
-	// ...except it does if they slip maps in there, and that's what W_VerifyNMUSlumps is for.
+	for (unsigned i = 0; i < num_files; i++)
+	{
+		// don't check music.dta because people like to modify it, and it doesn't matter if they do
+		// ...except it does if they slip maps in there, and that's what W_VerifyNMUSlumps is for.
+		if (!file_list[i].music && file_list[i].md5)
+		{
+			W_VerifyFileMD5(i, file_list[i].md5);
+		}
+	}
+
 #endif //ifndef DEVELOP
+
+	DeleteFileList();
 
 	cht_Init();
 

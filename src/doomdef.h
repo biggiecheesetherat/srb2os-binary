@@ -142,7 +142,11 @@ extern char logfilename[1024];
 /* A mod name to further distinguish versions. */
 #define SRB2APPLICATION "SRB2"
 
-#define DEVELOP // Disable this for release builds to remove excessive cheat commands and enable MD5 checking and stuff, all in one go. :3
+#ifndef DEVELOP
+// Disable this for release builds to remove excessive cheat commands and enable MD5 checking and stuff, all in one go.
+#define DEVELOP
+#endif
+
 #ifdef DEVELOP
 #define VERSIONSTRING "Development EXE"
 #define VERSIONSTRING_RC "Development EXE" "\0"

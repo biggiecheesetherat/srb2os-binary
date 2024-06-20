@@ -33,6 +33,7 @@ m_tokenizer.c
 m_queue.c
 m_vector.c
 info.c
+ini.c
 p_ceilng.c
 p_enemy.c
 p_floor.c

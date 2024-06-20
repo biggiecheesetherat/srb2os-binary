@@ -42,6 +42,10 @@ void M_StopMovie(void);
 // the file where game vars and settings are saved
 #define CONFIGFILENAME "config.cfg"
 
+#ifdef DEVELOP
+#define DEVCONFIGFILENAME "dev.cfg"
+#endif
+
 INT32 M_MapNumber(char first, char second);
 
 boolean FIL_WriteFile(char const *name, const void *source, size_t length);

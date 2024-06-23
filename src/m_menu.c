@@ -4118,8 +4118,35 @@ static void M_DrawSlider(INT32 x, INT32 y, const consvar_t *cv, boolean ontop)
 //
 void M_DrawTextBox(INT32 x, INT32 y, INT32 width, INT32 boxlines)
 {
+	patch_t *l, *r, *ls, *rs;
+	INT32 n = 0, xl, xr;
+	boolean even = boxlines > 2 && !(boxlines % 2);
+
+	// Prevent super-thin textboxes
+	if (boxlines == 1)
+	{
+		y -= 4;
+		boxlines = 2;
+	}
+
 	// Solid color textbox.
-	V_DrawFill(x+5, y+5, width*8+6, boxlines*8+6, 159);
+	V_DrawFill(x + (even ? 8 : 4), y+8, width*8 + (even ? 0 : 8), boxlines*8, 159);
+
+	// ...with zigzags on the sides!
+	l = W_CachePatchName("M_BRDRL", PU_PATCH);
+	r = W_CachePatchName("M_BRDRR", PU_PATCH);
+	ls = W_CachePatchName("M_BRDRLS", PU_PATCH);
+	rs = W_CachePatchName("M_BRDRRS", PU_PATCH);
+
+	xl = x;
+	xr = x + width*8 + (even ? 8 : 12);
+
+	while (n < boxlines)
+	{
+		V_DrawSmallScaledPatch(xl, y+(n*8)+8, 0, even ? l : ls);
+		V_DrawSmallScaledPatch(xr, y+(n*8)+8, 0, even ? r : rs);
+		n += (even ? 2 : 1);
+	}
 }
 
 //
@@ -6157,7 +6184,7 @@ static void M_DrawMessageMenu(void)
 			V_DrawFadeScreen(0xFF00, curfadevalue);
 	}
 
-	M_DrawTextBox(currentMenu->x, currentMenu->y - 8, 2+V_StringWidth(msg, 0)/8, V_StringHeight(msg, V_RETURN8)/8);
+	M_DrawTextBox(currentMenu->x, currentMenu->y - 12, V_StringWidth(msg, 0)/8 + 2, V_StringHeight(msg, V_RETURN8)/8 + 1);
 	V_DrawCenteredString(BASEVIDWIDTH/2, currentMenu->y, V_ALLOWLOWERCASE|V_RETURN8, msg);
 }
 

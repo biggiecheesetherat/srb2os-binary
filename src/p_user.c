@@ -6112,7 +6112,7 @@ static void P_3dMovement(player_t *player)
 			topspeed >>= 1;
 		else if (player->mo->eflags & (MFE_UNDERWATER|MFE_GOOWATER))
 		{
-			topspeed >>= 1;
+			topspeed = 2*topspeed/3;
 			acceleration = 2*acceleration/3;
 		}
 	}

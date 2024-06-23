@@ -1394,7 +1394,7 @@ fixed_t P_GetMobjGravity(mobj_t *mo)
 
 	// Goop has slower, reversed gravity
 	if (goopgravity)
-		gravityadd = -((gravityadd/5) + (gravityadd/8));
+		gravityadd = -(gravityadd/2);
 
 	gravityadd = FixedMul(gravityadd, mo->scale);
 
@@ -3207,13 +3207,19 @@ void P_MobjCheckWater(mobj_t *mobj)
 		if (mobj->eflags & MFE_GOOWATER || wasingoo) { // Decide what happens to your momentum when you enter/leave goopy water.
 			if (P_MobjFlip(mobj)*mobj->momz > 0)
 			{
-				mobj->momz -= (mobj->momz/8); // cut momentum a little bit to prevent multiple bobs
+				mobj->momz += (mobj->momz/4); // boost momentum a little bit for trampoline effect
+				if (mobj->type == MT_PLAYER)
+				{
+					mobj->player->pflags |= P_GetJumpFlags(mobj->player);
+					P_SetMobjState(mobj, S_PLAY_JUMP);
+				}
+
 				//CONS_Printf("leaving\n");
 			}
 			else
 			{
 				if (!wasgroundpounding)
-					mobj->momz >>= 1; // kill momentum significantly, to make the goo feel thick.
+					mobj->momz -= (mobj->momz/3); // kill momentum a bit, to make the goo feel thicker.
 				//CONS_Printf("entering\n");
 			}
 		}

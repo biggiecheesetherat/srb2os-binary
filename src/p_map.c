@@ -148,6 +148,7 @@ boolean P_MoveOrigin(mobj_t *thing, fixed_t x, fixed_t y, fixed_t z)
 //       1 = launch players in jump
 //       2 = don't modify player at all, just add momentum
 //       3 = speed-booster mode (force onto ground, MF_AMBUSH causes auto-spin)
+//		 4 = steamjet (maintain jumping state if airborne, use values from mobj instead of mobjinfo)
 //     Negative spring modes are mildly-related gimmicks with customisation.
 //      -1 = pinball bumper
 //     Any other spring mode defaults to standard vanilla spring behaviour,
@@ -156,8 +157,8 @@ boolean P_MoveOrigin(mobj_t *thing, fixed_t x, fixed_t y, fixed_t z)
 
 boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 {
-	fixed_t vertispeed = spring->info->mass;
-	fixed_t horizspeed = spring->info->damage;
+	fixed_t vertispeed = (spring->info->painchance == 4) ? spring->extravalue1 : spring->info->mass;
+	fixed_t horizspeed = (spring->info->painchance == 4) ? spring->extravalue2 : spring->info->damage;
 	boolean final = false;
 	UINT8 strong = 0;
 
@@ -434,7 +435,7 @@ boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 		secondjump = object->player->secondjump;
 		P_ResetPlayer(object->player);
 
-		if (spring->info->painchance == 1) // For all those ancient, SOC'd abilities.
+		if (spring->info->painchance == 1 || spring->info->painchance == 4) // For all those ancient, SOC'd abilities.
 		{
 			object->player->pflags |= P_GetJumpFlags(object->player);
 			P_SetMobjState(object, S_PLAY_JUMP);
@@ -444,7 +445,7 @@ boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 			object->player->pflags |= (pflags &~ PF_STARTJUMP);
 			object->player->secondjump = secondjump;
 		}
-		else if (!vertispeed)
+		else if (!vertispeed || ((spring->info->painchance == 4) && P_IsObjectOnGround(object)))
 		{
 			if (pflags & (PF_JUMPED|PF_SPINNING))
 			{
@@ -456,7 +457,7 @@ boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 			else if (P_IsObjectOnGround(object))
 				P_SetMobjState(object, (horizspeed >= FixedMul(object->player->runspeed, object->scale)) ? S_PLAY_RUN : S_PLAY_WALK);
 			else
-				P_SetMobjState(object, (object->momz > 0) ? S_PLAY_SPRING : S_PLAY_FALL);
+				P_SetMobjState(object, (object->momz > 0 || spring->info->painchance != 4) ? S_PLAY_SPRING : S_PLAY_FALL);
 		}
 		else if (P_MobjFlip(object)*vertispeed > 0)
 			P_SetMobjState(object, S_PLAY_SPRING);
@@ -2080,8 +2081,8 @@ boolean P_CheckPosition(mobj_t *thing, fixed_t x, fixed_t y)
 			if ((rover->fofflags & (FOF_SWIMMABLE|FOF_GOOWATER)) == (FOF_SWIMMABLE|FOF_GOOWATER) && !(thing->flags & MF_NOGRAVITY))
 			{
 				// If you're inside goowater and slowing down
-				fixed_t sinklevel = FixedMul(thing->info->height/6, thing->scale);
-				fixed_t minspeed = FixedMul(thing->info->height/9, thing->scale);
+				fixed_t sinklevel = FixedMul(thing->info->height/8, thing->scale);
+				fixed_t minspeed = FixedMul(thing->info->height/4, thing->scale);
 				if (thing->z < topheight && bottomheight < thingtop
 				&& abs(thing->momz) < minspeed)
 				{

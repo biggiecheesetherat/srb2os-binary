@@ -4535,7 +4535,7 @@ void P_DoJump(player_t *player, boolean soundandstate, boolean allowflip)
 		}
 		else if (player->powers[pw_carry] == CR_ROPEHANG)
 		{
-			player->mo->momz = 12*FRACUNIT;
+			player->mo->momz = max(FixedDiv(player->speed + player->mo->momz, 2*FRACUNIT), 12*FRACUNIT);
 			player->powers[pw_carry] = CR_NONE;
 			P_SetTarget(&player->mo->tracer, NULL);
 		}

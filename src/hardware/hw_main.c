@@ -732,7 +732,7 @@ static void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum,
 	fixed_t v2y = FloatToFixed(wallVerts[1].z);
 
 	const UINT8 alpha = Surf->PolyColor.s.alpha;
-	INT16 lightnum = HWR_CalcWallLight(HWR_SideLightLevel(gl_sidedef, sector->lightlevel), v1x, v1y, v2x, v2y);
+	UINT32 lightnum = HWR_CalcWallLight(HWR_SideLightLevel(gl_sidedef, sector->lightlevel), v1x, v1y, v2x, v2y);
 	extracolormap_t *colormap = NULL;
 
 	if (!r_renderwalls)
@@ -1326,7 +1326,7 @@ static void HWR_RenderExtraTexture(unsigned which, side_t *side, sector_t *sec_f
 
 	INT32 repeats = R_GetOverlayTextureRepeats(which, side, texnum, sec_front, sec_back, v1x, v1y, v2x, v2y);
 
-	GLMapTexture_t *grTex = HWR_GetTexture(texnum);
+	GLMapTexture_t *grTex = HWR_GetTexture(texnum, true);
 	float xscale = FixedToFloat(overlay->scalex);
 	float yscale = FixedToFloat(overlay->scaley);
 
@@ -1906,7 +1906,7 @@ static void HWR_ProcessSeg(void)
 	float cliplow = (float)gl_curline->offset;
 	float cliphigh = cliplow + (gl_curline->flength * FRACUNIT);
 
-	INT16 lightnum = HWR_SideLightLevel(gl_sidedef, gl_frontsector->lightlevel);
+	UINT32 lightnum = HWR_SideLightLevel(gl_sidedef, gl_frontsector->lightlevel);
 	extracolormap_t *colormap = gl_frontsector->extra_colormap;
 	lightnum = colormap ? lightnum : HWR_CalcWallLight(lightnum, vs.x, vs.y, ve.x, ve.y);
 

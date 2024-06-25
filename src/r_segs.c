@@ -835,7 +835,16 @@ static void R_RenderExtraTexture(unsigned which, INT32 x1, INT32 x2, INT32 repea
 	// Texture must be cached
 	R_CheckTextureCache(texnum);
 
-	if (vertflip) // vertically flipped?
+	// handle case where multipatch texture is drawn on a 2sided wall, multi-patch textures
+	// are not stored per-column with post info in SRB2
+	if (!textures[texnum]->transparency)
+	{
+		if (vertflip) // vertically flipped?
+			colfunc_2s = R_RenderFlipped2sidedMultiPatchColumn;
+		else
+			colfunc_2s = R_Render2sidedMultiPatchColumn;
+	}
+	else if (vertflip) // vertically flipped?
 		colfunc_2s = R_DrawFlippedMaskedColumn;
 	else
 		colfunc_2s = R_DrawMaskedColumn;

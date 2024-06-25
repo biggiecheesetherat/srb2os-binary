@@ -923,7 +923,11 @@ enum
 	LD_SDOVERLAY1    = 1<<23,
 	LD_SDOVERLAY2    = 1<<24,
 	LD_SDOVERLAY3    = 1<<25,
-	LD_SDOVERLAY4    = 1<<26
+	LD_SDOVERLAY4    = 1<<26,
+	LD_SDLIGHTABS    = 1<<27,
+	LD_SDTOPLIGHTABS = 1<<28,
+	LD_SDMIDLIGHTABS = 1<<29,
+	LD_SDBOTLIGHTABS = 1<<30
 };
 
 // sidedef edge flags
@@ -1451,6 +1455,22 @@ static UINT32 GetSideDiff(const side_t *si, const side_t *spawnsi, UINT16 edgedi
 		diff |= LD_SDOVERLAY3;
 	if (edgediff[3] != 0)
 		diff |= LD_SDOVERLAY4;
+	if (si->light != spawnsi->light)
+		diff |= LD_SDLIGHT;
+	if (si->light_top != spawnsi->light_top)
+		diff |= LD_SDTOPLIGHT;
+	if (si->light_mid != spawnsi->light_mid)
+		diff |= LD_SDMIDLIGHT;
+	if (si->light_bottom != spawnsi->light_bottom)
+		diff |= LD_SDBOTLIGHT;
+	if (si->lightabsolute != spawnsi->lightabsolute)
+		diff |= LD_SDLIGHTABS;
+	if (si->lightabsolute_top != spawnsi->lightabsolute_top)
+		diff |= LD_SDTOPLIGHTABS;
+	if (si->lightabsolute_mid != spawnsi->lightabsolute_mid)
+		diff |= LD_SDMIDLIGHTABS;
+	if (si->lightabsolute_bottom != spawnsi->lightabsolute_bottom)
+		diff |= LD_SDBOTLIGHTABS;
 	return diff;
 }
 
@@ -1528,6 +1548,22 @@ static void ArchiveSide(const side_t *si, UINT32 diff, UINT16 edgediff[4])
 		ArchiveSideEdge(&si->overlays[2], edgediff[2]);
 	if (diff & LD_SDOVERLAY4)
 		ArchiveSideEdge(&si->overlays[3], edgediff[3]);
+	if (diff & LD_SDLIGHT)
+		WRITEINT16(save_p, si->light);
+	if (diff & LD_SDTOPLIGHT)
+		WRITEINT16(save_p, si->light_top);
+	if (diff & LD_SDMIDLIGHT)
+		WRITEINT16(save_p, si->light_mid);
+	if (diff & LD_SDBOTLIGHT)
+		WRITEINT16(save_p, si->light_bottom);
+	if (diff & LD_SDLIGHTABS)
+		WRITEUINT8(save_p, si->lightabsolute);
+	if (diff & LD_SDTOPLIGHTABS)
+		WRITEUINT8(save_p, si->lightabsolute_top);
+	if (diff & LD_SDMIDLIGHTABS)
+		WRITEUINT8(save_p, si->lightabsolute_mid);
+	if (diff & LD_SDBOTLIGHTABS)
+		WRITEUINT8(save_p, si->lightabsolute_bottom);
 }
 
 static void ArchiveLines(void)
@@ -1711,6 +1747,22 @@ static void UnArchiveSide(side_t *si)
 		UnArchiveSideEdge(&si->overlays[2]);
 	if (diff & LD_SDOVERLAY4)
 		UnArchiveSideEdge(&si->overlays[3]);
+	if (diff & LD_SDLIGHT)
+		si->light = READINT16(save_p);
+	if (diff & LD_SDTOPLIGHT)
+		si->light_top = READINT16(save_p);
+	if (diff & LD_SDMIDLIGHT)
+		si->light_mid = READINT16(save_p);
+	if (diff & LD_SDBOTLIGHT)
+		si->light_bottom = READINT16(save_p);
+	if (diff & LD_SDLIGHTABS)
+		si->lightabsolute = READUINT8(save_p);
+	if (diff & LD_SDTOPLIGHTABS)
+		si->lightabsolute_top = READUINT8(save_p);
+	if (diff & LD_SDMIDLIGHTABS)
+		si->lightabsolute_mid = READUINT8(save_p);
+	if (diff & LD_SDBOTLIGHTABS)
+		si->lightabsolute_bottom = READUINT8(save_p);
 }
 
 static void UnArchiveLines(void)
@@ -1881,7 +1933,8 @@ typedef enum
 	MD2_DISPOFFSET          = 1<<23,
 	MD2_DRAWONLYFORPLAYER   = 1<<24,
 	MD2_DONTDRAWFORVIEWMOBJ = 1<<25,
-	MD2_TRANSLATION         = 1<<26
+	MD2_TRANSLATION         = 1<<26,
+	MD2_ALPHA               = 1<<27
 } mobj_diff2_t;
 
 typedef enum
@@ -2124,6 +2177,8 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		diff2 |= MD2_DONTDRAWFORVIEWMOBJ;
 	if (mobj->dispoffset != mobj->info->dispoffset)
 		diff2 |= MD2_DISPOFFSET;
+	if (mobj->alpha != FRACUNIT)
+		diff2 |= MD2_ALPHA;
 
 	if (diff2 != 0)
 		diff |= MD_MORE;
@@ -2307,6 +2362,8 @@ static void SaveMobjThinker(const thinker_t *th, const UINT8 type)
 		WRITEINT32(save_p, mobj->dispoffset);
 	if (diff2 & MD2_TRANSLATION)
 		WRITEUINT16(save_p, mobj->translation);
+	if (diff2 & MD2_ALPHA)
+		WRITEFIXED(save_p, mobj->alpha);
 
 	WRITEUINT32(save_p, mobj->mobjnum);
 }
@@ -3373,6 +3430,8 @@ static thinker_t* LoadMobjThinker(actionf_p1 thinker)
 		mobj->dispoffset = mobj->info->dispoffset;
 	if (diff2 & MD2_TRANSLATION)
 		mobj->translation = READUINT16(save_p);
+	if (diff2 & MD2_ALPHA)
+		mobj->alpha = READFIXED(save_p);
 
 	if (diff & MD_REDFLAG)
 	{

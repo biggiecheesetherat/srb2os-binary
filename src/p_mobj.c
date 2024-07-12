@@ -1894,8 +1894,8 @@ void P_XYMovement(mobj_t *mo)
 						FIXED_TO_FLOAT(AngleFixed(newangle)),
 						FIXED_TO_FLOAT(AngleFixed(oldangle-newangle))
 						);*/
-		} else if (predictedz-mo->z > abs(slopemom.z/2)) { // Now check if we were supposed to stick to this slope
-			//CONS_Printf("%d-%d > %d\n", (predictedz), (mo->z), (slopemom.z/2));
+		} else if (predictedz-mo->z > abs(slopemom.z)) { // Now check if we were supposed to stick to this slope
+			//CONS_Printf("%d-%d > %d\n", (predictedz), (mo->z), (slopemom.z));
 			P_SlopeLaunch(mo);
 		}
 	} else if (moved && mo->standingslope && predictedz) {

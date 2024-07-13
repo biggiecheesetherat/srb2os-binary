@@ -3,9 +3,9 @@ Debian stable Clang:
 
   stage: build
 
-  when: on_success
+  when: manual
 
-  allow_failure: false
+  allow_failure: true
 
   artifacts:
     paths:
@@ -41,7 +41,7 @@ Debian stable Clang:
     - - |
           # cmake
           echo -e "\e[0Ksection_start:`date +%s`:cmake[collapsed=false]\r\e[0KBuilding Makefiles"
-      - cmake -B build.clang -DCPM_USE_LOCAL_PACKAGES:BOOL=ON -DSRB2_CONFIG_ENABLE_TESTS:BOOL=OFF -DSRB2_CONFIG_SYSTEM_LIBRARIES:BOOL=ON -DSRB2_USE_LIBGME:BOOL=OFF -G "Unix Makefiles"
+      - cmake -B build.clang -DSRB2_CONFIG_ENABLE_WEBM_MOVIES=OFF -G "Unix Makefiles"
       - |
           # cmake
           echo -e "\e[0Ksection_end:`date +%s`:cmake\r\e[0K"

@@ -1,6 +1,7 @@
 # Declare SDL2 interface sources
 
 target_sources(SRB2SDL2 PRIVATE
+	new_sound.cpp
 	ogl_sdl.c
 	i_threads.c
 	i_net.c
@@ -75,56 +76,10 @@ endif()
 target_compile_definitions(SRB2SDL2 PRIVATE -DDIRECTFULLSCREEN -DHAVE_SDL)
 target_include_directories(SRB2SDL2 PRIVATE ${SDL2_INCLUDE_DIR})
 
-find_package(SDL2_mixer_ext CONFIG QUIET)
-find_package(SDL2_mixer_ext QUIET)
-if(TARGET SDL2_mixer_ext::SDL2_mixer_ext OR TARGET SDL2_mixer_ext::SDL2_mixer_ext_Static OR TARGET SDL2_mixer_ext OR TARGET SDL2_mixer_ext_Static)
-	if(NOT TARGET SDL2_mixer_ext::SDL2_mixer_ext_Static AND TARGET SDL2_mixer_ext_Static)
-	add_library(SDL2_mixer_ext::SDL2_mixer_ext_Static ALIAS SDL2_mixer_ext_Static)
-	endif()
-	if(NOT TARGET SDL2_mixer_ext::SDL2_mixer_ext AND TARGET SDL2_mixer_ext)
-	add_library(SDL2_mixer_ext::SDL2_mixer_ext ALIAS SDL2_mixer_ext)
-	endif()
-	if(TARGET SDL2_mixer_ext::SDL2_mixer_ext OR TARGET SDL2_mixer_ext::SDL2_mixer_ext_Static)
-		if(TARGET SDL2_mixer_ext::SDL2_mixer_ext_Static)
-			target_link_libraries(SRB2SDL2 PRIVATE SDL2_mixer_ext::SDL2_mixer_ext_Static)
-		else()
-			target_link_libraries(SRB2SDL2 PRIVATE SDL2_mixer_ext::SDL2_mixer_ext)
-		endif()
-	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_MIXER -DHAVE_MIXERX -DSOUND=SOUND_MIXER)
-	endif()
-endif()
-
-if(TARGET SDL2_mixer_ext::SDL2_mixer_ext OR TARGET SDL2_mixer_ext::SDL2_mixer_ext_Static)
-	message(STATUS "SDL2_mixer_ext found, skipping SDL2_mixer")
-else()
-	message(STATUS "SDL2_mixer_ext not found, going to try SDL2_mixer")
-	find_package(SDL2_mixer CONFIG QUIET)
-	find_package(SDL2_mixer QUIET)
-	if(TARGET SDL2_mixer::SDL2_mixer OR TARGET SDL2_mixer::SDL2_mixer-static OR TARGET SDL2_mixer OR TARGET SDL2_mixer_Static)
-		if(NOT TARGET SDL2_mixer::SDL2_mixer-static AND TARGET SDL2_mixer_Static)
-		add_library(SDL2_mixer::SDL2_mixer-static ALIAS SDL2_mixer_Static)
-		endif()
-		if(NOT TARGET SDL2_mixer::SDL2_mixer AND TARGET SDL2_mixer)
-		add_library(SDL2_mixer::SDL2_mixer ALIAS SDL2_mixer)
-		endif()
-		if(TARGET SDL2_mixer::SDL2_mixer OR TARGET SDL2_mixer::SDL2_mixer-static)
-			if(TARGET SDL2_mixer::SDL2_mixer-static)
-				target_link_libraries(SRB2SDL2 PRIVATE SDL2_mixer::SDL2_mixer-static)
-			else()
-				target_link_libraries(SRB2SDL2 PRIVATE SDL2_mixer::SDL2_mixer)
-			endif()
-		target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_MIXER -DSOUND=SOUND_MIXER)
-		endif()
-	endif()
-endif()
-
-if(TARGET SDL2_mixer_ext::SDL2_mixer_ext OR TARGET SDL2_mixer_ext::SDL2_mixer_ext_Static OR TARGET SDL2_mixer::SDL2_mixer OR TARGET SDL2_mixer::SDL2_mixer-static)
-	target_sources(SRB2SDL2 PRIVATE mixer_sound.c)
-	target_link_libraries(SRB2SDL2 PRIVATE SDL2::SDL2)
-else()
-	target_sources(SRB2SDL2 PRIVATE sdl_sound.c)
-	target_link_libraries(SRB2SDL2 PRIVATE SDL2::SDL2)
-endif()
+target_link_libraries(SRB2SDL2
+	PRIVATE
+	$<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+)
 
 if(TARGET SDL2::SDL2)
 	message(STATUS "SDL2 Found")
@@ -136,14 +91,6 @@ if(TARGET SDL2::SDL2main)
 	message(STATUS "SDL2main Found")
 else()
 	message(STATUS "No SDL2main Found")
-endif()
-
-if(TARGET SDL2_mixer_ext::SDL2_mixer_ext OR TARGET SDL2_mixer_ext::SDL2_mixer_ext_Static)
-	message(STATUS "SDL2_mixer_ext Found")
-elseif(TARGET SDL2_mixer::SDL2_mixer OR TARGET SDL2_mixer::SDL2_mixer-static)
-	message(STATUS "SDL2_mixer found")
-else()
-	message(STATUS "no SDL2_mixer_ext or SDL2_mixer Found")
 endif()
 
 #### Installation ####

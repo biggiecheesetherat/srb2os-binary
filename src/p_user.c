@@ -730,9 +730,6 @@ static void P_DeNightserizePlayer(player_t *player)
 
 			// Reset music to beginning if MIXNIGHTSCOUNTDOWN
 			if ((mapheaderinfo[gamemap-1]->levelflags & LF_MIXNIGHTSCOUNTDOWN)
-#ifdef _WIN32
-				&& S_MusicType() != MU_MID
-#endif
 			)
 				S_SetMusicPosition(0);
 		}
@@ -746,9 +743,6 @@ static void P_DeNightserizePlayer(player_t *player)
 
 	// Restore from drowning music
 	if ((mapheaderinfo[gamemap-1]->levelflags & LF_MIXNIGHTSCOUNTDOWN)
-#ifdef _WIN32
-		&& S_MusicType() != MU_MID
-#endif
 	)
 	{
 		S_StopSoundByNum(sfx_timeup);

@@ -160,6 +160,7 @@ set_target_properties(SRB2SDL2 PROPERTIES
 set(SRB2_CONFIG_DEV_BUILD OFF CACHE BOOL
 	"Compile a development build of SRB2.")
 
+add_subdirectory(audio)
 add_subdirectory(blua)
 add_subdirectory(core)
 add_subdirectory(io)

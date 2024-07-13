@@ -27,13 +27,7 @@ typedef enum {
 	MU_NONE,
 	MU_WAV,
 	MU_MOD,
-	MU_MID,
-	MU_OGG,
-	MU_MP3,
-	MU_FLAC,
-	MU_GME,
-	MU_MOD_EX, // libopenmpt
-	MU_MID_EX // Non-native MIDI
+	MU_OGG
 } musictype_t;
 
 /**	\brief Sound subsystem runing and waiting
@@ -229,7 +223,16 @@ void I_ResumeSong(void);
 */
 void I_SetMusicVolume(UINT8 volume);
 
+/** \brief Sets the current song's volume, independent of the overall music channel volume. The volume scale is 0-100,
+ * as a linear gain multiplier. This is distinguished from SetMusicVolume which may or may not be linear.
+*/
+void I_SetCurrentSongVolume(int volume);
+
+// TODO refactor fades to control Song Volume exclusively in tandem with RR musicdef volume multiplier.
+
 boolean I_SetSongTrack(INT32 track);
+
+void I_SetMasterVolume(UINT8 volume);
 
 /// ------------------------
 /// MUSIC FADING

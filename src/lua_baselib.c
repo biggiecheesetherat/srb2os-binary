@@ -3645,11 +3645,9 @@ static int lib_sMusicName(lua_State *L)
 
 static int lib_sMusicExists(lua_State *L)
 {
-	boolean checkMIDI = lua_opttrueboolean(L, 2);
-	boolean checkDigi = lua_opttrueboolean(L, 3);
 	const char *music_name = luaL_checkstring(L, 1);
 	NOHUD
-	lua_pushboolean(L, S_MusicExists(music_name, checkMIDI, checkDigi));
+	lua_pushboolean(L, S_MusicExists(music_name));
 	return 1;
 }
 

@@ -30,17 +30,6 @@
 			}
 		},
 		{
-			"name": "__testers",
-			"hidden": true,
-			"cacheVariables": {
-				"CMAKE_C_FLAGS_RELWITHDEBINFO": "-DNDEBUG",
-				"CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-DNDEBUG",
-				"SRB2_CONFIG_DEV_BUILD": "ON",
-				"CMAKE_BUILD_TYPE": "RelWithDebInfo",
-				"SRB2_CONFIG_TESTERS": "ON"
-			}
-		},
-		{
 			"name": "__ninja",
 			"hidden": true,
 			"generator": "Ninja",
@@ -111,12 +100,6 @@
 			"binaryDir": "build/${presetName}",
 			"inherits": ["__release", "__ninja"]
 		},
-		{
-			"name": "ninja-testers",
-			"hidden": false,
-			"binaryDir": "build/${presetName}",
-			"inherits": ["__testers", "__ninja"]
-		},
 
 		{
 			"name": "ninja-vcpkg-debug",
@@ -136,12 +119,6 @@
 			"binaryDir": "build/${presetName}",
 			"inherits": ["__release", "__ninja", "__vcpkg-toolchain"]
 		},
-		{
-			"name": "ninja-vcpkg-testers",
-			"hidden": false,
-			"binaryDir": "build/${presetName}",
-			"inherits": ["__testers", "__ninja", "__vcpkg-toolchain"]
-		},
 
 		{
 			"name": "ninja-x86_mingw_static_vcpkg-debug",
@@ -160,12 +137,6 @@
 			"hidden": false,
 			"binaryDir": "build/${presetName}",
 			"inherits": ["__release", "__compiler-mingw-w64-i686", "__ninja", "__vcpkg-toolchain", "__mingw-static"]
-		},
-		{
-			"name": "ninja-x86_mingw_static_vcpkg-testers",
-			"hidden": false,
-			"binaryDir": "build/${presetName}",
-			"inherits": ["__testers", "__compiler-mingw-w64-i686", "__ninja", "__vcpkg-toolchain", "__mingw-static"]
 		},
 
 		{
@@ -231,10 +202,6 @@
 		{
 			"name": "ninja-x86_mingw_static_vcpkg-release",
 			"configurePreset": "ninja-x86_mingw_static_vcpkg-release"
-		},
-		{
-			"name": "ninja-x86_mingw_static_vcpkg-testers",
-			"configurePreset": "ninja-x86_mingw_static_vcpkg-testers"
 		},
 		{
 			"name": "ninja-x64_osx_vcpkg-debug",

@@ -12,159 +12,6 @@ target_sources(SRB2SDL2 PRIVATE
 	hwsym_sdl.c
 )
 
-# Compatibility flag with later versions of GCC
-# We should really fix our code to not need this
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    target_compile_options(SRB2SDL2 PRIVATE -mno-ms-bitfields)
-endif()
-
-# Yes we know we use insecure CRT functions...
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    target_compile_definitions(SRB2SDL2 PRIVATE -D_CRT_SECURE_NO_WARNINGS)
-endif()
-
-# Compiler warnings configuration
-target_compile_options(SRB2SDL2 PRIVATE
-    # Using generator expressions to handle per-language compile options
-
-    # C, GNU
-    # This is a direct translation from versions.mk
-    $<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:
-        -Wall
-        -Wno-trigraphs
-        -W # Was controlled by RELAXWARNINGS
-        -Wfloat-equal
-        -Wundef
-        -Wpointer-arith
-        -Wbad-function-cast
-        -Wcast-qual
-        -Wcast-align # Was controlled by NOCASTALIGNWARN
-        -Wwrite-strings
-        -Wsign-compare
-        -Wmissing-prototypes
-        -Wmissing-declarations
-        -Wmissing-noreturn
-        -Winline
-        -Wformat-y2k
-        -Wformat-security
-
-        $<$<VERSION_LESS:$<C_COMPILER_VERSION>,2.9.5>:
-            -Wno-div-by-zero
-            -Wendif-labels
-            -Wdisabled-optimization
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,4.0.0>:
-            -Wold-style-definition
-            -Wmissing-field-initializers
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,4.1.0>:
-            -Wshadow
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,4.3.0>:
-            -funit-at-a-time
-            -Wlogical-op
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,4.5.0>:
-            -Wlogical-op
-            -Wno-error=array-bounds
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,4.6.0>:
-            -Wno-suggest-attribute=noreturn
-            -Wno-error=suggest-attribute=noreturn
-            -Werror=vla
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,5.4.0>:
-            -Wno-logical-op
-            -Wno-error=logical-op
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,6.1.0>:
-            -Wno-tautological-compare
-            -Wno-error=tautological-compare
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,7.1.0>:
-            -Wno-error=format-overflow=2
-            -Wimplicit-fallthrough=4
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,8.1.0>:
-            -Wno-error=format-overflow
-            -Wno-error=stringop-truncation
-            -Wno-error=stringop-overflow
-            -Wno-format-overflow
-            -Wno-stringop-truncation
-            -Wno-stringop-overflow
-            -Wno-error=multistatement-macros
-        >
-
-        $<$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,9.1.0>:
-            -Wno-error=address-of-packed-member
-        >
-    >
-
-    # C, Clang and Apple Clang
-    $<$<AND:$<COMPILE_LANGUAGE:C>,$<OR:$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:Clang>>>:
-        -Wall
-        -Wno-absolute-value
-        -Wno-trigraphs
-        -Wno-error=non-literal-null-conversion
-        -Wno-error=constant-conversion
-        -Wno-unused-but-set-variable
-        -Wno-error=unused-but-set-variable
-        -Wno-shorten-64-to-32
-    >
-
-    # C, MSVC
-    $<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:
-        # All warnings at and before Visual Studio 2019 RTM
-        # https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version?view=msvc-170
-        /Wv:19.20.27004.0
-    >
-
-    # C++, GNU, Clang and Apple Clang
-    $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<OR:$<C_COMPILER_ID:GNU>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:Clang>>>:
-        -Wall
-        -Wno-unused-function
-        -Wno-unused-but-set-variable
-        -Wno-unused-private-field
-    >
-
-    # C++, MSVC
-    $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<C_COMPILER_ID:MSVC>>:
-        /Wv:19.20.27004.0
-    >
-
-    # GNU
-    $<$<C_COMPILER_ID:GNU>:
-        -fmax-errors=5
-    >
-)
-if(SRB2_CONFIG_ERRORMODE)
-    target_compile_options(SRB2SDL2 PRIVATE
-        $<$<OR:$<C_COMPILER_ID:GNU>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:Clang>>:
-            -Werror
-        >
-
-        $<$<C_COMPILER_ID:MSVC>:
-            /WX
-        >
-    )
-endif()
-
-# Link warnings configuration
-target_link_options(SRB2SDL2 PRIVATE
-    $<$<C_COMPILER_ID:GNU>:
-        # -Wl,--as-needed   - Was controlled by NOLDWARNING
-    >
-)
-
 if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
 	target_sources(SRB2SDL2 PRIVATE
 		../win32/win_dbg.c
@@ -181,14 +28,6 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)
 		macosx/mac_resources.h
 		macosx/Srb2mac.icns
 	)
-endif()
-
-if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
-	set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME srb2win)
-elseif("${CMAKE_SYSTEM_NAME}" MATCHES Linux)
-	set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME lsdlsrb2)
-else()
-	set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME srb2)
 endif()
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)
@@ -210,9 +49,10 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)
 	)
 endif()
 
-if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
-	target_link_libraries(SRB2SDL2 PRIVATE SDL2::SDL2main)
-endif()
+target_link_libraries(SRB2SDL2
+	PRIVATE
+	$<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+)
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES Linux)
 	target_link_libraries(SRB2SDL2 PRIVATE m rt)

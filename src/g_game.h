@@ -21,6 +21,10 @@
 #include "m_cheat.h" // objectplacing
 #include "m_cond.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern char gamedatafilename[64];
 extern char timeattackfolder[64];
 extern char customversionstring[32];
@@ -288,5 +292,9 @@ FUNCMATH INT32 G_TicsToMilliseconds(tic_t tics);
 
 // Don't split up TOL handling
 UINT32 G_TOLFlag(INT32 pgametype);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

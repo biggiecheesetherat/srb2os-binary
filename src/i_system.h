@@ -17,6 +17,10 @@
 #include "d_ticcmd.h"
 #include "d_event.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __GNUG__
 #pragma interface
 #endif
@@ -346,5 +350,9 @@ void I_SetTextInputMode(boolean active);
 /** \brief Retrieves current text input mode.
  */
 boolean I_GetTextInputMode(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

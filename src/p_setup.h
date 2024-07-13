@@ -18,6 +18,10 @@
 #include "doomstat.h"
 #include "r_defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // map md5, sent to players via PT_SERVERINFO
 extern unsigned char mapmd5[16];
 
@@ -86,5 +90,9 @@ UINT8 P_HasGrades(INT16 map, UINT8 mare);
 UINT32 P_GetScoreForGrade(INT16 map, UINT8 mare, UINT8 grade);
 UINT32 P_GetScoreForGradeOverall(INT16 map, UINT8 grade);
 void P_AddNiGHTSTimes(INT16 i, char *gtext);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

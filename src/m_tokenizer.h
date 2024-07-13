@@ -14,6 +14,10 @@
 
 #include "doomdef.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct Tokenizer
 {
 	char *zdup;
@@ -37,5 +41,9 @@ const char *Tokenizer_Read(tokenizer_t *tokenizer, UINT32 i);
 const char *Tokenizer_SRB2Read(tokenizer_t *tokenizer, UINT32 i);
 UINT32 Tokenizer_GetEndPos(tokenizer_t *tokenizer);
 void Tokenizer_SetEndPos(tokenizer_t *tokenizer, UINT32 newPos);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

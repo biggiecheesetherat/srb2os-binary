@@ -18,6 +18,10 @@
 #include "d_player.h"
 #include "r_data.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __GNUG__
 #pragma interface
 #endif
@@ -104,5 +108,9 @@ extern angle_t rw_normalangle;
 
 // angle to line origin
 extern angle_t rw_angle1;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

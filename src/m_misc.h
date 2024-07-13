@@ -20,6 +20,11 @@
 
 #include "d_event.h" // Screenshot responder
 #include "command.h"
+#include "w_wad.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
 	MM_OFF = 0,
@@ -134,7 +139,10 @@ UINT32 FNV1a_Hash(const char *message, size_t size);
 UINT32 FNV1a_HashString(const char *message);
 UINT32 FNV1a_HashLowercaseString(const char *message);
 
-#include "w_wad.h"
 extern char configfile[MAX_WADPATH];
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

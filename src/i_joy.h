@@ -15,6 +15,10 @@
 
 #include "g_input.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*!
   \brief	-JOYAXISRANGE to +JOYAXISRANGE for each axis
 
@@ -54,5 +58,9 @@ typedef struct JoyType_s JoyType_t;
 */
 
 extern JoyType_t Joystick, Joystick2;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // __I_JOY_H__

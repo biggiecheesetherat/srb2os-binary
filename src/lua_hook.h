@@ -10,11 +10,18 @@
 /// \file  lua_hook.h
 /// \brief hooks for Lua scripting
 
+#ifndef __LUA_HOOK_H__
+#define __LUA_HOOK_H__
+
 #include "r_defs.h"
 #include "d_player.h"
 #include "s_sound.h"
 #include "d_event.h"
 #include "lua_hudlib_drawlist.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
 Do you know what an 'X Macro' is? Such a macro is called over each element of
@@ -160,3 +167,9 @@ int  LUA_HookPlayerCmd(player_t *, ticcmd_t *);
 int  LUA_HookMusicChange(const char *oldname, struct MusicChange *);
 fixed_t LUA_HookPlayerHeight(player_t *player);
 int  LUA_HookPlayerCanEnterSpinGaps(player_t *player);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif // __LUA_HOOK_H__

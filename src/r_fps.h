@@ -20,6 +20,10 @@
 #include "r_state.h"
 #include "m_perfstats.h" // ps_metric_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern consvar_t cv_fpscap;
 
 extern ps_metric_t ps_interp_frac;
@@ -167,5 +171,9 @@ void R_RemoveMobjInterpolator(mobj_t *mobj);
 void R_UpdateMobjInterpolators(void);
 void R_ResetMobjInterpolationState(mobj_t *mobj);
 void R_ResetPrecipitationMobjInterpolationState(precipmobj_t *mobj);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #endif

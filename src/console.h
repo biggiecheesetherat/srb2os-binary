@@ -10,9 +10,16 @@
 /// \file  console.h
 /// \brief Console drawing and input
 
+#ifndef __CONSOLE_H__
+#define __CONSOLE_H__
+
 #include "d_event.h"
 #include "command.h"
 #include "i_threads.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void CON_Init(void);
 
@@ -62,3 +69,9 @@ void CON_ToggleOff(void);
 boolean CON_Ready(void);
 
 void CON_LogMessage(const char *msg);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif // __CONSOLE_H__

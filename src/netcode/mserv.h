@@ -16,6 +16,10 @@
 
 #include "../i_threads.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // lowered from 32 due to menu changes
 #define NUM_LIST_ROOMS 16
 
@@ -107,5 +111,9 @@ int  HMS_update (void);
 void HMS_list_servers (void);
 msg_server_t * HMS_fetch_servers (msg_server_t *list, int room, int id);
 int  HMS_compare_mod_version (char *buffer, size_t size_of_buffer);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

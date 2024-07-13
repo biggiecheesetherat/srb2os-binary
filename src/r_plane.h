@@ -19,6 +19,10 @@
 #include "r_textures.h"
 #include "p_polyobj.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define VISPLANEHASHBITS 9
 #define VISPLANEHASHMASK ((1<<VISPLANEHASHBITS)-1)
 // the last visplane list is outside of the hash table and is used for fof planes
@@ -112,4 +116,9 @@ extern visffloor_t ffloor[MAXFFLOORS];
 extern INT32 numffloors;
 
 void Portal_AddSkyboxPortals (void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

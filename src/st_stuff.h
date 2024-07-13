@@ -19,6 +19,10 @@
 #include "d_player.h"
 #include "r_defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //
 // STATUS BAR
 //
@@ -127,5 +131,9 @@ extern UINT16 objectsdrawn;
 
 #define NUMLINKCOLORS 12
 extern skincolornum_t linkColor[3][NUMLINKCOLORS];
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -19,6 +19,10 @@
 #include "p_setup.h" // levelflats
 #include "r_data.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __GNUG__
 #pragma interface
 #endif
@@ -108,5 +112,9 @@ const char *R_CheckTextureNameForNum(INT32 num);
 const char *R_TextureNameForNum(INT32 num);
 
 extern INT32 numtextures;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

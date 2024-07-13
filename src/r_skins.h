@@ -21,6 +21,10 @@
 #include "r_picformats.h" // spriteinfo_t
 #include "r_defs.h" // spritedef_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// Defaults
 #define SKINNAMESIZE 16
 // should be all lowercase!! S_SKIN processing does a strlwr
@@ -120,5 +124,9 @@ boolean P_IsValidSprite2(skin_t *skin, UINT16 spr2);
 boolean P_IsStateSprite2Super(state_t *state);
 
 void R_RefreshSprite2(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //__R_SKINS__

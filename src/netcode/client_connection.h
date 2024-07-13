@@ -16,6 +16,10 @@
 #include "../doomtype.h"
 #include "d_clisrv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MAXSERVERLIST (MAXNETNODES-1)
 
 typedef struct
@@ -58,5 +62,9 @@ void PT_ServerInfo(SINT8 node);
 void PT_MoreFilesNeeded(SINT8 node);
 void PT_ServerRefuse(SINT8 node);
 void PT_ServerCFG(SINT8 node);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

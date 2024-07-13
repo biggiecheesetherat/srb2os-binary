@@ -16,6 +16,10 @@
 #include "d_clisrv.h"
 #include "../doomtype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Must be a power of two
 #define TEXTCMD_HASH_SIZE 4
 
@@ -62,5 +66,9 @@ void CL_CopyNetCommandsFromServerPacket(tic_t tic, UINT8 **buf);
 void CL_SendNetCommands(void);
 void SendKick(UINT8 playernum, UINT8 msg);
 void SendKicksForNode(SINT8 node, UINT8 msg);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

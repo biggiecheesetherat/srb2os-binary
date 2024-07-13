@@ -9,6 +9,13 @@
 /// \file  y_inter.h
 /// \brief Tally screens, or "Intermissions" as they were formally called in Doom
 
+#ifndef __WAD_H__
+#define __WAD_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern boolean usebuffer;
 
 void Y_IntermissionDrawer(void);
@@ -37,3 +44,9 @@ typedef enum
 } intertype_t;
 extern intertype_t intertype;
 extern intertype_t intermissiontypes[NUMGAMETYPES];
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif // __WAD_H__

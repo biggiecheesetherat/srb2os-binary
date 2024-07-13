@@ -17,6 +17,10 @@
 
 #include "r_draw.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum
 {
 	REMAP_ADD_INDEXRANGE,
@@ -94,5 +98,9 @@ void R_ParseTrnslate(INT32 wadNum, UINT16 lumpnum);
 void R_LoadParsedTranslations(void);
 
 remaptable_t *R_GetBuiltInTranslation(SINT8 tc);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

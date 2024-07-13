@@ -19,6 +19,10 @@
 
 #include "doomdef.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __GNUG__
 #pragma interface
 #endif
@@ -58,5 +62,9 @@ typedef struct thinker_s
 	tic_t debug_time;
 #endif
 } thinker_t;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

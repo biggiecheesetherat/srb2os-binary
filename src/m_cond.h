@@ -16,6 +16,10 @@
 #include "doomdef.h"
 #include "doomdata.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // --------
 // Typedefs
 // --------
@@ -274,5 +278,9 @@ INT32 M_UnlockableSkinNum(unlockable_t *unlock);
 INT32 M_EmblemSkinNum(emblem_t *emblem);
 
 #define M_Achieved(a, data) ((a) >= MAXCONDITIONSETS || data->achieved[a])
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

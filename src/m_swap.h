@@ -18,6 +18,10 @@
 // WAD files are stored little endian.
 #include "endian.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Little to big endian
 #ifdef SRB2_BIG_ENDIAN
 
@@ -47,6 +51,10 @@
 #else
 	#define BIGENDIAN_LONG(x) ((INT32)(x))
 	#define BIGENDIAN_SHORT(x) ((INT16)(x))
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif

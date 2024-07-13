@@ -18,6 +18,10 @@
 #include "w_wad.h"
 #include "r_defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //------------------------------------
 //           Fonts & stuff
 //------------------------------------
@@ -123,4 +127,9 @@ void HU_DoCEcho(const char *msg);
 extern UINT32 hu_demoscore;
 extern UINT32 hu_demotime;
 extern UINT16 hu_demorings;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

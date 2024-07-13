@@ -22,6 +22,10 @@
 #include "../d_player.h"
 #include "mserv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CLIENTBACKUPTICS 32
 
 #ifdef PACKETDROP
@@ -133,5 +137,9 @@ extern UINT8 (*adminpassmd5)[16];
 extern UINT32 adminpasscount;
 
 extern boolean hu_stopped;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

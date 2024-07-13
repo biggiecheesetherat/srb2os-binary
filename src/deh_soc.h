@@ -45,6 +45,10 @@
 #include "dehacked.h"
 #include "doomdef.h" // HWRENDER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Crazy word-reading stuff
 /// \todo Put these in a seperate file or something.
 mobjtype_t get_mobjtype(const char *word);
@@ -85,4 +89,9 @@ void clear_emblems(void);
 void clear_unlockables(void);
 void clear_levels(void);
 void clear_conditionsets(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

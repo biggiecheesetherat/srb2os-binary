@@ -18,6 +18,10 @@
 #include "../doomdef.h"
 #include "../doomtype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern tic_t firstticstosend; // min of the nettics
 extern tic_t tictoclear; // optimize d_clearticcmd
 
@@ -40,5 +44,9 @@ void CL_SendClientCmd(void);
 void SV_SendTics(void);
 void Local_Maketic(INT32 realtics);
 void SV_Maketic(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

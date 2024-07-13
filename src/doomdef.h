@@ -104,6 +104,10 @@
 #include <io.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 FILE *fopenfile(const char*, const char*);
 
 //#define NOMD5
@@ -754,6 +758,10 @@ extern int
 #define MASTERSERVER
 #else
 #undef UPDATE_ALERT
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif // __DOOMDEF__

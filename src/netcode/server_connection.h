@@ -17,6 +17,10 @@
 #include "../doomdef.h"
 #include "../doomtype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void PT_ClientJoin(SINT8 node);
 void PT_AskInfoViaMS(SINT8 node);
 void PT_TellFilesNeeded(SINT8 node);
@@ -26,5 +30,9 @@ extern tic_t jointimeout;
 extern tic_t joindelay;
 extern char playeraddress[MAXPLAYERS][64];
 extern consvar_t cv_showjoinaddress, cv_allownewplayer, cv_maxplayers, cv_joindelay, cv_rejointimeout;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -16,6 +16,10 @@
 
 #include "r_defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // -------------------------------
 // COMMON STUFF FOR 8bpp AND 16bpp
 // -------------------------------
@@ -211,4 +215,9 @@ void R_DrawWaterSolidColorSpan_8(void);
 void R_DrawTiltedWaterSolidColorSpan_8(void);
 
 // =========================================================================
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif  // __R_DRAW__

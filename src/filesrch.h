@@ -9,6 +9,10 @@
 #include "m_menu.h" // MAXSTRINGLENGTH
 #include "w_wad.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern consvar_t cv_addons_option, cv_addons_folder, cv_addons_md5, cv_addons_showall, cv_addons_search_case, cv_addons_search_type;
 
 /**	\brief	The filesearch function
@@ -102,4 +106,9 @@ typedef enum
 void closefilemenu(boolean validsize);
 void searchfilemenu(char *tempname);
 boolean preparefilemenu(boolean samedepth);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif // __FILESRCH_H__

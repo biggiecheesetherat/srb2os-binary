@@ -22,6 +22,11 @@
 #include "p_tick.h"
 #include "r_defs.h"
 #include "p_maputl.h"
+#include "p_spec.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define FLOATSPEED (FRACUNIT*4)
 
@@ -530,7 +535,6 @@ void P_DoMatchSuper(player_t *player);
 //
 // P_SPEC
 //
-#include "p_spec.h"
 
 extern INT32 ceilmovesound;
 
@@ -554,5 +558,9 @@ void P_DoSuperDetransformation(player_t *player);
 void P_ExplodeMissile(mobj_t *mo);
 void P_CheckGravity(mobj_t *mo, boolean affect);
 void P_SetPitchRollFromSlope(mobj_t *mo, pslope_t *slope);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // __P_LOCAL__

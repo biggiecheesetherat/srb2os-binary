@@ -17,6 +17,10 @@
 #ifndef __P_SPEC__
 #define __P_SPEC__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern mobj_t *skyboxmo[2]; // current skybox mobjs: 0 = viewpoint, 1 = centerpoint
 extern mobj_t *skyboxviewpnts[16]; // array of MT_SKYBOX viewpoint mobjs
 extern mobj_t *skyboxcenterpnts[16]; // array of MT_SKYBOX centerpoint mobjs
@@ -1116,5 +1120,9 @@ typedef struct
 void T_PlaneDisplace(planedisplace_t *pd);
 
 void P_CalcHeight(player_t *player);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

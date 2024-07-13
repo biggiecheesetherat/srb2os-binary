@@ -19,6 +19,10 @@
 #include "doomtype.h"
 #include "m_fixed.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //#define DEBUGRANDOM
 
 
@@ -74,5 +78,9 @@ UINT32 P_GetInitSeed(void);
 void P_SetRandSeed(UINT32 seed);
 #endif
 UINT32 M_RandomizedSeed(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -17,6 +17,10 @@
 #include "r_fps.h"
 #include "doomdef.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Patch functions
 patch_t *Patch_Create(INT16 width, INT16 height);
 patch_t *Patch_CreateFromDoomPatch(softwarepatch_t *source);
@@ -45,6 +49,10 @@ patch_t *Patch_GetRotatedSprite(
 angle_t R_ModelRotationAngle(interpmobjstate_t *interp);
 angle_t R_SpriteRotationAngle(interpmobjstate_t *interp);
 INT32 R_GetRollAngle(angle_t rollangle);
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif // __R_PATCH__

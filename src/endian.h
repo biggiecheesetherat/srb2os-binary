@@ -12,6 +12,10 @@
 #ifndef __ENDIAN__
 #define __ENDIAN__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined(SRB2_BIG_ENDIAN) || defined(SRB2_LITTLE_ENDIAN)
   // defined externally
 #else
@@ -40,6 +44,10 @@
       #define SRB2_LITTLE_ENDIAN
     #endif
   #endif
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif //__ENDIAN__

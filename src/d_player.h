@@ -29,6 +29,10 @@
 // as commands per game tick.
 #include "d_ticcmd.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Extra abilities/settings for skins (combinable stuff)
 typedef enum
 {
@@ -633,5 +637,9 @@ typedef struct player_s
 
 // Value for infinite lives
 #define INFLIVES 0x7F
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

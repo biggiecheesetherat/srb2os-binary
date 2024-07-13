@@ -21,6 +21,10 @@
 #include "../doomdef.h"
 #include "../command.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// \brief program net id
 #define DOOMCOM_ID (INT32)0x12345678l
 
@@ -161,5 +165,9 @@ extern boolean *bannednode;
 
 /// \brief Called by D_SRB2Main to be defined by extern network driver
 boolean I_InitNetwork(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

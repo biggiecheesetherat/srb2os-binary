@@ -24,6 +24,10 @@ extern SDL_bool framebuffer;
 
 #include "../m_fixed.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // SDL2 stub macro
 #ifdef _MSC_VER
 #define SDL2STUB() CONS_Printf("SDL2: stubbed: %s:%d\n", __FUNCTION__, __LINE__)
@@ -83,5 +87,9 @@ void SDLforceUngrabMouse(void);
 
 // Needed for some WIN32 functions
 extern SDL_Window *window;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

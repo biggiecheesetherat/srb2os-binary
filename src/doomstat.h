@@ -25,6 +25,12 @@
 // We need the player data structure as well.
 #include "d_player.h"
 
+#include "netcode/d_clisrv.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // =============================
 // Selected map etc.
 // =============================
@@ -657,8 +663,6 @@ extern boolean singletics;
 // Netgame stuff
 // =============
 
-#include "netcode/d_clisrv.h"
-
 extern consvar_t cv_timetic; // display high resolution timer
 extern consvar_t cv_powerupdisplay; // display powerups
 extern consvar_t cv_showinput; // display input viewer outside of time attack
@@ -670,5 +674,9 @@ extern INT32 serverplayer;
 extern INT32 adminplayers[MAXPLAYERS];
 
 /// \note put these in d_clisrv outright?
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //__DOOMSTAT__

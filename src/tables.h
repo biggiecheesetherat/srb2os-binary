@@ -20,6 +20,10 @@
 
 #include "m_fixed.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define FINEANGLES 8192
 #define FINEMASK (FINEANGLES - 1)
 #define ANGLETOFINESHIFT 19 // 0x100000000 to 0x2000
@@ -119,5 +123,9 @@ matrix_t *FM_RotateZ(matrix_t *dest, angle_t rad);
 #define FINESINE(n) (finesine[n]>>(FINE_FRACBITS-FRACBITS))
 #define FINECOSINE(n) (finecosine[n]>>(FINE_FRACBITS-FRACBITS))
 #define FINETANGENT(n) (finetangent[n]>>(FINE_FRACBITS-FRACBITS))
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

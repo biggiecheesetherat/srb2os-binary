@@ -13,6 +13,10 @@
 #ifndef __M_VECTOR__
 #define __M_VECTOR__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct
 {
 	double x, y, z;
@@ -27,5 +31,9 @@ double DVector3_Magnitude(const dvector3_t *a_normal);
 double DVector3_Normalize(dvector3_t *a_normal);
 void DVector3_Negate(dvector3_t *a_o);
 void DVector3_Cross(const dvector3_t *a_1, const dvector3_t *a_2, dvector3_t *a_o);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

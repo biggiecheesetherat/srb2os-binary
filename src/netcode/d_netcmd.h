@@ -17,6 +17,10 @@
 
 #include "../command.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // console vars
 extern consvar_t cv_playername;
 extern consvar_t cv_playercolor;
@@ -215,5 +219,9 @@ void D_ClearPassword(void);
 
 // used for the player setup menu
 UINT8 CanChangeSkin(INT32 playernum);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

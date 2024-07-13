@@ -15,6 +15,10 @@
 
 #include "doomtype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // the current state of the game
 typedef enum
 {
@@ -61,5 +65,9 @@ extern INT32 pickedchar;
 extern boolean botingame;
 extern UINT8 botskin;
 extern UINT16 botcolor;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //__G_STATE__

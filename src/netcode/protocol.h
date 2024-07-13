@@ -17,6 +17,10 @@
 #include "../d_ticcmd.h"
 #include "../doomdef.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 The 'packet version' is used to distinguish packet
 formats. This version is independent of VERSION and
@@ -335,5 +339,9 @@ typedef struct
 #define KICK_MSG_CUSTOM_BAN  8
 #define KICK_MSG_IDLE        9
 #define KICK_MSG_KEEP_BODY   0x80
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

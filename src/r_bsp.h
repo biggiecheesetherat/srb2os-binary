@@ -14,6 +14,10 @@
 #ifndef __R_BSP__
 #define __R_BSP__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __GNUG__
 #pragma interface
 #endif
@@ -58,4 +62,9 @@ boolean R_IsEmptyLine(seg_t *line, sector_t *front, sector_t *back);
 INT32 R_GetPlaneLight(sector_t *sector, fixed_t planeheight, boolean underside);
 void R_Prep3DFloors(sector_t *sector);
 void R_CheckSectorLightLists(sector_t *sector, sector_t *fakeflat, INT32 *floorlightlevel, INT32 *ceilinglightlevel, extracolormap_t **floorcolormap, extracolormap_t **ceilingcolormap);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

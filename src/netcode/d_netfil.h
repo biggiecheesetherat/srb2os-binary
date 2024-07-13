@@ -17,6 +17,10 @@
 #include "d_clisrv.h"
 #include "../w_wad.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum
 {
 	SF_FILE,
@@ -200,5 +204,9 @@ filestatus_t findfolder(const char *path);
 
 void nameonly(char *s);
 size_t nameonlylength(const char *s);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // __D_NETFIL__

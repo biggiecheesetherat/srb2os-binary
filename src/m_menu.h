@@ -23,6 +23,10 @@
 #include "netcode/mserv.h"
 #include "r_things.h" // for SKINNAMESIZE
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Compatibility with old-style named NiGHTS replay files.
 #define OLDNREPLAYNAME
 
@@ -580,5 +584,9 @@ void M_FreePlayerSetupColors(void);
 	0,\
 	NULL\
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //__X_MENU__

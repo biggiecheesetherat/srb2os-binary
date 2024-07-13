@@ -15,6 +15,10 @@
 
 #include "m_fixed.h" // for get_number
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum
 {
 	UNDO_NONE    = 0x00,
@@ -62,4 +66,9 @@ typedef struct
 char *myfgets(char *buf, size_t bufsize, MYFILE *f);
 char *myhashfgets(char *buf, size_t bufsize, MYFILE *f);
 void ignorelinesuntilhash(MYFILE *f);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

@@ -16,6 +16,10 @@
 #include <stdio.h>
 #include "doomdef.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //===================================
 // Command buffer & command execution
 //===================================
@@ -238,5 +242,9 @@ void CV_ResetCheatNetVars(void);
 
 boolean CV_IsSetToDefault(consvar_t *v);
 UINT8 CV_CheatsEnabled(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // __COMMAND_H__

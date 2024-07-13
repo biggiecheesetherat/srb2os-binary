@@ -161,6 +161,7 @@ set(SRB2_CONFIG_DEV_BUILD OFF CACHE BOOL
 	"Compile a development build of SRB2.")
 
 add_subdirectory(blua)
+add_subdirectory(core)
 add_subdirectory(io)
 add_subdirectory(netcode)
 

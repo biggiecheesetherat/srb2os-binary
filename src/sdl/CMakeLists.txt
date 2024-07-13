@@ -76,11 +76,6 @@ endif()
 target_compile_definitions(SRB2SDL2 PRIVATE -DDIRECTFULLSCREEN -DHAVE_SDL)
 target_include_directories(SRB2SDL2 PRIVATE ${SDL2_INCLUDE_DIR})
 
-target_link_libraries(SRB2SDL2
-	PRIVATE
-	$<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
-)
-
 if(TARGET SDL2::SDL2)
 	message(STATUS "SDL2 Found")
 else()

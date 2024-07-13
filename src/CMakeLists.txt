@@ -161,6 +161,7 @@ set(SRB2_CONFIG_DEV_BUILD OFF CACHE BOOL
 	"Compile a development build of SRB2.")
 
 add_subdirectory(blua)
+add_subdirectory(io)
 add_subdirectory(netcode)
 
 # OS macros
@@ -362,7 +363,6 @@ target_compile_options(SRB2SDL2 PRIVATE
 		-Wall
 		-Wextra
 		-Wno-trigraphs
-		-Wconditional-uninitialized
 	>
 
 	# C++, MSVC
@@ -471,6 +471,8 @@ if(TARGET CURL::libcurl)
 else()
 	message(STATUS "No libcurl Found")
 endif()
+
+target_link_libraries(SRB2SDL2 PRIVATE tcbrindle::span)
 
 # miniupnpc disabled for now
 

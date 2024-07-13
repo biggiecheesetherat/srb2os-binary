@@ -69,7 +69,6 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
 endif()
 
 find_package(SDL2 CONFIG REQUIRED)
-find_package(SDL2 REQUIRED)
 if(TARGET SDL2main)
 	target_link_libraries(SRB2SDL2 PRIVATE SDL2main)
 endif()

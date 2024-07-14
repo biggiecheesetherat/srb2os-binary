@@ -173,7 +173,7 @@ void R_ResetMobjInterpolationState(mobj_t *mobj);
 void R_ResetPrecipitationMobjInterpolationState(precipmobj_t *mobj);
 
 #ifdef __cplusplus
-extern "C" {
+}
 #endif
 
 #endif

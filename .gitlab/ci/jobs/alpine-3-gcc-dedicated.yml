@@ -3,8 +3,8 @@ Alpine 3 GCC Dedicated:
 
   artifacts:
     paths:
-      - "bin/"
-      - "src/comptime.h"
+      - "build/ninja-dedicated-debug/bin/"
+      - "build/ninja-dedicated-debug/src/comptime.h"
     expose_as: "Apline-3-Dedicated"
     name: "$CI_PROJECT_PATH_SLUG-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA-Apline-3-Dedicated"
 
@@ -28,7 +28,8 @@ Alpine 3 GCC Dedicated:
     - - |
           # make
           echo -e "\e[0Ksection_start:`date +%s`:make[collapsed=false]\r\e[0KCompiling SRB2"
-      - make --directory=src --keep-going CCACHE=1 ERRORMODE=1 NONX86=1 NOEXECINFO=1 DEDICATED=1 || make --directory=src --keep-going CCACHE=1 ERRORMODE=1 NONX86=1 NOEXECINFO=1 DEDICATED=1
+      - cmake --preset ninja-dedicated-debug -G "Unix Makefiles"
+      - cmake --build --preset ninja-dedicated-debug
       - |
           # make
           echo -e "\e[0Ksection_end:`date +%s`:make\r\e[0K"

@@ -14,6 +14,10 @@
 
 #include "../doomtype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // ================
 //  Vertex shaders
 // ================
@@ -420,5 +424,9 @@
 	"void main(void) {\n" \
 		"gl_FragColor = texture2D(tex, gl_TexCoord[0].st) * gl_Color * poly_color;\n" \
 	"}\0"
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -18,6 +18,10 @@
 #include "../m_misc.h"
 #include "../p_setup.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // the original aspect ratio of Doom graphics isn't square
 #define ORIGINAL_ASPECT (320.0f/200.0f)
 
@@ -157,5 +161,9 @@ void HWR_LoadCustomShadersFromFile(UINT16 wadnum, boolean PK3);
 const char *HWR_GetShaderName(INT32 shader);
 
 extern customshaderxlat_t shaderxlat[];
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //_HW_GLOB_

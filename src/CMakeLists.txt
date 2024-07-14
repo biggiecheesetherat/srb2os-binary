@@ -464,15 +464,13 @@ target_link_libraries(SRB2SDL2 PRIVATE xmp-lite::xmp-lite)
 target_link_libraries(SRB2SDL2 PRIVATE fmt::fmt-header-only)
 target_link_libraries(SRB2SDL2 PRIVATE Tracy::TracyClient)
 
-# miniupnpc disabled for now
-
-# if(TARGET miniupnpc::miniupnpc)
-# 	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_MINIUPNPC)
-# 	target_link_libraries(SRB2SDL2 PRIVATE miniupnpc::miniupnpc)
-# 	message(STATUS "miniupnpc Found")
-# else()
-# 	message(STATUS "No miniupnpc Found")
-# endif()
+if(TARGET miniupnpc::miniupnpc)
+	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_MINIUPNPC)
+	target_link_libraries(SRB2SDL2 PRIVATE miniupnpc::miniupnpc)
+	message(STATUS "miniupnpc Found")
+else()
+	message(STATUS "No miniupnpc Found")
+endif()
 
 # strip debug symbols into separate file when using gcc.
 # to be consistent with Makefile, don't generate for OS X.

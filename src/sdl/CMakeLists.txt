@@ -50,6 +50,7 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)
 	)
 endif()
 
+find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(SRB2SDL2
 	PRIVATE
 	$<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
@@ -68,7 +69,6 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
 	)
 endif()
 
-find_package(SDL2 CONFIG REQUIRED)
 if(TARGET SDL2main)
 	target_link_libraries(SRB2SDL2 PRIVATE SDL2main)
 endif()

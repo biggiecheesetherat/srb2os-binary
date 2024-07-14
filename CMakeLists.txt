@@ -91,6 +91,9 @@ endif()
 
 add_subdirectory(thirdparty)
 
+if(NOT SRB2_CONFIG_DEDICATED_BUILD)
+	find_package(SDL2 CONFIG REQUIRED)
+endif()
 find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 find_package(CURL REQUIRED)

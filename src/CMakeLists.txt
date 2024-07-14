@@ -204,7 +204,7 @@ target_compile_definitions(SRB2SDL2 PRIVATE -D_LARGEFILE64_SOURCE)
 set(SRB2_HAVE_THREADS ON)
 target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_THREADS)
 
-if("${SRB2_CONFIG_HWRENDER}")
+if("${SRB2_CONFIG_HWRENDER}" AND NOT SRB2_CONFIG_DEDICATED_BUILD)
 	target_compile_definitions(SRB2SDL2 PRIVATE -DHWRENDER)
 	add_subdirectory(hardware)
 
@@ -419,7 +419,11 @@ if(SRB2_CONFIG_PROFILEMODE AND "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 	target_link_options(SRB2SDL2 PRIVATE -pg)
 endif()
 
-add_subdirectory(sdl)
+if(SRB2_CONFIG_DEDICATED_BUILD)
+	add_subdirectory(dedicated)
+else()
+	add_subdirectory(sdl)
+endif()
 
 if(TARGET ZLIB::ZLIB)
 	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_ZLIB)

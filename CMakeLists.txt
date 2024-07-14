@@ -67,6 +67,7 @@ option(SRB2_CONFIG_PACKETDROP "Compile with PACKETDROP defined." OFF)
 option(SRB2_CONFIG_EXECINFO "Enable stack trace dump support." ON)
 option(SRB2_CONFIG_ZDEBUG "Compile with ZDEBUG defined." OFF)
 option(SRB2_CONFIG_SKIP_COMPTIME "Skip regenerating comptime. To speed up iterative debug builds in IDEs." OFF)
+option(SRB2_CONFIG_DEDICATED_BUILD "Dedicated/headless server build (dedicated interface folder)" OFF)
 # SRB2_CONFIG_PROFILEMODE is probably superceded by some CMake setting.
 option(SRB2_CONFIG_PROFILEMODE "Compile for profiling (GCC only)." OFF)
 option(SRB2_CONFIG_TRACY "Compile with Tracy profiling enabled" OFF)
@@ -140,6 +141,11 @@ include(GitUtilities)
 
 get_git_dir(SRB2_GIT_DIR)
 
+set(DEFAULT_EXE "srb2")
+if(SRB2_CONFIG_DEDICATED_BUILD)
+	set(DEFAULT_EXE "srb2d")
+endif()
+
 if(NOT "${SRB2_GIT_DIR}" STREQUAL "" AND "${SRB2_SDL2_EXE_NAME}" STREQUAL "")
 	# cause a reconfigure if the branch changes
 	configure_file("${SRB2_GIT_DIR}/HEAD" HEAD COPYONLY)
@@ -151,7 +157,7 @@ if(NOT "${SRB2_GIT_DIR}" STREQUAL "" AND "${SRB2_SDL2_EXE_NAME}" STREQUAL "")
 		git_latest_commit(SRB2_GIT_REVISION)
 	endif()
 
-	list(APPEND EXE_NAME_PARTS "srb2")
+	list(APPEND EXE_NAME_PARTS "${DEFAULT_EXE}")
 
 	if(NOT "${SRB2_GIT_REVISION}" STREQUAL "master")
 		# substitute path-unsafe characters
@@ -161,7 +167,7 @@ if(NOT "${SRB2_GIT_DIR}" STREQUAL "" AND "${SRB2_SDL2_EXE_NAME}" STREQUAL "")
 elseif(NOT "${SRB2_SDL2_EXE_NAME}" STREQUAL "")
 	list(APPEND EXE_NAME_PARTS ${SRB2_SDL2_EXE_NAME})
 else()
-	list(APPEND EXE_NAME_PARTS "srb2")
+	list(APPEND EXE_NAME_PARTS "${DEFAULT_EXE}")
 endif()
 
 list(APPEND EXE_NAME_PARTS ${SRB2_SDL2_EXE_SUFFIX})

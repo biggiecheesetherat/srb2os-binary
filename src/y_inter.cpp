@@ -2137,7 +2137,7 @@ static void Y_AwardSpecialStageBonus(void)
 			M_Memcpy(&data.spec.bonuses, &localbonuses, sizeof(data.spec.bonuses));
 
 			// Continues related
-			data.spec.continues = std::min<INT8>(players[i].continues, 8);
+			data.spec.continues = std::min<SINT8>(players[i].continues, 8);
 			if (players[i].gotcontinue)
 				data.spec.continues |= 0x80;
 			data.spec.playercolor = &players[i].skincolor;

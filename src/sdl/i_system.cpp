@@ -602,8 +602,8 @@ static void I_StartupConsole(void)
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGTTOU, SIG_IGN);
 
-	consolevent = !M_CheckParm("-noconsole");
-	framebuffer = M_CheckParm("-framebuffer");
+	consolevent = static_cast<SDL_bool>(!M_CheckParm("-noconsole"));
+	framebuffer = static_cast<SDL_bool>(M_CheckParm("-framebuffer"));
 
 	if (framebuffer)
 		consolevent = SDL_FALSE;
@@ -643,7 +643,7 @@ static void I_StartupConsole(void)
 void I_GetConsoleEvents(void)
 {
 	// we use this when sending back commands
-	event_t ev = {0};
+	event_t ev {};
 	char key = 0;
 	struct pollfd pfd =
 	{
@@ -3134,7 +3134,7 @@ const char *I_LocateWad(void)
 static long get_entry(const char* name, const char* buf)
 {
 	long val;
-	char* hit = strstr(buf, name);
+	const char* hit = strstr(buf, name);
 	if (hit == NULL) {
 		return -1;
 	}

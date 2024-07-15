@@ -11,6 +11,8 @@
 /// \file  r_segs.c
 /// \brief All the clipping: columns, horizontal spans, sky columns
 
+#include <algorithm>
+
 #include "doomdef.h"
 #include "r_local.h"
 #include "r_sky.h"

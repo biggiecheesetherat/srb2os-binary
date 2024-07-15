@@ -13,6 +13,7 @@
 ///        Functions to draw patches (by post) directly to screen.
 ///        Functions to blit a block to the screen.
 
+#include <algorithm>
 #include <cmath>
 
 #include "doomdef.h"

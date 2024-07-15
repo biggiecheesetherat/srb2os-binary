@@ -123,7 +123,7 @@ transnum_t R_GetLinedefTransTable(fixed_t alpha)
 
 static UINT8 R_SideLightLevel(side_t *side, INT16 base_lightlevel)
 {
-	return std::max(0, std::min(255, side->light +
+	return std::max<INT16>(0, std::min<INT16>(255, side->light +
 		((side->lightabsolute) ? 0 : base_lightlevel)));
 }
 

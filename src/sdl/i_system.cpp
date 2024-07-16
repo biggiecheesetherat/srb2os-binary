@@ -181,6 +181,7 @@ const char *wadSearchPaths[] = {
 /**	\brief WAD file to look for
 */
 #define WADKEYWORD1 "srb2.pk3"
+#define WADKEYWORD2 "srb2"
 /**	\brief holds wad path
 */
 static char returnWadPath[256];
@@ -2983,6 +2984,17 @@ static boolean isWadPathOk(const char *path)
 		free(wad3path);
 		return true;
 	}
+
+#ifdef DEVELOP
+	// srb2 directory as well
+	sprintf(wad3path, pandf, path, WADKEYWORD2);
+
+	if (FIL_ReadFileOK(wad3path))
+	{
+		free(wad3path);
+		return true;
+	}
+#endif
 
 	free(wad3path);
 	return false;

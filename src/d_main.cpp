@@ -134,17 +134,14 @@ typedef struct filelist_s
 
 static const struct {
 	const char *filename;
+	const char *devdirname;
 	const char *md5;
 	boolean music;
 } base_file_list[] =
 {
-	{ "srb2.pk3", ASSET_HASH_SRB2_PK3, false },
-	{ "zones.pk3", ASSET_HASH_ZONES_PK3, false },
-	{ "player.dta", ASSET_HASH_PLAYER_DTA, false },
-#ifdef USE_PATCH_DTA
-	{ "patch.pk3", ASSET_HASH_PATCH_PK3, false },
-#endif
-	{ "music.dta", NULL, true },
+	{ "srb2.pk3", "srb2/", ASSET_HASH_SRB2_PK3, false },
+	{ "characters.pk3", "characters/", ASSET_HASH_CHARACTERS_PK3, false },
+	{ "music.pk3", "music/", ASSET_HASH_MUSIC_PK3, true }
 };
 
 static size_t num_files;
@@ -1208,9 +1205,40 @@ static int ParseDevConfig(void *userdata, const char *section, const char *name,
 }
 #endif
 
-static void AddMainFiles(void)
+
+/*
+ * Note: Must be called after srb2path is set to function correctly.
+ */
+static boolean ShouldUseDevDirectories()
+{
+#ifndef DEVELOP
+	// never support dev dirs in release builds
+	return false;
+#else
+	int base_file_list_size = sizeof(base_file_list) / sizeof(base_file_list[0]);
+
+	if (M_CheckParm("-nodevdirs"))
+	{
+		return false;
+	}
+
+	// All dev directories must be present in SRB2WADDIR or wherever
+	for (int i = 0; i < base_file_list_size; i++)
+	{
+		if (findfolder(base_file_list[i].devdirname) != FS_FOUND)
+		{
+			return false;
+		}
+	}
+
+	return true;
+#endif
+}
+
+static void AddMainFiles()
 {
 	const char *srb2waddir = NULL;
+	boolean devflatfiles = ShouldUseDevDirectories();
 
 #ifdef DEVELOP
 	FILE *devcfgfile = NULL;
@@ -1240,7 +1268,15 @@ static void AddMainFiles(void)
 
 	for (unsigned i = 0; i < num_files; i++)
 	{
-		const char *filename = base_file_list[i].filename;
+		const char *filename;
+		if (!devflatfiles)
+		{
+			filename = base_file_list[i].filename;
+		}
+		else
+		{
+			filename = base_file_list[i].devdirname;
+		}
 
 		file_list[i].filename = static_cast<char*>(Z_Malloc(strlen(srb2waddir) + 1 + strlen(filename) + 1, PU_STATIC, NULL));
 
@@ -1278,7 +1314,16 @@ static void AddMainFiles(void)
 		I_Error("No files to load");
 
 	if (FIL_ReadFileOK(file_list[0].filename))
-		D_AddFile(&startupwadfiles, file_list[0].filename);
+	{
+		if (!devflatfiles)
+		{
+			D_AddFile(&startupwadfiles, file_list[0].filename);
+		}
+		else
+		{
+			D_AddFolder(&startupwadfiles, file_list[0].filename);
+		}
+	}
 	else
 		I_Error("%s not found! Expected in %s", file_list[0].filename, srb2waddir);
 
@@ -1293,7 +1338,14 @@ static void AddMainFiles(void)
 		}
 #endif
 
-		D_AddFile(&startupwadfiles, file_list[i].filename);
+		if (!devflatfiles)
+		{
+			D_AddFile(&startupwadfiles, file_list[i].filename);
+		}
+		else
+		{
+			D_AddFolder(&startupwadfiles, file_list[i].filename);
+		}
 	}
 }
 

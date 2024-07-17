@@ -1238,7 +1238,7 @@ static boolean ShouldUseDevDirectories()
 static void AddMainFiles()
 {
 	const char *srb2waddir = NULL;
-	boolean devflatfiles = ShouldUseDevDirectories();
+	boolean devflatfiles;
 
 #ifdef DEVELOP
 	FILE *devcfgfile = NULL;
@@ -1248,6 +1248,7 @@ static void AddMainFiles()
 	// change to the directory where 'srb2.pk3' is found
 	srb2waddir = I_LocateWad();
 #endif
+	devflatfiles = ShouldUseDevDirectories();
 
 	// get the current directory (possible problem on NT with "." as current dir)
 	if (srb2waddir)

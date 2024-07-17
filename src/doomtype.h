@@ -29,11 +29,7 @@ extern "C" {
 
 /* 7.18.1.1  Exact-width integer types */
 #ifdef _MSC_VER
-// libopenmpt.h will include stdint.h later;
-// include it now so that INT8_MAX etc. don't get redefined
-#ifdef HAVE_OPENMPT
 #include <stdint.h>
-#endif
 
 #define SINT8 signed __int8
 

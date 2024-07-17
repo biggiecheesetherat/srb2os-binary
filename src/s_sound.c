@@ -43,10 +43,6 @@ static void SetChannelsNum(void);
 static void Command_Tunes_f(void);
 static void Command_RestartAudio_f(void);
 
-#ifdef HAVE_OPENMPT
-static void ModFilter_OnChange(void);
-#endif
-
 static lumpnum_t S_GetMusicLumpNum(const char *mname);
 
 static boolean S_CheckQueue(void);
@@ -99,12 +95,6 @@ consvar_t cv_1upsound = CVAR_INIT ("1upsound", "Jingle", CV_SAVE, cons_1upsound_
 // Window focus sound sytem toggles
 consvar_t cv_playmusicifunfocused = CVAR_INIT ("playmusicifunfocused", "No", CV_SAVE, CV_YesNo, NULL);
 consvar_t cv_playsoundsifunfocused = CVAR_INIT ("playsoundsifunfocused", "No", CV_SAVE, CV_YesNo, NULL);
-
-#ifdef HAVE_OPENMPT
-openmpt_module *openmpt_mhandle = NULL;
-static CV_PossibleValue_t interpolationfilter_cons_t[] = {{0, "Default"}, {1, "None"}, {2, "Linear"}, {4, "Cubic"}, {8, "Windowed sinc"}, {0, NULL}};
-consvar_t cv_modfilter = CVAR_INIT ("modfilter", "0", CV_SAVE|CV_CALL, interpolationfilter_cons_t, ModFilter_OnChange);
-#endif
 
 #define S_MAX_VOLUME 127
 
@@ -257,9 +247,6 @@ void S_RegisterSoundStuff(void)
 	CV_RegisterVar(&cv_1upsound);
 	CV_RegisterVar(&cv_playsoundsifunfocused);
 	CV_RegisterVar(&cv_playmusicifunfocused);
-#ifdef HAVE_OPENMPT
-	CV_RegisterVar(&cv_modfilter);
-#endif
 
 	COM_AddCommand("tunes", Command_Tunes_f, COM_LUA);
 	COM_AddCommand("restartaudio", Command_RestartAudio_f, COM_LUA);
@@ -2456,11 +2443,3 @@ static void Command_RestartAudio_f(void)
 	if (Playing()) // Gotta make sure the player is in a level
 		P_RestoreMusic(&players[consoleplayer]);
 }
-
-#ifdef HAVE_OPENMPT
-void ModFilter_OnChange(void)
-{
-	if (openmpt_mhandle)
-		openmpt_module_set_render_param(openmpt_mhandle, OPENMPT_MODULE_RENDER_INTERPOLATIONFILTER_LENGTH, cv_modfilter.value);
-}
-#endif

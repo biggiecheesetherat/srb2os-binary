@@ -20,11 +20,6 @@
 #include "command.h"
 #include "tables.h" // angle_t
 
-#ifdef HAVE_OPENMPT
-#include "libopenmpt/libopenmpt.h"
-extern openmpt_module *openmpt_mhandle;
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,10 +44,6 @@ extern consvar_t cv_1upsound;
 
 extern consvar_t cv_playmusicifunfocused;
 extern consvar_t cv_playsoundsifunfocused;
-
-#ifdef HAVE_OPENMPT
-extern consvar_t cv_modfilter;
-#endif
 
 extern CV_PossibleValue_t soundvolume_cons_t[];
 

@@ -1457,21 +1457,11 @@ static menuitem_t OP_SoundOptionsMenu[] =
 	{IT_STRING | IT_SUBMENU, NULL, "Advanced Settings...", &OP_SoundAdvancedDef, 87},
 };
 
-#ifdef HAVE_OPENMPT
-#define OPENMPT_MENUOFFSET 32
-#else
 #define OPENMPT_MENUOFFSET 0
-#endif
-
 #define MIXERX_MENUOFFSET 0
 
 static menuitem_t OP_SoundAdvancedMenu[] =
 {
-#ifdef HAVE_OPENMPT
-	{IT_HEADER, NULL, "OpenMPT Settings", NULL, 0},
-	{IT_STRING | IT_CVAR, NULL, "Instrument Filter", &cv_modfilter, 12},
-#endif
-
 	{IT_HEADER, NULL, "Miscellaneous", NULL, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET},
 	{IT_STRING | IT_CVAR, NULL, "Play Sound Effects if Unfocused", &cv_playsoundsifunfocused, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET+12},
 	{IT_STRING | IT_CVAR, NULL, "Play Music if Unfocused", &cv_playmusicifunfocused, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET+22},

@@ -54,12 +54,6 @@ extern consvar_t cv_playsoundsifunfocused;
 extern consvar_t cv_modfilter;
 #endif
 
-#ifdef HAVE_MIXERX
-extern consvar_t cv_midiplayer;
-extern consvar_t cv_midisoundfontpath;
-extern consvar_t cv_miditimiditypath;
-#endif
-
 extern CV_PossibleValue_t soundvolume_cons_t[];
 
 typedef enum

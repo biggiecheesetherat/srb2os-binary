@@ -1329,14 +1329,12 @@ static void AddMainFiles()
 
 	for (unsigned i = 1; i < num_files; i++)
 	{
-#if !defined (HAVE_SDL) || defined (HAVE_MIXER)
 		if (file_list[i].music)
 		{
 			int ms = W_VerifyNMUSlumps(file_list[i].filename, false);
 			if (ms == 0)
 				I_Error("File %s has been modified with non-music/sound lumps", file_list[i].filename);
 		}
-#endif
 
 		if (!devflatfiles)
 		{

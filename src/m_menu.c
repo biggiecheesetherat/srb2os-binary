@@ -1463,24 +1463,13 @@ static menuitem_t OP_SoundOptionsMenu[] =
 #define OPENMPT_MENUOFFSET 0
 #endif
 
-#ifdef HAVE_MIXERX
-#define MIXERX_MENUOFFSET 81
-#else
 #define MIXERX_MENUOFFSET 0
-#endif
 
 static menuitem_t OP_SoundAdvancedMenu[] =
 {
 #ifdef HAVE_OPENMPT
 	{IT_HEADER, NULL, "OpenMPT Settings", NULL, 0},
 	{IT_STRING | IT_CVAR, NULL, "Instrument Filter", &cv_modfilter, 12},
-#endif
-
-#ifdef HAVE_MIXERX
-	{IT_HEADER, NULL, "MIDI Settings", NULL, OPENMPT_MENUOFFSET},
-	{IT_STRING | IT_CVAR, NULL, "MIDI Player", &cv_midiplayer, OPENMPT_MENUOFFSET+12},
-	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "FluidSynth Sound Font File", &cv_midisoundfontpath, OPENMPT_MENUOFFSET+24},
-	{IT_STRING | IT_CVAR | IT_CV_STRING, NULL, "TiMidity++ Config Folder", &cv_miditimiditypath, OPENMPT_MENUOFFSET+51},
 #endif
 
 	{IT_HEADER, NULL, "Miscellaneous", NULL, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET},

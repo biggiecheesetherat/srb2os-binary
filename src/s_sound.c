@@ -260,11 +260,6 @@ void S_RegisterSoundStuff(void)
 #ifdef HAVE_OPENMPT
 	CV_RegisterVar(&cv_modfilter);
 #endif
-#ifdef HAVE_MIXERX
-	CV_RegisterVar(&cv_midiplayer);
-	CV_RegisterVar(&cv_midisoundfontpath);
-	CV_RegisterVar(&cv_miditimiditypath);
-#endif
 
 	COM_AddCommand("tunes", Command_Tunes_f, COM_LUA);
 	COM_AddCommand("restartaudio", Command_RestartAudio_f, COM_LUA);

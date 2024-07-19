@@ -1,6 +1,7 @@
 include("Ccache.cmake")
 
 add_subdirectory(fmt)
+add_subdirectory(glad)
 add_subdirectory(tcbrindle_span)
 add_subdirectory(stb)
 add_subdirectory(tracy)

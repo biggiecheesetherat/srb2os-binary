@@ -18,10 +18,6 @@
 extern "C" {
 #endif
 
-#ifdef __GNUG__
-#pragma interface
-#endif
-
 extern seg_t *curline;
 extern side_t *sidedef;
 extern line_t *linedef;

@@ -20,10 +20,6 @@
 extern "C" {
 #endif
 
-#ifdef __GNUG__
-#pragma interface
-#endif
-
 extern tic_t leveltime;
 
 // Called by G_Ticker. Carries out all thinking of enemies and players.

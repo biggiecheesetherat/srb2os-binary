@@ -20,10 +20,6 @@
 extern "C" {
 #endif
 
-#ifdef __GNUG__
-#pragma interface
-#endif
-
 typedef enum
 {
 	/// Software

@@ -18,10 +18,6 @@
 extern "C" {
 #endif
 
-#ifdef __GNUG__
-#pragma interface
-#endif
-
 transnum_t R_GetLinedefTransTable(fixed_t alpha);
 INT32 R_GetOverlayTextureRepeats(unsigned which, side_t *side, INT32 texnum, sector_t *sec_front, sector_t *sec_back, fixed_t v1x, fixed_t v1y, fixed_t v2x, fixed_t v2y);
 void R_RenderMaskedSegRange(drawseg_t *ds, INT32 x1, INT32 x2);

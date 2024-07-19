@@ -22,10 +22,6 @@
 extern "C" {
 #endif
 
-#ifdef __GNUG__
-#pragma interface
-#endif
-
 //
 // Refresh internal data structures, for rendering.
 //

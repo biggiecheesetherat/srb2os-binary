@@ -11,7 +11,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	deh_lua.c
 	deh_tables.c
 	z_zone.c
-	f_finale.c
+	f_finale.cpp
 	f_wipe.cpp
 	g_demo.cpp
 	g_game.c

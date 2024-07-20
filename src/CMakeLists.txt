@@ -21,6 +21,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	console.c
 	hu_stuff.c
 	i_time.c
+	i_video_common.cpp
 	y_inter.cpp
 	st_stuff.c
 	m_aatree.c
@@ -163,8 +164,10 @@ set(SRB2_CONFIG_DEV_BUILD OFF CACHE BOOL
 add_subdirectory(audio)
 add_subdirectory(blua)
 add_subdirectory(core)
+add_subdirectory(hwr2)
 add_subdirectory(io)
 add_subdirectory(netcode)
+add_subdirectory(rhi)
 
 # OS macros
 if (UNIX)
@@ -450,9 +453,12 @@ else()
 endif()
 
 target_link_libraries(SRB2SDL2 PRIVATE tcbrindle::span)
+target_link_libraries(SRB2SDL2 PRIVATE glm::glm)
 target_link_libraries(SRB2SDL2 PRIVATE Stb)
 target_link_libraries(SRB2SDL2 PRIVATE xmp-lite::xmp-lite)
+target_link_libraries(SRB2SDL2 PRIVATE glad::glad)
 target_link_libraries(SRB2SDL2 PRIVATE fmt::fmt-header-only)
+target_link_libraries(SRB2SDL2 PRIVATE imgui::imgui)
 target_link_libraries(SRB2SDL2 PRIVATE Tracy::TracyClient)
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)

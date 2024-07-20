@@ -144,6 +144,14 @@ void F_MenuPresTicker(void);
 //
 // WIPE
 //
+
+extern boolean WipeInAction;
+extern UINT8 g_wipemode;
+extern UINT8 g_wipetype;
+extern UINT8 g_wipeframe;
+extern boolean g_wipereverse;
+extern boolean g_wipeencorewiggle;
+
 // HACK for menu fading while titlemapinaction; skips the level check
 #define FORCEWIPE -3
 #define FORCEWIPEOFF -2
@@ -189,11 +197,19 @@ extern INT32 lastwipetic;
 
 void F_WipeStartScreen(void);
 void F_WipeEndScreen(void);
-void F_RunWipe(UINT8 wipetype, boolean drawMenu);
+void F_RunWipe(UINT8 wipetype, boolean drawMenu, boolean reverse);
 void F_WipeStageTitle(void);
 #define F_WipeColorFill(c) V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, c)
 tic_t F_GetWipeLength(UINT8 wipetype);
 boolean F_WipeExists(UINT8 wipetype);
+/// @brief true if the wipetype is to-black
+boolean F_WipeIsToBlack(UINT8 wipemode);
+/// @brief true if the wipetype is to-white
+boolean F_WipeIsToWhite(UINT8 wipemode);
+/// @brief true if the wipetype is to-invert
+boolean F_WipeIsToInvert(UINT8 wipemode);
+/// @brief true if the wipetype is modulated from the previous frame
+boolean F_WipeIsCrossfade(UINT8 wipemode);
 
 enum
 {

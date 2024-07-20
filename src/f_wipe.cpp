@@ -45,6 +45,8 @@
 #define NOWIPE // do not enable wipe image post processing for ARM, SH and MIPS CPUs
 #endif
 
+using namespace srb2;
+
 typedef struct fademask_s {
 	UINT8* mask;
 	UINT16 width, height;
@@ -87,11 +89,140 @@ UINT8 wipedefs[NUMWIPEDEFS] = {
 	0   // wipe_multinter_final
 };
 
+static boolean g_wipedef_toblack[NUMWIPEDEFS] = {
+	true, // wipe_credits_intermediate (0)
+
+	true, // wipe_level_toblack
+	true, // wipe_intermission_toblack
+	true, // wipe_voting_toblack,
+	true, // wipe_continuing_toblack
+	true, // wipe_titlescreen_toblack
+	true, // wipe_menu_toblack
+	true, // wipe_credits_toblack
+	true, // wipe_evaluation_toblack
+	true, // wipe_ceremony_toblack
+	true, // wipe_intro_toblack (hardcoded)
+	true, // wipe_cutscene_toblack (hardcoded)
+
+	false, // wipe_encore_toinvert
+	false, // wipe_encore_towhite
+
+	true, // wipe_level_final
+	true, // wipe_intermission_final
+	true, // wipe_voting_final
+	true, // wipe_continuing_final
+	true, // wipe_titlescreen_final
+	true, // wipe_menu_final
+	true, // wipe_credits_final
+	true, // wipe_evaluation_final
+	true, // wipe_ceremony_final
+	true, // wipe_intro_final (hardcoded)
+	true  // wipe_cutscene_final (hardcoded)
+};
+
+static boolean g_wipedef_toinvert[NUMWIPEDEFS] = {
+	false, // wipe_credits_intermediate (0)
+
+	false, // wipe_level_toblack
+	false, // wipe_intermission_toblack
+	false, // wipe_voting_toblack,
+	false, // wipe_continuing_toblack
+	false, // wipe_titlescreen_toblack
+	false, // wipe_menu_toblack
+	false, // wipe_credits_toblack
+	false, // wipe_evaluation_toblack
+	false, // wipe_ceremony_toblack
+	false, // wipe_intro_toblack (hardcoded)
+	false, // wipe_cutscene_toblack (hardcoded)
+
+	true, // wipe_encore_toinvert
+	false, // wipe_encore_towhite
+
+	false, // wipe_level_final
+	false, // wipe_intermission_final
+	false, // wipe_voting_final
+	false, // wipe_continuing_final
+	false, // wipe_titlescreen_final
+	false, // wipe_menu_final
+	false, // wipe_credits_final
+	false, // wipe_evaluation_final
+	false, // wipe_ceremony_final
+	false, // wipe_intro_final (hardcoded)
+	false  // wipe_cutscene_final (hardcoded)
+};
+
+static boolean g_wipedef_towhite[NUMWIPEDEFS] = {
+	false, // wipe_credits_intermediate (0)
+
+	false, // wipe_level_toblack
+	false, // wipe_intermission_toblack
+	false, // wipe_voting_toblack,
+	false, // wipe_continuing_toblack
+	false, // wipe_titlescreen_toblack
+	false, // wipe_menu_toblack
+	false, // wipe_credits_toblack
+	false, // wipe_evaluation_toblack
+	false, // wipe_ceremony_toblack
+	false, // wipe_intro_toblack (hardcoded)
+	false, // wipe_cutscene_toblack (hardcoded)
+
+	false, // wipe_encore_toinvert
+	true, // wipe_encore_towhite
+
+	false, // wipe_level_final
+	false, // wipe_intermission_final
+	false, // wipe_voting_final
+	false, // wipe_continuing_final
+	false, // wipe_titlescreen_final
+	false, // wipe_menu_final
+	false, // wipe_credits_final
+	false, // wipe_evaluation_final
+	false, // wipe_ceremony_final
+	false, // wipe_intro_final (hardcoded)
+	false  // wipe_cutscene_final (hardcoded)
+};
+
+static boolean g_wipedef_crossfade[NUMWIPEDEFS] = {
+	false, // wipe_credits_intermediate (0)
+
+	false, // wipe_level_toblack
+	false, // wipe_intermission_toblack
+	false, // wipe_voting_toblack,
+	false, // wipe_continuing_toblack
+	false, // wipe_titlescreen_toblack
+	false, // wipe_menu_toblack
+	false, // wipe_credits_toblack
+	false, // wipe_evaluation_toblack
+	false, // wipe_ceremony_toblack
+	false, // wipe_intro_toblack (hardcoded)
+	false, // wipe_cutscene_toblack (hardcoded)
+
+	false, // wipe_encore_toinvert
+	false, // wipe_encore_towhite
+
+	true, // wipe_level_final
+	true, // wipe_intermission_final
+	true, // wipe_voting_final
+	true, // wipe_continuing_final
+	true, // wipe_titlescreen_final
+	true, // wipe_menu_final
+	true, // wipe_credits_final
+	true, // wipe_evaluation_final
+	true, // wipe_ceremony_final
+	true, // wipe_intro_final (hardcoded)
+	true  // wipe_cutscene_final (hardcoded)
+};
+
 //--------------------------------------------------------------------------
 //                        SCREEN WIPE PACKAGE
 //--------------------------------------------------------------------------
 
 boolean WipeInAction = false;
+UINT8 g_wipemode = 0;
+UINT8 g_wipetype = 0;
+UINT8 g_wipeframe = 0;
+boolean g_wipereverse = false;
+boolean g_wipeencorewiggle = false;
 boolean WipeStageTitle = false;
 INT32 lastwipetic = 0;
 
@@ -427,6 +558,38 @@ static void F_DoColormapWipe(fademask_t *fademask, UINT8 *colormap)
 }
 #endif
 
+static void refresh_wipe_screen_texture(rhi::Rhi& rhi, rhi::Handle<rhi::GraphicsContext> ctx, rhi::Handle<rhi::Texture>& tex)
+{
+	bool recreate = false;
+	if (!tex)
+	{
+		recreate = true;
+	}
+	else
+	{
+		rhi::TextureDetails deets = rhi.get_texture_details(tex);
+		if (deets.width != static_cast<uint32_t>(vid.width) || deets.height != static_cast<uint32_t>(vid.height))
+		{
+			recreate = true;
+			rhi.destroy_texture(tex);
+			tex = rhi::kNullHandle;
+		}
+	}
+
+	if (!recreate)
+	{
+		return;
+	}
+
+	tex = rhi.create_texture({
+		rhi::TextureFormat::kRGBA,
+		static_cast<uint32_t>(vid.width),
+		static_cast<uint32_t>(vid.height),
+		rhi::TextureWrapMode::kClamp,
+		rhi::TextureWrapMode::kClamp
+	});
+}
+
 /** Save the "before" screen of a wipe.
   */
 void F_WipeStartScreen(void)
@@ -439,8 +602,34 @@ void F_WipeStartScreen(void)
 		return;
 	}
 #endif
-	wipe_scr_start = screens[3];
-	I_ReadScreen(wipe_scr_start);
+
+	rhi::Rhi* rhi = srb2::sys::get_rhi(srb2::sys::g_current_rhi);
+
+	if (!rhi)
+	{
+		return;
+	}
+
+	rhi::Handle<rhi::GraphicsContext> ctx = srb2::sys::main_graphics_context();
+
+	if (!ctx)
+	{
+		return;
+	}
+
+	hwr2::HardwareState* hw_state = srb2::sys::main_hardware_state();
+
+	refresh_wipe_screen_texture(*rhi, ctx, hw_state->wipe_frames.start);
+
+	hw_state->twodee_renderer->flush(*rhi, ctx, g_2d);
+
+	rhi::Rect dst_region = {0, 0, static_cast<uint32_t>(vid.width), static_cast<uint32_t>(vid.height)};
+	rhi::TextureDetails backbuf_deets = rhi->get_texture_details(hw_state->backbuffer->color());
+	dst_region.w = std::min(dst_region.w, backbuf_deets.width);
+	dst_region.h = std::min(dst_region.h, backbuf_deets.height);
+	rhi->copy_framebuffer_to_texture(ctx, hw_state->wipe_frames.start, dst_region, dst_region);
+
+	I_FinishUpdate();
 #endif
 }
 
@@ -456,9 +645,39 @@ void F_WipeEndScreen(void)
 		return;
 	}
 #endif
-	wipe_scr_end = screens[4];
-	I_ReadScreen(wipe_scr_end);
-	V_DrawBlock(0, 0, 0, vid.width, vid.height, wipe_scr_start);
+
+	rhi::Rhi* rhi = srb2::sys::get_rhi(srb2::sys::g_current_rhi);
+
+	if (!rhi)
+	{
+		return;
+	}
+
+	rhi::Handle<rhi::GraphicsContext> ctx = srb2::sys::main_graphics_context();
+
+	if (!ctx)
+	{
+		return;
+	}
+
+	hwr2::HardwareState* hw_state = srb2::sys::main_hardware_state();
+
+	refresh_wipe_screen_texture(*rhi, ctx, hw_state->wipe_frames.end);
+
+	hw_state->twodee_renderer->flush(*rhi, ctx, g_2d);
+
+	rhi::Rect dst_region = {0, 0, static_cast<uint32_t>(vid.width), static_cast<uint32_t>(vid.height)};
+	rhi::TextureDetails backbuf_deets = rhi->get_texture_details(hw_state->backbuffer->color());
+	dst_region.w = std::min(dst_region.w, backbuf_deets.width);
+	dst_region.h = std::min(dst_region.h, backbuf_deets.height);
+	rhi->copy_framebuffer_to_texture(ctx, hw_state->wipe_frames.end, dst_region, dst_region);
+
+	hw_state->blit_rect->set_output(0, 0, dst_region.w, dst_region.h, false, true);
+	rhi::TextureDetails start_deets = rhi->get_texture_details(hw_state->wipe_frames.start);
+	hw_state->blit_rect->set_texture(hw_state->wipe_frames.start, start_deets.width, start_deets.height);
+	hw_state->blit_rect->draw(*rhi, ctx);
+
+	I_FinishUpdate();
 #endif
 }
 
@@ -527,11 +746,12 @@ boolean F_TryColormapFade(UINT8 wipecolor)
 /** After setting up the screens you want to wipe,
   * calling this will do a 'typical' wipe.
   */
-void F_RunWipe(UINT8 wipetype, boolean drawMenu)
+void F_RunWipe(UINT8 wipetype, boolean drawMenu, boolean reverse)
 {
 #ifdef NOWIPE
 	(void)wipetype;
 	(void)drawMenu;
+	(void)reverse;
 #else
 	tic_t nowtime;
 	UINT8 wipeframe = 0;
@@ -562,44 +782,51 @@ void F_RunWipe(UINT8 wipetype, boolean drawMenu)
 		}
 		lastwipetic = nowtime;
 
-		// Wipe styles
-		if (wipestyle == WIPESTYLE_COLORMAP)
-		{
 #ifdef HWRENDER
-			if (rendermode == render_opengl)
-			{
-				// send in the wipe type and wipe frame because we need to cache the graphic
-				HWR_DoWipe(wipetype, wipeframe-1);
-			}
-			else
-#endif
-			{
-				UINT8 *colormap = fadecolormap;
-				if (wipestyleflags & WSF_TOWHITE)
-					colormap += (FADECOLORMAPROWS * 256);
-				F_DoColormapWipe(fmask, colormap);
-			}
+		if (rendermode == render_opengl)
+		{
+			HWR_DoWipe(wipetype, wipeframe-1); // send in the wipe type and wipeframe because we need to cache the graphic
 
-			// Draw the title card above the wipe
 			F_WipeStageTitle();
 		}
 		else
+#endif
+
+		if (rendermode != render_none) //this allows F_RunWipe to be called in dedicated servers
 		{
-#ifdef HWRENDER
-			if (rendermode == render_opengl)
+			// F_DoWipe(fmask, fcolor, reverse);
+			g_wipemode = 0; //wipemode;
+			g_wipetype = wipetype;
+			g_wipeframe = wipeframe - 1;
+			g_wipereverse = reverse;
+
+			g_wipeencorewiggle = 0;
+
+			rhi::Rhi* rhi = srb2::sys::get_rhi(srb2::sys::g_current_rhi);
+			rhi::Handle<rhi::GraphicsContext> ctx = srb2::sys::main_graphics_context();
+			hwr2::HardwareState* hw_state = srb2::sys::main_hardware_state();
+
+			if (reverse)
 			{
-				// send in the wipe type and wipe frame because we need to cache the graphic
-				HWR_DoWipe(wipetype, wipeframe-1);
+				hw_state->wipe->set_start(hw_state->wipe_frames.end);
+				hw_state->wipe->set_end(hw_state->wipe_frames.start);
 			}
 			else
-#endif
-				F_DoWipe(fmask);
+			{
+				hw_state->wipe->set_start(hw_state->wipe_frames.start);
+				hw_state->wipe->set_end(hw_state->wipe_frames.end);
+			}
+
+			hw_state->wipe->set_target_size(static_cast<uint32_t>(vid.width), static_cast<uint32_t>(vid.height));
+			hw_state->wipe->draw(*rhi, ctx);
+
+			F_WipeStageTitle();
 		}
 
 		I_OsPolling();
 		I_UpdateNoBlit();
 
-		if (drawMenu)
+		if (drawMenu && rendermode != render_none)
 		{
 #ifdef HAVE_THREADS
 			I_lock_mutex(&m_menu_mutex);
@@ -612,8 +839,13 @@ void F_RunWipe(UINT8 wipetype, boolean drawMenu)
 
 		I_FinishUpdate(); // page flip or blit buffer
 
-		if (moviemode)
-			M_SaveFrame();
+#ifdef HWRENDER
+		if (moviemode && rendermode == render_opengl)
+			M_LegacySaveFrame();
+		else
+#endif
+		if (moviemode && rendermode == render_soft)
+			I_CaptureVideoFrame();
 
 		NetKeepAlive(); // Update the network so we don't cause timeouts
 	}
@@ -671,3 +903,24 @@ boolean F_WipeExists(UINT8 wipetype)
 	return !(lumpnum == LUMPERROR);
 #endif
 }
+
+boolean F_WipeIsToBlack(UINT8 wipemode)
+{
+	return g_wipedef_toblack[wipemode];
+}
+
+boolean F_WipeIsToWhite(UINT8 wipemode)
+{
+	return g_wipedef_towhite[wipemode];
+}
+
+boolean F_WipeIsToInvert(UINT8 wipemode)
+{
+	return g_wipedef_toinvert[wipemode];
+}
+
+boolean F_WipeIsCrossfade(UINT8 wipemode)
+{
+	return g_wipedef_crossfade[wipemode];
+}
+

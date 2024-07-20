@@ -140,6 +140,7 @@ static const struct {
 } base_file_list[] =
 {
 	{ "srb2.pk3", "srb2/", ASSET_HASH_SRB2_PK3, false },
+	{ "shaders.pk3", "shaders/", ASSET_HASH_SHADERS_PK3, false },
 	{ "characters.pk3", "characters/", ASSET_HASH_CHARACTERS_PK3, false },
 	{ "music.pk3", "music/", ASSET_HASH_MUSIC_PK3, true }
 };
@@ -415,7 +416,7 @@ static void D_Display(void)
 				else if (F_TryColormapFade(31))
 					wipetypepost = -1; // Don't run the fade below this one
 				F_WipeEndScreen();
-				F_RunWipe(wipetypepre, gamestate != GS_TIMEATTACK && gamestate != GS_TITLESCREEN);
+				F_RunWipe(wipetypepre, gamestate != GS_TIMEATTACK && gamestate != GS_TITLESCREEN, false);
 			}
 
 			F_WipeStartScreen();
@@ -571,6 +572,11 @@ static void D_Display(void)
 				R_RestoreLevelInterpolators();
 			}
 
+			if (rendermode == render_soft)
+			{
+				VID_DisplaySoftwareScreen();
+			}
+
 			if (lastdraw)
 			{
 				if (rendermode == render_soft)
@@ -672,7 +678,7 @@ static void D_Display(void)
 				wipestyleflags = static_cast<wipestyleflags_t>(wipestyleflags & ~WSF_FADEOUT);
 			}
 
-			F_RunWipe(wipetypepost, gamestate != GS_TIMEATTACK && gamestate != GS_TITLESCREEN);
+			F_RunWipe(wipetypepost, gamestate != GS_TIMEATTACK && gamestate != GS_TITLESCREEN, true);
 		}
 
 		// reset counters so timedemo doesn't count the wipe duration
@@ -914,11 +920,16 @@ void D_SRB2Loop(void)
 			D_Display();
 		}
 
+#ifdef HWRENDER
 		// Only take screenshots after drawing.
-		if (moviemode)
-			M_SaveFrame();
-		if (takescreenshot)
-			M_DoScreenShot();
+		if (moviemode && rendermode == render_opengl)
+			M_LegacySaveFrame();
+		if (rendermode == render_opengl && takescreenshot)
+			M_DoLegacyGLScreenShot();
+#endif
+
+		if ((moviemode || takescreenshot) && rendermode == render_soft)
+			I_CaptureVideoFrame();
 
 		// consoleplayer -> displayplayers (hear sounds from viewpoint)
 		S_UpdateSounds(); // move positional sounds
@@ -1622,6 +1633,7 @@ void D_SRB2Main(void)
 
 	CONS_Printf("I_StartupGraphics()...\n");
 	I_StartupGraphics();
+	I_StartDisplayUpdate();
 
 #ifdef HWRENDER
 	// Lactozilla: Add every hardware mode CVAR and CCMD.

@@ -24,6 +24,12 @@
 
 #include <signal.h>
 
+#include <imgui.h>
+
+#include "../rhi/rhi.hpp"
+#include "../rhi/gl2/gl2_rhi.hpp"
+#include "rhi_gl2_platform.hpp"
+
 #ifdef _MSC_VER
 #pragma warning(disable : 4214 4244)
 #endif
@@ -78,6 +84,7 @@
 #include "../lua_libs.h"
 #include "../lua_hook.h"
 #include "sdlmain.h"
+#include "../i_system.h"
 #ifdef HWRENDER
 #include "../hardware/hw_main.h"
 #include "../hardware/hw_drv.h"
@@ -88,6 +95,8 @@
 
 // maximum number of windowed modes (see windowedModes[][])
 #define MAXWINMODES (18)
+
+using namespace srb2;
 
 /**	\brief
 */
@@ -145,10 +154,11 @@ static       SDL_bool    borderlesswindow = SDL_FALSE;
 
 // SDL2 vars
 SDL_Window   *window;
-SDL_Renderer *renderer;
-static SDL_Texture  *texture;
 static SDL_bool      havefocus = SDL_TRUE;
 static const char *fallback_resolution_name = "Fallback";
+
+static std::unique_ptr<rhi::Rhi> g_rhi;
+static uint32_t g_rhi_generation = 0;
 
 // windowed video modes from which to choose from.
 static INT32 windowedModes[MAXWINMODES][2] =
@@ -173,7 +183,6 @@ static INT32 windowedModes[MAXWINMODES][2] =
 	{ 320, 200}, // 1.60,1.00
 };
 
-static void Impl_VideoSetupSDLBuffer(void);
 static void Impl_VideoSetupBuffer(void);
 static SDL_bool Impl_CreateWindow(SDL_bool fullscreen);
 //static void Impl_SetWindowName(const char *title);
@@ -182,12 +191,6 @@ static void Impl_SetWindowIcon(void);
 static void SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen, SDL_bool reposition)
 {
 	static SDL_bool wasfullscreen = SDL_FALSE;
-	Uint32 rmask;
-	Uint32 gmask;
-	Uint32 bmask;
-	Uint32 amask;
-	int bpp = 16;
-	int sw_texture_format = SDL_PIXELFORMAT_ABGR8888;
 
 	realwidth = vid.width;
 	realheight = vid.height;
@@ -234,60 +237,48 @@ static void SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen, SDL_bool 
 		OglSdlSurface(vid.width, vid.height);
 	}
 #endif
-
-	if (rendermode == render_soft)
 	{
-		SDL_RenderClear(renderer);
-		SDL_RenderSetLogicalSize(renderer, width, height);
-		// Set up Texture
-		realwidth = width;
-		realheight = height;
-		if (texture != NULL)
-		{
-			SDL_DestroyTexture(texture);
-		}
+		SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
+	}
 
-		if (!usesdl2soft)
-		{
-			sw_texture_format = SDL_PIXELFORMAT_RGB565;
-		}
-		else
-		{
-			bpp = 32;
-			sw_texture_format = SDL_PIXELFORMAT_RGBA8888;
-		}
+	SDL_GetWindowSize(window, &width, &height);
+	vid.realwidth = static_cast<uint32_t>(width);
+	vid.realheight = static_cast<uint32_t>(height);
 
-		texture = SDL_CreateTexture(renderer, sw_texture_format, SDL_TEXTUREACCESS_STREAMING, width, height);
-
-		// Set up SW surface
-		if (vidSurface != NULL)
-		{
-			SDL_FreeSurface(vidSurface);
-		}
-		if (vid.buffer)
-		{
-			free(vid.buffer);
-			vid.buffer = NULL;
-		}
-		SDL_PixelFormatEnumToMasks(sw_texture_format, &bpp, &rmask, &gmask, &bmask, &amask);
-		vidSurface = SDL_CreateRGBSurface(0, width, height, bpp, rmask, gmask, bmask, amask);
+	if (graphics_started)
+	{
+		I_UpdateNoVsync();
 	}
 }
 
 static void VidWaitChanged(void)
 {
-	if (renderer && rendermode == render_soft)
+	int interval = 0;
+	if (cv_vidwait.value > 0)
 	{
-#if SDL_VERSION_ATLEAST(2, 0, 18)
-		SDL_RenderSetVSync(renderer, cv_vidwait.value ? 1 : 0);
-#endif
+		interval = 1;
 	}
+
+	switch (rendermode)
+	{
+	case render_soft:
+		if (sdlglcontext == nullptr || SDL_GL_GetCurrentContext() != sdlglcontext)
+		{
+			return;
+		}
+		SDL_GL_SetSwapInterval(interval);
+		break;
 #ifdef HWRENDER
-	else if (rendermode == render_opengl && sdlglcontext != NULL && SDL_GL_GetCurrentContext() == sdlglcontext)
-	{
-		SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
-	}
+	case render_opengl:
+		if (g_legacy_gl_context == nullptr || SDL_GL_GetCurrentContext() != g_legacy_gl_context)
+		{
+			return;
+		}
+		SDL_GL_SetSwapInterval(interval);
 #endif
+	default:
+		break;
+	}
 }
 
 static INT32 Impl_SDL_Scancode_To_Keycode(SDL_Scancode code)
@@ -1203,13 +1194,7 @@ void I_UpdateNoBlit(void)
 		{
 			OglSdlFinishUpdate(cv_vidwait.value);
 		}
-		else
 #endif
-		if (rendermode == render_soft)
-		{
-			SDL_RenderCopy(renderer, texture, NULL, NULL);
-			SDL_RenderPresent(renderer);
-		}
 	}
 	exposevideo = SDL_FALSE;
 }
@@ -1251,67 +1236,6 @@ static inline boolean I_SkipFrame(void)
 //
 static SDL_Rect src_rect = { 0, 0, 0, 0 };
 
-void I_FinishUpdate(void)
-{
-	if (rendermode == render_none)
-		return; //Alam: No software or OpenGl surface
-
-	SCR_CalculateFPS();
-
-	if (I_SkipFrame())
-		return;
-
-	if (marathonmode)
-		SCR_DisplayMarathonInfo();
-
-	// draw captions if enabled
-	if (cv_closedcaptioning.value)
-		SCR_ClosedCaptions();
-
-	if (cv_ticrate.value)
-		SCR_DisplayTicRate();
-
-	if (cv_showping.value && netgame && consoleplayer != serverplayer)
-		SCR_DisplayLocalPing();
-
-	if (rendermode == render_soft && screens[0])
-	{
-		if (!bufSurface) //Double-Check
-		{
-			Impl_VideoSetupSDLBuffer();
-		}
-
-		if (bufSurface)
-		{
-			SDL_BlitSurface(bufSurface, &src_rect, vidSurface, &src_rect);
-			// Fury -- there's no way around UpdateTexture, the GL backend uses it anyway
-			SDL_LockSurface(vidSurface);
-			SDL_UpdateTexture(texture, &src_rect, vidSurface->pixels, vidSurface->pitch);
-			SDL_UnlockSurface(vidSurface);
-		}
-
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, texture, &src_rect, NULL);
-		SDL_RenderPresent(renderer);
-	}
-#ifdef HWRENDER
-	else if (rendermode == render_opengl)
-	{
-		// Final postprocess step of palette rendering, after everything else has been drawn.
-		if (HWR_ShouldUsePaletteRendering())
-		{
-			HWD.pfnMakeScreenTexture(HWD_SCREENTEXTURE_GENERIC2);
-			HWD.pfnSetShader(HWR_GetShaderFromTarget(SHADER_PALETTE_POSTPROCESS));
-			HWD.pfnDrawScreenTexture(HWD_SCREENTEXTURE_GENERIC2, NULL, 0);
-			HWD.pfnUnSetShader();
-		}
-		OglSdlFinishUpdate(cv_vidwait.value);
-	}
-#endif
-
-	exposevideo = SDL_FALSE;
-}
-
 //
 // I_UpdateNoVsync
 //
@@ -1348,9 +1272,6 @@ void I_SetPalette(RGBA_t *palette)
 		localPalette[i].g = palette[i].s.green;
 		localPalette[i].b = palette[i].s.blue;
 	}
-	//if (vidSurface) SDL_SetPaletteColors(vidSurface->format->palette, localPalette, 0, 256);
-	// Fury -- SDL2 vidSurface is a 32-bit surface buffer copied to the texture. It's not palletized, like bufSurface.
-	if (bufSurface) SDL_SetPaletteColors(bufSurface->format->palette, localPalette, 0, 256);
 }
 
 // return number of fullscreen + X11 modes
@@ -1411,81 +1332,86 @@ void VID_PrepareModeList(void)
 	allow_fullscreen = true;
 }
 
+static void init_imgui()
+{
+	if (ImGui::GetCurrentContext() != NULL)
+	{
+		return;
+	}
+
+	ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.IniFilename = NULL;
+	io.BackendFlags = 0;
+	io.BackendRendererName = "SRB2 SDL 2 RHI";
+	io.Fonts->AddFontDefault();
+	{
+		unsigned char* pixels;
+		int width;
+		int height;
+		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+	}
+	ImGui::StyleColorsDark();
+}
+
 static SDL_bool Impl_CreateContext(void)
 {
 	// Renderer-specific stuff
 #ifdef HWRENDER
-	if ((rendermode == render_opengl)
-	&& (vid.glstate != VID_GL_LIBRARY_ERROR))
+	if (rendermode == render_opengl)
 	{
-		if (!sdlglcontext)
-			sdlglcontext = SDL_GL_CreateContext(window);
-		if (sdlglcontext == NULL)
+		if (!g_legacy_gl_context)
+		{
+			SDL_GL_ResetAttributes();
+			g_legacy_gl_context = SDL_GL_CreateContext(window);
+		}
+		if (g_legacy_gl_context == NULL)
 		{
 			SDL_DestroyWindow(window);
-			I_Error("Failed to create a GL context: %s\n", SDL_GetError());
+			I_Error("Failed to create a Legacy GL context: %s\n", SDL_GetError());
 		}
-		SDL_GL_MakeCurrent(window, sdlglcontext);
+		init_imgui();
+		SDL_GL_MakeCurrent(window, g_legacy_gl_context);
+		return SDL_TRUE;
 	}
-	else
 #endif
-	if (rendermode == render_soft)
-	{
-		int flags = 0; // Use this to set SDL_RENDERER_* flags now
-		if (usesdl2soft)
-			flags |= SDL_RENDERER_SOFTWARE;
-		else if (cv_vidwait.value)
-		{
-#if SDL_VERSION_ATLEAST(2, 0, 18)
-			// If SDL is new enough, we can turn off vsync later.
-			flags |= SDL_RENDERER_PRESENTVSYNC;
-#else
-			// However, if it isn't, we should just silently turn vid_wait off
-			// This is because the renderer will be created before the config
-			// is read and vid_wait is set from the user's preferences, and thus
-			// vid_wait will have no effect.
-			CV_StealthSetValue(&cv_vidwait, 0);
-#endif
-		}
 
-		if (!renderer)
-			renderer = SDL_CreateRenderer(window, -1, flags);
-		if (renderer == NULL)
-		{
-			CONS_Printf(M_GetText("Couldn't create rendering context: %s\n"), SDL_GetError());
-			return SDL_FALSE;
-		}
-		SDL_RenderSetLogicalSize(renderer, BASEVIDWIDTH, BASEVIDHEIGHT);
+	// RHI always uses OpenGL 2.0 (for now)
+
+	if (!sdlglcontext)
+	{
+		SDL_GL_ResetAttributes();
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+		sdlglcontext = SDL_GL_CreateContext(window);
 	}
+	if (sdlglcontext == NULL)
+	{
+		SDL_DestroyWindow(window);
+		I_Error("Failed to create an RHI GL context: %s\n", SDL_GetError());
+	}
+	init_imgui();
+	SDL_GL_MakeCurrent(window, sdlglcontext);
+
+	if (!g_rhi)
+	{
+		std::unique_ptr<rhi::SdlGl2Platform> platform = std::make_unique<rhi::SdlGl2Platform>();
+		platform->window = window;
+		g_rhi = std::make_unique<rhi::Gl2Rhi>(std::move(platform), reinterpret_cast<rhi::GlLoadFunc>(SDL_GL_GetProcAddress));
+		g_rhi_generation += 1;
+	}
+
 	return SDL_TRUE;
 }
 
 void VID_CheckGLLoaded(rendermode_t oldrender)
 {
 	(void)oldrender;
-#ifdef HWRENDER
-	if (vid.glstate == VID_GL_LIBRARY_ERROR) // Well, it didn't work the first time anyway.
-	{
-		CONS_Alert(CONS_ERROR, "OpenGL never loaded\n");
-		rendermode = oldrender;
-		if (chosenrendermode == render_opengl) // fallback to software
-			rendermode = render_soft;
-		if (setrenderneeded)
-		{
-			CV_StealthSetValue(&cv_renderer, oldrender);
-			setrenderneeded = 0;
-		}
-	}
-#endif
 }
 
 boolean VID_CheckRenderer(void)
 {
 	boolean rendererchanged = false;
-	boolean contextcreated = false;
-#ifdef HWRENDER
-	rendermode_t oldrenderer = rendermode;
-#endif
 
 	if (dedicated)
 		return false;
@@ -1495,48 +1421,20 @@ boolean VID_CheckRenderer(void)
 		rendermode = static_cast<rendermode_t>(setrenderneeded);
 		rendererchanged = true;
 
-#ifdef HWRENDER
-		if (rendermode == render_opengl)
+		if (rendererchanged)
 		{
-			VID_CheckGLLoaded(oldrenderer);
-
-			// Initialise OpenGL before calling SDLSetMode!!!
-			// This is because SDLSetMode calls OglSdlSurface.
-			if (vid.glstate == VID_GL_LIBRARY_NOTLOADED)
+			Impl_CreateContext();
+#ifdef HWRENDER
+			if (rendermode == render_opengl)
 			{
 				VID_StartupOpenGL();
-
-				// Loaded successfully!
-				if (vid.glstate == VID_GL_LIBRARY_LOADED)
+				if (vid.glstate != VID_GL_LIBRARY_LOADED)
 				{
-					// Destroy the current window, if it exists.
-					if (window)
-					{
-						SDL_DestroyWindow(window);
-						window = NULL;
-					}
-
-					// Destroy the current window rendering context, if that also exists.
-					if (renderer)
-					{
-						SDL_DestroyRenderer(renderer);
-						renderer = NULL;
-					}
-
-					// Create a new window.
-					Impl_CreateWindow(static_cast<SDL_bool>(USE_FULLSCREEN));
-
-					// From there, the OpenGL context was already created.
-					contextcreated = true;
+					rendererchanged = false;
 				}
 			}
-			else if (vid.glstate == VID_GL_LIBRARY_ERROR)
-				rendererchanged = false;
-		}
 #endif
-
-		if (!contextcreated)
-			Impl_CreateContext();
+		}
 
 		setrenderneeded = 0;
 	}
@@ -1546,12 +1444,6 @@ boolean VID_CheckRenderer(void)
 
 	if (rendermode == render_soft)
 	{
-		if (bufSurface)
-		{
-			SDL_FreeSurface(bufSurface);
-			bufSurface = NULL;
-		}
-
 		SCR_SetDrawFuncs();
 	}
 #ifdef HWRENDER
@@ -1600,6 +1492,8 @@ INT32 VID_SetMode(INT32 modeNum)
 
 	vid.width = windowedModes[modeNum][0];
 	vid.height = windowedModes[modeNum][1];
+	vid.realwidth = vid.width;
+	vid.realheight = vid.height;
 	vid.modenum = modeNum;
 
 	//Impl_SetWindowName("SRB2 "VERSIONSTRING);
@@ -1628,15 +1522,8 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 	if (borderlesswindow)
 		flags |= SDL_WINDOW_BORDERLESS;
 
-#ifdef HWRENDER
-	if (vid.glstate == VID_GL_LIBRARY_LOADED)
-		flags |= SDL_WINDOW_OPENGL;
-
-	// Without a 24-bit depth buffer many visuals are ruined by z-fighting.
-	// Some GPU drivers may give us a 16-bit depth buffer since the
-	// default value for SDL_GL_DEPTH_SIZE is 16.
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-#endif
+	// RHI: always create window as OPENGL
+	flags |= SDL_WINDOW_OPENGL;
 
 	// Create a window
 	window = SDL_CreateWindow("SRB2 " VERSIONSTRING, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -1960,6 +1847,12 @@ void I_ShutdownGraphics(void)
 void I_GetCursorPosition(INT32 *x, INT32 *y)
 {
 	SDL_GetMouseState(x, y);
+}
+
+rhi::Rhi* srb2::sys::get_rhi(rhi::Handle<rhi::Rhi> handle)
+{
+	// TODO actually use handle...
+	return g_rhi.get();
 }
 
 UINT32 I_GetRefreshRate(void)

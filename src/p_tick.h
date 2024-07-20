@@ -15,6 +15,8 @@
 #define __P_TICK__
 
 #include "doomdef.h"
+#include "d_think.h"
+#include "p_mobj.h"
 
 #ifdef __cplusplus
 extern "C" {

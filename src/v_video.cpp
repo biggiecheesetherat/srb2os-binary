@@ -15,8 +15,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+
+#include <tracy/tracy/Tracy.hpp>
 
 #include "doomdef.h"
+#include "doomstat.h"
 #include "r_local.h"
 #include "p_local.h" // stplyr
 #include "g_game.h" // players
@@ -36,6 +40,8 @@
 #ifdef HWRENDER
 #include "hardware/hw_glob.h"
 #endif
+
+using namespace srb2;
 
 // Each screen is [vid.width*vid.height];
 UINT8 *screens[5];
@@ -89,6 +95,10 @@ consvar_t cv_constextsize = CVAR_INIT ("con_textsize", "Medium", CV_SAVE|CV_CALL
 // local copy of the palette for V_GetColor()
 RGBA_t *pLocalPalette = NULL;
 RGBA_t *pMasterPalette = NULL;
+
+hwr2::Twodee srb2::g_2d;
+
+static UINT8 softwaretranstohwr[11]    = {  0, 25, 51, 76,102,127,153,178,204,229,255};
 
 /*
 The following was an extremely helpful resource when developing my Colour Cube LUT.
@@ -478,6 +488,106 @@ void VID_BlitLinearScreen(const UINT8 *srcptr, UINT8 *destptr, INT32 width, INT3
 	}
 }
 
+static cliprect_t cliprect {};
+
+const cliprect_t *V_GetClipRect(void)
+{
+	if (cliprect.enabled == false)
+	{
+		return NULL;
+	}
+
+	return &cliprect;
+}
+
+void V_SetClipRect(fixed_t x, fixed_t y, fixed_t w, fixed_t h, INT32 flags)
+{
+	// Adjust position.
+	if (!(flags & V_NOSCALESTART))
+	{
+		fixed_t dupx = vid.dup;
+		fixed_t dupy = vid.dup;
+
+		if (flags & V_SCALEPATCHMASK)
+		{
+			switch ((flags & V_SCALEPATCHMASK) >> V_SCALEPATCHSHIFT)
+			{
+				case 1: // V_NOSCALEPATCH
+					dupx = dupy = 1;
+					break;
+				case 2: // V_SMALLSCALEPATCH
+					dupx = vid.smalldup;
+					dupy = vid.smalldup;
+					break;
+				case 3: // V_MEDSCALEPATCH
+					dupx = vid.meddup;
+					dupy = vid.meddup;
+					break;
+				default:
+					break;
+			}
+		}
+
+		dupx = dupy = (dupx < dupy ? dupx : dupy);
+
+		x = FixedMul(x, dupx);
+		y = FixedMul(y, dupy);
+		w = FixedMul(w, dupx);
+		h = FixedMul(h, dupy);
+	}
+
+	if (x < 0)
+	{
+		w += x;
+		x = 0;
+	}
+
+	if (y < 0)
+	{
+		h += y;
+		y = 0;
+	}
+
+	if (x > vid.width)
+	{
+		x = vid.width;
+		w = 0;
+	}
+
+	if (y > vid.height)
+	{
+		y = vid.height;
+		h = 0;
+	}
+
+	cliprect.left = x;
+	cliprect.top = y;
+	cliprect.right = x + w;
+	cliprect.bottom = y + h;
+	cliprect.flags = flags;
+	cliprect.enabled = true;
+
+	/*
+	V_DrawFill(cliprect.l, cliprect.t, cliprect.r - cliprect.l, cliprect.b - cliprect.t, V_NOSCALESTART);
+	CONS_Printf("[(%d, %d), (%d, %d)]\n", cliprect.l, cliprect.t, cliprect.r, cliprect.b);
+	*/
+}
+
+void V_ClearClipRect(void)
+{
+	cliprect.enabled = false;
+}
+
+void V_SaveClipRect(cliprect_t *copy)
+{
+	*copy = cliprect;
+}
+
+void V_RestoreClipRect(const cliprect_t *copy)
+{
+	cliprect = *copy;
+}
+
 static UINT8 hudplusalpha[11]  = { 10,  8,  6,  4,  2,  0,  0,  0,  0,  0,  0};
 static UINT8 hudminusalpha[11] = { 10,  9,  9,  8,  8,  7,  7,  6,  6,  5,  5};
 
@@ -504,17 +614,17 @@ static inline UINT8 transmappedpdraw(const UINT8 *dest, const UINT8 *source, fix
 // Draws a patch scaled to arbitrary size.
 void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, INT32 scrn, patch_t *patch, const UINT8 *colormap)
 {
-	UINT8 (*patchdrawfunc)(const UINT8*, const UINT8*, fixed_t);
 	UINT32 alphalevel = ((scrn & V_ALPHAMASK) >> V_ALPHASHIFT);
 	UINT32 blendmode = ((scrn & V_BLENDMASK) >> V_BLENDSHIFT);
 
-	fixed_t col, ofs, colfrac, rowfrac, fdup, vdup;
+	fixed_t rowfrac, vdup;
 	INT32 dup;
 	column_t *column;
-	UINT8 *desttop, *dest, *deststart, *destend;
-	const UINT8 *source, *deststop;
+	UINT8 *desttop;
+	const UINT8 *source;
 	fixed_t pwidth; // patch width
-	fixed_t offx = 0; // x offset
+
+	const cliprect_t *clip = V_GetClipRect();
 
 	UINT8 perplayershuffle = 0;
 
@@ -529,8 +639,6 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 		return;
 	}
 #endif
-
-	patchdrawfunc = standardpdraw;
 
 	v_translevel = NULL;
 	if (alphalevel || blendmode)
@@ -548,7 +656,6 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 		if (alphalevel || blendmode)
 		{
 			v_translevel = R_GetBlendTable(blendmode+1, alphalevel);
-			patchdrawfunc = translucentpdraw;
 		}
 	}
 
@@ -556,7 +663,6 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 	if (colormap)
 	{
 		v_colormap = colormap;
-		patchdrawfunc = (v_translevel) ? transmappedpdraw : mappedpdraw;
 	}
 
 	dup = vid.dup;
@@ -573,10 +679,9 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 			break;
 	}
 
-	fdup = vdup = pscale * dup;
+	vdup = pscale * dup;
 	if (vscale != pscale)
 		vdup = vscale * dup;
-	colfrac = FixedDiv(FRACUNIT, fdup);
 	rowfrac = FixedDiv(FRACUNIT, vdup);
 
 	{
@@ -671,8 +776,6 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 	if (!desttop)
 		return;
 
-	deststop = desttop + vid.rowbytes * vid.height;
-
 	if (scrn & V_NOSCALESTART)
 	{
 		x >>= FRACBITS;
@@ -740,315 +843,88 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 	else
 		pwidth = patch->width * dup;
 
-	deststart = desttop;
-	destend = desttop + pwidth;
+	float fdupy = FIXED_TO_FLOAT(vdup);
 
-	for (col = 0; (col>>FRACBITS) < patch->width; col += colfrac, ++offx, desttop++)
+	float fx = x;
+	float fy = y;
+	float fx2 = fx + pwidth;
+	float fy2 = fy + std::round(static_cast<float>(patch->height) * fdupy);
+	float falpha = 1.f;
+	float umin = 0.f;
+	float umax = 1.f;
+
+	// flip UVs
+	if (scrn & V_FLIP)
 	{
-		if (scrn & V_FLIP) // offx is measured from right edge instead of left
-		{
-			if (x+pwidth-offx < 0) // don't draw off the left of the screen (WRAP PREVENTION)
-				break;
-			if (x+pwidth-offx >= vid.width) // don't draw off the right of the screen (WRAP PREVENTION)
-				continue;
-		}
-		else
-		{
-			if (x+offx < 0) // don't draw off the left of the screen (WRAP PREVENTION)
-				continue;
-			if (x+offx >= vid.width) // don't draw off the right of the screen (WRAP PREVENTION)
-				break;
-		}
-
-		column = &patch->columns[col>>FRACBITS];
-
-		for (unsigned i = 0; i < column->num_posts; i++)
-		{
-			post_t *post = &column->posts[i];
-			source = column->pixels + post->data_offset;
-			dest = desttop;
-			if (scrn & V_FLIP)
-				dest = deststart + (destend - desttop);
-			dest += FixedInt(FixedMul(post->topdelta<<FRACBITS,vdup))*vid.width;
-
-			for (ofs = 0; dest < deststop && (size_t)(ofs>>FRACBITS) < post->length; ofs += rowfrac)
-			{
-				if (dest >= screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					*dest = patchdrawfunc(dest, source, ofs);
-				dest += vid.width;
-			}
-		}
+		umin = 1.f - umin;
+		umax = 1.f - umax;
 	}
+
+	if (alphalevel > 0 && alphalevel <= 10)
+	{
+		falpha = (10 - alphalevel) / 10.f;
+	}
+	hwr2::BlendMode blend = hwr2::BlendMode::kAlphaTransparent;
+	switch (blendmode)
+	{
+	case AST_MODULATE:
+		blend = hwr2::BlendMode::kModulate;
+		break;
+	case AST_ADD:
+		blend = hwr2::BlendMode::kAdditive;
+		break;
+
+	// Note: SRB2 has these blend modes flipped compared to GL and Vulkan.
+	// SRB2's Subtract is Dst - Src. OpenGL is Src - Dst. And vice versa for reverse.
+	// Twodee will use the GL definitions.
+	case AST_SUBTRACT:
+		blend = hwr2::BlendMode::kReverseSubtractive;
+		break;
+	case AST_REVERSESUBTRACT:
+		blend = hwr2::BlendMode::kSubtractive;
+		break;
+	default:
+		blend = hwr2::BlendMode::kAlphaTransparent;
+		break;
+	}
+
+	auto builder = g_2d.begin_quad();
+	builder
+		.patch(patch)
+		.rect(fx, fy, fx2 - fx, fy2 - fy)
+		.flip((scrn & V_FLIP) > 0)
+		.color(1, 1, 1, falpha)
+		.blend(blend)
+		.colormap(colormap);
+
+	if (clip && clip->enabled)
+	{
+		builder.clip(clip->left, clip->top, clip->right, clip->bottom);
+	}
+	builder.done();
 }
 
 // Draws a patch cropped and scaled to arbitrary size.
 void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, INT32 scrn, patch_t *patch, const UINT8 *colormap, fixed_t sx, fixed_t sy, fixed_t w, fixed_t h)
 {
-	UINT8 (*patchdrawfunc)(const UINT8*, const UINT8*, fixed_t);
-	UINT32 alphalevel = ((scrn & V_ALPHAMASK) >> V_ALPHASHIFT);
-	UINT32 blendmode = ((scrn & V_BLENDMASK) >> V_BLENDSHIFT);
-	// boolean flip = false;
-
-	fixed_t col, ofs, colfrac, rowfrac, fdup, vdup;
-	INT32 dup;
-	column_t *column;
-	UINT8 *desttop, *dest;
-	const UINT8 *source, *deststop;
-
-	UINT8 perplayershuffle = 0;
-
-	if (rendermode == render_none)
-		return;
-
 #ifdef HWRENDER
-	//if (rendermode != render_soft && !con_startup)		// Not this again
 	if (rendermode == render_opengl)
 	{
-		HWR_DrawCroppedPatch(patch,x,y,pscale,vscale,scrn,colormap,sx,sy,w,h);
+		HWR_DrawCroppedPatch(patch, x, y, pscale, vscale, scrn, colormap, sx, sy, w, h);
 		return;
 	}
 #endif
 
-	patchdrawfunc = standardpdraw;
+	cliprect_t oldClip = cliprect;
 
-	v_translevel = NULL;
-	if (alphalevel || blendmode)
-	{
-		if (alphalevel == 10) // V_HUDTRANSHALF
-			alphalevel = hudminusalpha[st_translucency];
-		else if (alphalevel == 11) // V_HUDTRANS
-			alphalevel = 10 - st_translucency;
-		else if (alphalevel == 12) // V_HUDTRANSDOUBLE
-			alphalevel = hudplusalpha[st_translucency];
+	V_SetClipRect(x, y, w, h, scrn);
 
-		if (alphalevel >= 10)
-			return; // invis
+	x -= sx;
+	y -= sy;
 
-		if (alphalevel || blendmode)
-		{
-			v_translevel = R_GetBlendTable(blendmode+1, alphalevel);
-			patchdrawfunc = translucentpdraw;
-		}
-	}
+	V_DrawStretchyFixedPatch(x, y, pscale, vscale, scrn, patch, colormap);
 
-	v_colormap = NULL;
-	if (colormap)
-	{
-		v_colormap = colormap;
-		patchdrawfunc = (v_translevel) ? transmappedpdraw : mappedpdraw;
-	}
-
-	dup = vid.dup;
-	if (scrn & V_SCALEPATCHMASK) switch (scrn & V_SCALEPATCHMASK)
-	{
-		case V_NOSCALEPATCH:
-			dup = 1;
-			break;
-		case V_SMALLSCALEPATCH:
-			dup = vid.smalldup;
-			break;
-		case V_MEDSCALEPATCH:
-			dup = vid.meddup;
-			break;
-	}
-
-	fdup = vdup = pscale * dup;
-	if (vscale != pscale)
-		vdup = vscale * dup;
-	colfrac = FixedDiv(FRACUNIT, fdup);
-	rowfrac = FixedDiv(FRACUNIT, vdup);
-
-	x -= FixedMul(patch->leftoffset<<FRACBITS, pscale);
-	y -= FixedMul(patch->topoffset<<FRACBITS, vscale);
-
-	if (splitscreen && (scrn & V_PERPLAYER))
-	{
-		fixed_t adjusty = ((scrn & V_NOSCALESTART) ? vid.height : BASEVIDHEIGHT)<<(FRACBITS-1);
-		vdup >>= 1;
-		rowfrac <<= 1;
-		y >>= 1;
-#ifdef QUADS
-		if (splitscreen > 1) // 3 or 4 players
-		{
-			fixed_t adjustx = ((scrn & V_NOSCALESTART) ? vid.height : BASEVIDHEIGHT)<<(FRACBITS-1));
-			fdup >>= 1;
-			colfrac <<= 1;
-			x >>= 1;
-			if (stplyr == &players[displayplayer])
-			{
-				if (!(scrn & (V_SNAPTOTOP|V_SNAPTOBOTTOM)))
-					perplayershuffle |= 1;
-				if (!(scrn & (V_SNAPTOLEFT|V_SNAPTORIGHT)))
-					perplayershuffle |= 4;
-				scrn &= ~V_SNAPTOBOTTOM|V_SNAPTORIGHT;
-			}
-			else if (stplyr == &players[secondarydisplayplayer])
-			{
-				if (!(scrn & (V_SNAPTOTOP|V_SNAPTOBOTTOM)))
-					perplayershuffle |= 1;
-				if (!(scrn & (V_SNAPTOLEFT|V_SNAPTORIGHT)))
-					perplayershuffle |= 8;
-				x += adjustx;
-				scrn &= ~V_SNAPTOBOTTOM|V_SNAPTOLEFT;
-			}
-			else if (stplyr == &players[thirddisplayplayer])
-			{
-				if (!(scrn & (V_SNAPTOTOP|V_SNAPTOBOTTOM)))
-					perplayershuffle |= 2;
-				if (!(scrn & (V_SNAPTOLEFT|V_SNAPTORIGHT)))
-					perplayershuffle |= 4;
-				y += adjusty;
-				scrn &= ~V_SNAPTOTOP|V_SNAPTORIGHT;
-			}
-			else //if (stplyr == &players[fourthdisplayplayer])
-			{
-				if (!(scrn & (V_SNAPTOTOP|V_SNAPTOBOTTOM)))
-					perplayershuffle |= 2;
-				if (!(scrn & (V_SNAPTOLEFT|V_SNAPTORIGHT)))
-					perplayershuffle |= 8;
-				x += adjustx;
-				y += adjusty;
-				scrn &= ~V_SNAPTOTOP|V_SNAPTOLEFT;
-			}
-		}
-		else
-#endif
-		// 2 players
-		{
-			if (stplyr == &players[displayplayer])
-			{
-				if (!(scrn & (V_SNAPTOTOP|V_SNAPTOBOTTOM)))
-					perplayershuffle |= 1;
-				scrn &= ~V_SNAPTOBOTTOM;
-			}
-			else //if (stplyr == &players[secondarydisplayplayer])
-			{
-				if (!(scrn & (V_SNAPTOTOP|V_SNAPTOBOTTOM)))
-					perplayershuffle |= 2;
-				y += adjusty;
-				scrn &= ~V_SNAPTOTOP;
-			}
-		}
-	}
-
-	desttop = screens[scrn&V_PARAMMASK];
-
-	if (!desttop)
-		return;
-
-	deststop = desttop + vid.rowbytes * vid.height;
-
-	if (scrn & V_NOSCALESTART)
-	{
-		x >>= FRACBITS;
-		y >>= FRACBITS;
-		desttop += (y*vid.width) + x;
-	}
-	else
-	{
-		x *= dup;
-		y *= dup;
-		x >>= FRACBITS;
-		y >>= FRACBITS;
-
-		// Center it if necessary
-		if (!(scrn & V_SCALEPATCHMASK))
-		{
-			// if it's meant to cover the whole screen, black out the rest
-			// no the patch is cropped do not do this ever
-
-			if (vid.width != BASEVIDWIDTH * dup)
-			{
-				// dup adjustments pretend that screen width is BASEVIDWIDTH * dup,
-				// so center this imaginary screen
-				if (scrn & V_SNAPTORIGHT)
-					x += (vid.width - (BASEVIDWIDTH * dup));
-				else if (!(scrn & V_SNAPTOLEFT))
-					x += (vid.width - (BASEVIDWIDTH * dup)) / 2;
-				if (perplayershuffle & 4)
-					x -= (vid.width - (BASEVIDWIDTH * dup)) / 4;
-				else if (perplayershuffle & 8)
-					x += (vid.width - (BASEVIDWIDTH * dup)) / 4;
-			}
-			if (vid.height != BASEVIDHEIGHT * dup)
-			{
-				// same thing here
-				if (scrn & V_SNAPTOBOTTOM)
-					y += (vid.height - (BASEVIDHEIGHT * dup));
-				else if (!(scrn & V_SNAPTOTOP))
-					y += (vid.height - (BASEVIDHEIGHT * dup)) / 2;
-				if (perplayershuffle & 1)
-					y -= (vid.height - (BASEVIDHEIGHT * dup)) / 4;
-				else if (perplayershuffle & 2)
-					y += (vid.height - (BASEVIDHEIGHT * dup)) / 4;
-			}
-		}
-
-		desttop += (y*vid.width) + x;
-	}
-
-	// Auto-crop at splitscreen borders!
-	if (splitscreen && (scrn & V_PERPLAYER))
-	{
-#ifdef QUADS
-		if (splitscreen > 1) // 3 or 4 players
-		{
-			#error Auto-cropping doesnt take quadscreen into account! Fix it!
-			// Hint: For player 1/2, copy player 1's code below. For player 3/4, copy player 2's code below
-			// For player 1/3 and 2/4, hijack the X wrap prevention lines? That's probably easiest
-		}
-		else
-#endif
-		// 2 players
-		{
-			if (stplyr == &players[displayplayer]) // Player 1's screen, crop at the bottom
-			{
-				// Just put a big old stop sign halfway through the screen
-				deststop -= vid.rowbytes * (vid.height>>1);
-			}
-			else //if (stplyr == &players[secondarydisplayplayer]) // Player 2's screen, crop at the top
-			{
-				if (y < (vid.height>>1)) // If the top is above the border
-				{
-					sy += ((vid.height>>1) - y) * rowfrac; // Start further down on the patch
-					h -= ((vid.height>>1) - y) * rowfrac; // Draw less downwards from the start
-					desttop += ((vid.height>>1) - y) * vid.width; // Start drawing at the border
-				}
-			}
-		}
-	}
-
-	for (col = sx; (col>>FRACBITS) < patch->width && (col - sx) < w; col += colfrac, ++x, desttop++)
-	{
-		if (x < 0) // don't draw off the left of the screen (WRAP PREVENTION)
-			continue;
-		if (x >= vid.width) // don't draw off the right of the screen (WRAP PREVENTION)
-			break;
-
-		column = &patch->columns[col>>FRACBITS];
-
-		for (unsigned i = 0; i < column->num_posts; i++)
-		{
-			post_t *post = &column->posts[i];
-			INT32 topdelta = post->topdelta;
-			source = column->pixels + post->data_offset;
-			dest = desttop;
-			if ((topdelta<<FRACBITS)-sy > 0)
-			{
-				dest += FixedInt(FixedMul((topdelta<<FRACBITS)-sy,vdup))*vid.width;
-				ofs = 0;
-			}
-			else
-				ofs = sy-(topdelta<<FRACBITS);
-
-			for (; dest < deststop && (size_t)(ofs>>FRACBITS) < post->length && ((ofs - sy) + (topdelta<<FRACBITS)) < h; ofs += rowfrac)
-			{
-				if (dest >= screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					*dest = patchdrawfunc(dest, source, ofs);
-				dest += vid.width;
-			}
-		}
-	}
+	cliprect = oldClip;
 }
 
 //
@@ -1103,8 +979,7 @@ void V_DrawBlock(INT32 x, INT32 y, INT32 scrn, INT32 width, INT32 height, const 
 //
 void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 {
-	UINT8 *dest;
-	const UINT8 *deststop;
+	const cliprect_t *clip = V_GetClipRect();
 	UINT32 alphalevel = ((c & V_ALPHAMASK) >> V_ALPHASHIFT);
 	UINT32 blendmode = ((c & V_BLENDMASK) >> V_BLENDSHIFT);
 
@@ -1213,9 +1088,9 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 	if (!(c & V_NOSCALESTART))
 	{
 		if (x == 0 && y == 0 && w == BASEVIDWIDTH && h == BASEVIDHEIGHT)
-		{ // Clear the entire screen, from dest to deststop. Yes, this really works.
-			memset(screens[0], (c&255), vid.width * vid.height * vid.bpp);
-			return;
+		{
+			w = vid.width;
+			h = vid.height;
 		}
 
 		x *= vid.dup;
@@ -1271,26 +1146,33 @@ void V_DrawFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 	if (y + h > vid.height)
 		h = vid.height - y;
 
-	dest = screens[0] + y*vid.width + x;
-	deststop = screens[0] + vid.rowbytes * vid.height;
-
 	c &= 255;
 
-	// borrowing this from jimitia's new hud drawing functions rq
-	if (alphalevel)
+	RGBA_t color = pMasterPalette[c];
+	UINT8 r = (color.rgba & 0xFF);
+	UINT8 g = (color.rgba & 0xFF00) >> 8;
+	UINT8 b = (color.rgba & 0xFF0000) >> 16;
+
+	if (clip && clip->enabled)
 	{
-		v_translevel += c<<8;
-		for (;(--h >= 0) && dest < deststop; dest += vid.width)
-		{
-			for (x = 0; x < w; x++)
-				dest[x] = v_translevel[dest[x]];
-		}
+		int x2 = std::min(x + w, clip->right);
+		int y2 = std::min(y + h, clip->bottom);
+
+		if (x < clip->left)
+			x = clip->left;
+
+		if (y < clip->top)
+			y = clip->top;
+
+		w = std::max<INT32>(0, x2 - x);
+		h = std::max<INT32>(0, y2 - y);
 	}
-	else
-	{
-		for (;(--h >= 0) && dest < deststop; dest += vid.width)
-			memset(dest, c, w * vid.bpp);
-	}
+
+	g_2d.begin_quad()
+		.patch(nullptr)
+		.color(r / 255.f, g / 255.f, b / 255.f, (10 - alphalevel) / 10.f)
+		.rect(x, y, w, h)
+		.done();
 }
 
 #ifdef HWRENDER
@@ -1333,10 +1215,6 @@ static UINT32 V_GetHWConsBackColor(void)
 
 void V_DrawFillConsoleMap(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 {
-	UINT8 *dest;
-	const UINT8 *deststop;
-	INT32 u;
-	UINT8 *fadetable;
 	UINT32 alphalevel = 0;
 	UINT8 perplayershuffle = 0;
 
@@ -1486,37 +1364,18 @@ void V_DrawFillConsoleMap(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 	if (y + h > vid.height)
 		h = vid.height-y;
 
-	dest = screens[0] + y*vid.width + x;
-	deststop = screens[0] + vid.rowbytes * vid.height;
-
 	c &= 255;
 
-	// Jimita (12-04-2018)
-	if (alphalevel)
-	{
-		fadetable = R_GetTranslucencyTable(alphalevel) + (c*256);
-		for (;(--h >= 0) && dest < deststop; dest += vid.width)
-		{
-			u = 0;
-			while (u < w)
-			{
-				dest[u] = fadetable[consolebgmap[dest[u]]];
-				u++;
-			}
-		}
-	}
-	else
-	{
-		for (;(--h >= 0) && dest < deststop; dest += vid.width)
-		{
-			u = 0;
-			while (u < w)
-			{
-				dest[u] = consolebgmap[dest[u]];
-				u++;
-			}
-		}
-	}
+	UINT32 hwcolor = V_GetHWConsBackColor();
+	float r = ((hwcolor & 0xFF000000) >> 24) / 255.f;
+	float g = ((hwcolor & 0xFF0000) >> 16) / 255.f;
+	float b = ((hwcolor & 0xFF00) >> 8) / 255.f;
+	float a = 0.5f; // alphalevel is unused in GL??
+	g_2d.begin_quad()
+		.rect(x, y, w, h)
+		.blend(hwr2::BlendMode::kAlphaTransparent)
+		.color(r, g, b, a)
+		.done();
 }
 
 //
@@ -1529,10 +1388,6 @@ void V_DrawFillConsoleMap(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c)
 //
 void V_DrawFadeFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c, UINT16 color, UINT8 strength)
 {
-	UINT8 *dest;
-	const UINT8 *deststop;
-	INT32 u;
-	UINT8 *fadetable;
 	UINT8 perplayershuffle = 0;
 
 	if (rendermode == render_none)
@@ -1668,23 +1523,42 @@ void V_DrawFadeFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c, UINT16 color, U
 	if (y + h > vid.height)
 		h = vid.height-y;
 
-	dest = screens[0] + y*vid.width + x;
-	deststop = screens[0] + vid.rowbytes * vid.height;
+	float r;
+	float g;
+	float b;
+	float a;
+	hwr2::BlendMode blendmode;
 
-	c &= 255;
-
-	fadetable = ((color & 0xFF00) // Color is not palette index?
-		? ((UINT8 *)colormaps + strength*256) // Do COLORMAP fade.
-		: ((UINT8 *)R_GetTranslucencyTable((9-strength)+1) + color*256)); // Else, do TRANSMAP** fade.
-	for (;(--h >= 0) && dest < deststop; dest += vid.width)
+	if (color & 0xFF00)
 	{
-		u = 0;
-		while (u < w)
-		{
-			dest[u] = fadetable[dest[u]];
-			u++;
-		}
+		// Historical COLORMAP fade
+		// In Ring Racers this is a Mega Drive style per-channel fade (though it'd probably be cool in SRB2 too)
+		// HWR2 will implement as a rev-subtractive rect because colormaps aren't possible in hardware
+		float fstrength = std::clamp(strength / 31.f, 0.f, 1.f);
+		r = std::clamp((fstrength - (0.f / 3.f)) * 3.f, 0.f, 1.f);
+		g = std::clamp((fstrength - (1.f / 3.f)) * 3.f, 0.f, 1.f);
+		b = std::clamp((fstrength - (2.f / 3.f)) * 3.f, 0.f, 1.f);
+		a = 1;
+
+		blendmode = hwr2::BlendMode::kReverseSubtractive;
 	}
+	else
+	{
+		// Historically TRANSMAP fade
+		// This is done by modulative (transparent) blend to the given palette color.
+		byteColor_t bc = V_GetColor(color).s;
+		r = bc.red / 255.f;
+		g = bc.green / 255.f;
+		b = bc.blue / 255.f;
+		a = softwaretranstohwr[std::clamp(static_cast<int>(strength), 0, 10)] / 255.f;
+		blendmode = hwr2::BlendMode::kAlphaTransparent;
+	}
+
+	g_2d.begin_quad()
+		.blend(blendmode)
+		.color(r, g, b, a)
+		.rect(x, y, w, h)
+		.done();
 }
 
 //
@@ -1692,11 +1566,9 @@ void V_DrawFadeFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 c, UINT16 color, U
 //
 void V_DrawFlatFill(INT32 x, INT32 y, INT32 w, INT32 h, lumpnum_t flatnum)
 {
-	INT32 u, v;
-	fixed_t dx, dy, xfrac, yfrac;
-	const UINT8 *src, *deststop;
-	UINT8 *flat, *dest;
-	size_t lflatsize, flatshift;
+	INT32 dupx;
+	INT32 dupy;
+	size_t lflatsize;
 
 #ifdef HWRENDER
 	if (rendermode == render_opengl)
@@ -1707,46 +1579,20 @@ void V_DrawFlatFill(INT32 x, INT32 y, INT32 w, INT32 h, lumpnum_t flatnum)
 #endif
 
 	lflatsize = R_GetFlatSize(W_LumpLength(flatnum));
-	flatshift = R_GetFlatBits(lflatsize);
 
-	flat = static_cast<UINT8*>(W_CacheLumpNum(flatnum, PU_CACHE));
+	float fsize = lflatsize;
 
-	dest = screens[0] + y*vid.dup*vid.width + x*vid.dup;
-	deststop = screens[0] + vid.rowbytes * vid.height;
+	dupx = dupy = vid.dup;
 
-	// from V_DrawScaledPatch
-	if (vid.width != BASEVIDWIDTH * vid.dup)
-	{
-		// dup adjustments pretend that screen width is BASEVIDWIDTH * dup,
-		// so center this imaginary screen
-		dest += (vid.width - (BASEVIDWIDTH * vid.dup)) / 2;
-	}
-	if (vid.height != BASEVIDHEIGHT * vid.dup)
-	{
-		// same thing here
-		dest += (vid.height - (BASEVIDHEIGHT * vid.dup)) * vid.width / 2;
-	}
-
-	w *= vid.dup;
-	h *= vid.dup;
-
-	dx = FixedDiv(FRACUNIT, vid.dup<<(FRACBITS-2));
-	dy = FixedDiv(FRACUNIT, vid.dup<<(FRACBITS-2));
-
-	yfrac = 0;
-	for (v = 0; v < h; v++, dest += vid.width)
-	{
-		xfrac = 0;
-		src = flat + (((yfrac>>FRACBITS) & (lflatsize - 1)) << flatshift);
-		for (u = 0; u < w; u++)
-		{
-			if (&dest[u] > deststop)
-				return;
-			dest[u] = src[(xfrac>>FRACBITS)&(lflatsize-1)];
-			xfrac += dx;
-		}
-		yfrac += dy;
-	}
+	g_2d.begin_verts()
+		.flat(flatnum)
+		.vert(x * dupx, y * dupy, 0, 0)
+		.vert(x * dupx + w * dupx, y * dupy, w / fsize, 0)
+		.vert(x * dupx + w * dupx, y * dupy + h * dupy, w / fsize, h / fsize)
+		.vert(x * dupx, y * dupy, 0, 0)
+		.vert(x * dupx + w * dupx, y * dupy + h * dupy, w / fsize, h / fsize)
+		.vert(x * dupx, y * dupy + h * dupy, 0, h / fsize)
+		.done();
 }
 
 //
@@ -1782,27 +1628,48 @@ void V_DrawFadeScreen(UINT16 color, UINT8 strength)
 	}
 #endif
 
-	{
-		const UINT8 *fadetable = ((color & 0xFF00) // Color is not palette index?
-		? ((UINT8 *)(((color & 0x0F00) == 0x0A00) ? fadecolormap // Do fadecolormap fade.
-		: (((color & 0x0F00) == 0x0B00) ? fadecolormap + (256 * FADECOLORMAPROWS) // Do white fadecolormap fade.
-		: colormaps)) + strength*256) // Do COLORMAP fade.
-		: ((UINT8 *)R_GetTranslucencyTable((9-strength)+1) + color*256)); // Else, do TRANSMAP** fade.
-		const UINT8 *deststop = screens[0] + vid.rowbytes * vid.height;
-		UINT8 *buf = screens[0];
+	float r;
+	float g;
+	float b;
+	float a;
+	hwr2::BlendMode blendmode;
 
-		// heavily simplified -- we don't need to know x or y
-		// position when we're doing a full screen fade
-		for (; buf < deststop; ++buf)
-			*buf = fadetable[*buf];
+	if (color & 0xFF00)
+	{
+		// Historical COLORMAP fade
+		// In Ring Racers this is a Mega Drive style per-channel fade (though it'd probably be cool in SRB2 too)
+		// HWR2 will implement as a rev-subtractive rect because colormaps aren't possible in hardware
+		float fstrength = std::clamp(strength / 31.f, 0.f, 1.f);
+		r = std::clamp((fstrength - (0.f / 3.f)) * 3.f, 0.f, 1.f);
+		g = std::clamp((fstrength - (1.f / 3.f)) * 3.f, 0.f, 1.f);
+		b = std::clamp((fstrength - (2.f / 3.f)) * 3.f, 0.f, 1.f);
+		a = 1;
+
+		blendmode = hwr2::BlendMode::kReverseSubtractive;
 	}
+	else
+	{
+		// Historically TRANSMAP fade
+		// This is done by modulative (transparent) blend to the given palette color.
+		byteColor_t bc = V_GetColor(color).s;
+		r = bc.red / 255.f;
+		g = bc.green / 255.f;
+		b = bc.blue / 255.f;
+		a = softwaretranstohwr[std::clamp(static_cast<int>(strength), 0, 10)] / 255.f;
+		blendmode = hwr2::BlendMode::kAlphaTransparent;
+	}
+
+	g_2d.begin_quad()
+		.blend(blendmode)
+		.color(r, g, b, a)
+		.rect(0, 0, vid.width, vid.height)
+		.done();
 }
 
 // Simple translucency with one color, over a set number of lines starting from the top.
 void V_DrawFadeConsBack(INT32 plines)
 {
-	UINT8 *deststop, *buf;
-
+	UINT32 hwcolor = V_GetHWConsBackColor();
 #ifdef HWRENDER // not win32 only 19990829 by Kin
 	if (rendermode == render_opengl)
 	{
@@ -1812,18 +1679,20 @@ void V_DrawFadeConsBack(INT32 plines)
 	}
 #endif
 
-	// heavily simplified -- we don't need to know x or y position,
-	// just the stop position
-	deststop = screens[0] + vid.rowbytes * std::min(plines, vid.height);
-	for (buf = screens[0]; buf < deststop; ++buf)
-		*buf = consolebgmap[*buf];
+	float r = ((hwcolor & 0xFF000000) >> 24) / 255.f;
+	float g = ((hwcolor & 0xFF0000) >> 16) / 255.f;
+	float b = ((hwcolor & 0xFF00) >> 8) / 255.f;
+	float a = 0.5f;
+	g_2d.begin_quad()
+		.rect(0, 0, vid.width, plines)
+		.blend(hwr2::BlendMode::kAlphaTransparent)
+		.color(r, g, b, a)
+		.done();
 }
 
 // Very similar to F_DrawFadeConsBack, except we draw from the middle(-ish) of the screen to the bottom.
 void V_DrawPromptBack(INT32 boxheight, INT32 color)
 {
-	UINT8 *deststop, *buf;
-
 	if (color >= 256 && color < 512)
 	{
 		if (boxheight < 0)
@@ -1872,17 +1741,16 @@ void V_DrawPromptBack(INT32 boxheight, INT32 color)
 	}
 #endif
 
-	CON_SetupBackColormapEx(color, true);
+	float r = ((color & 0xFF000000) >> 24) / 255.f;
+	float g = ((color & 0xFF0000) >> 16) / 255.f;
+	float b = ((color & 0xFF00) >> 8) / 255.f;
+	float a = (color == 0 ? 0xC0 : 0x80) / 255.f; // make black darker, like software
 
-	// heavily simplified -- we don't need to know x or y position,
-	// just the start and stop positions
-	buf = deststop = screens[0] + vid.rowbytes * vid.height;
-	if (boxheight < 0)
-		buf += vid.rowbytes * boxheight;
-	else // 4 lines of space plus gaps between and some leeway
-		buf -= vid.rowbytes * ((boxheight * 4) + (boxheight/2)*5);
-	for (; buf < deststop; ++buf)
-		*buf = promptbgmap[*buf];
+	INT32 real_boxheight = (boxheight * 4) + (boxheight / 2) * 5;
+	g_2d.begin_quad()
+		.rect(0, vid.height - real_boxheight, vid.width, real_boxheight)
+		.color(r, g, b, a)
+		.done();
 }
 
 // Gets string colormap, used for 0x80 color codes
@@ -2748,4 +2616,82 @@ void V_Recalc(void)
 	vid.fmeddup = vid.meddup*FRACUNIT;
 	vid.fsmalldup = vid.smalldup*FRACUNIT;
 #endif
+}
+
+void VID_DisplaySoftwareScreen()
+{
+	ZoneScoped;
+
+	// TODO implement
+	// upload framebuffer, bind pipeline, draw
+	rhi::Rhi* rhi = srb2::sys::get_rhi(srb2::sys::g_current_rhi);
+	rhi::Handle<rhi::GraphicsContext> ctx = srb2::sys::main_graphics_context();
+	hwr2::HardwareState* hw_state = srb2::sys::main_hardware_state();
+
+	// Misnomer; this just uploads the screen to the software indexed screen texture
+	hw_state->software_screen_renderer->draw(*rhi, ctx);
+
+	const int screens = splitscreen ? 2 : 1;
+	hw_state->blit_postimg_screens->set_num_screens(screens);
+	hw_state->blit_postimg_screens->set_target(static_cast<uint32_t>(vid.width), static_cast<uint32_t>(vid.height));
+
+	for (int i = 0; i < screens; i++)
+	{
+		glm::vec2 uv_offset {0.f, 0.f};
+		glm::vec2 uv_size {1.f, 1.f};
+
+		if (screens > 2)
+		{
+			uv_size = glm::vec2(.5f, .5f);
+			switch (i)
+			{
+			case 0:
+				uv_offset = glm::vec2(0.f, 0.f);
+				break;
+			case 1:
+				uv_offset = glm::vec2(.5f, 0.f);
+				break;
+			case 2:
+				uv_offset = glm::vec2(0.f, .5f);
+				break;
+			case 3:
+				uv_offset = glm::vec2(.5f, .5f);
+				break;
+			}
+		}
+		else if (screens > 1)
+		{
+			uv_size = glm::vec2(1.f, .5f);
+			if (i == 1)
+			{
+				uv_offset = glm::vec2(0.f, .5f);
+			}
+		}
+
+		postimg_t* postimgtype_s = &postimgtype;
+
+		if (i == 1)
+		{
+			postimgtype_s = &postimgtype2;
+		}
+
+		hw_state->blit_postimg_screens->set_screen(
+			i,
+			{
+				hw_state->software_screen_renderer->screen(),
+				true,
+				uv_offset,
+				uv_size,
+				{
+					*postimgtype_s == postimg_water,
+					*postimgtype_s == postimg_heat,
+					*postimgtype_s == postimg_flip,
+					false
+				}
+			}
+		);
+	}
+
+	// Post-process blit to the 'default' framebuffer
+	hw_state->blit_postimg_screens->draw(*rhi, ctx);
 }

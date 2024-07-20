@@ -20,6 +20,8 @@
 #ifndef __SDL_OGL_SDL_H__
 #define __SDL_OGL_SDL_H__
 
+#include <SDL.h>
+
 #include "../v_video.h"
 
 #ifdef __cplusplus
@@ -32,8 +34,8 @@ boolean OglSdlSurface(INT32 w, INT32 h);
 
 void OglSdlFinishUpdate(boolean vidwait);
 
-extern SDL_Renderer *renderer;
 extern SDL_GLContext sdlglcontext;
+extern SDL_GLContext g_legacy_gl_context;
 extern Uint16      realwidth;
 extern Uint16      realheight;
 

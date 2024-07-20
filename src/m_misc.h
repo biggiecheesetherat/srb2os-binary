@@ -23,6 +23,12 @@
 #include "w_wad.h"
 
 #ifdef __cplusplus
+
+#include <tcb/span.hpp>
+
+void M_DoScreenShot(uint32_t width, uint32_t height, tcb::span<const std::byte> data);
+void M_SaveFrame(uint32_t width, uint32_t height, tcb::span<const std::byte> data);
+
 extern "C" {
 #endif
 
@@ -38,7 +44,7 @@ extern consvar_t cv_moviemode, cv_movie_folder, cv_movie_option;
 extern consvar_t cv_zlib_memory, cv_zlib_level, cv_zlib_strategy, cv_zlib_window_bits;
 
 void M_StartMovie(void);
-void M_SaveFrame(void);
+void M_LegacySaveFrame(void);
 void M_StopMovie(void);
 
 // the file where game vars and settings are saved
@@ -71,7 +77,9 @@ boolean M_SavePNG(const char *filename, void *data, int width, int height, const
 
 extern boolean takescreenshot;
 void M_ScreenShot(void);
-void M_DoScreenShot(void);
+#ifdef HWRENDER
+void M_DoLegacyGLScreenShot(void);
+#endif
 boolean M_ScreenshotResponder(event_t *ev);
 
 void Command_SaveConfig_f(void);

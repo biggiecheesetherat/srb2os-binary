@@ -20,6 +20,14 @@
 #include "hu_stuff.h" //font arrays
 
 #ifdef __cplusplus
+
+#include "hwr2/twodee.hpp"
+
+namespace srb2
+{
+extern hwr2::Twodee g_2d;
+} // namespace srb2
+
 extern "C" {
 #endif
 
@@ -159,6 +167,19 @@ void V_CubeApply(UINT8 *red, UINT8 *green, UINT8 *blue);
 #define V_NOSCALESTART       0x40000000 // don't scale x, y, start coords
 #define V_PERPLAYER          0x80000000 // automatically adjust coordinates/scaling for splitscreen mode
 
+typedef struct
+{
+	fixed_t left, right, top, bottom;
+	INT32 flags;
+	boolean enabled;
+} cliprect_t;
+
+const cliprect_t *V_GetClipRect(void);
+void V_SetClipRect(fixed_t x, fixed_t y, fixed_t w, fixed_t h, INT32 flags);
+void V_ClearClipRect(void);
+void V_SaveClipRect(cliprect_t *copy);
+void V_RestoreClipRect(const cliprect_t *copy);
+
 // defines for old functions
 #define V_DrawPatch(x,y,s,p) V_DrawFixedPatch((x)<<FRACBITS, (y)<<FRACBITS, FRACUNIT, s|V_NOSCALESTART|V_NOSCALEPATCH, p, NULL)
 #define V_DrawTranslucentMappedPatch(x,y,s,p,c) V_DrawFixedPatch((x)<<FRACBITS, (y)<<FRACBITS, FRACUNIT, s, p, c)
@@ -290,6 +311,12 @@ void V_DrawPatchFill(patch_t *pat);
 
 void VID_BlitLinearScreen(const UINT8 *srcptr, UINT8 *destptr, INT32 width, INT32 height, size_t srcrowbytes,
 	size_t destrowbytes);
+
+/**
+ * Display the software framebuffer to the screen. Added in RHI conversion; software is not implicitly displayed by the
+ * system.
+ */
+void VID_DisplaySoftwareScreen(void);
 
 #ifdef __cplusplus
 } // extern "C"

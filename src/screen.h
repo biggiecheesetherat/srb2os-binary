@@ -53,6 +53,8 @@ typedef struct viddef_s
 	size_t rowbytes; // bytes per scanline of the VIDEO mode
 	INT32 width; // PIXELS per scanline
 	INT32 height;
+	UINT32 realwidth; // real pixel width of window/screen
+	UINT32 realheight; // real pixel height of window/screen
 	union { // don't need numpages for OpenGL, so we can use it for fullscreen/windowed mode
 		INT32 numpages; // always 1, page flipping todo
 		INT32 windowed; // windowed or fullscren mode?
@@ -161,6 +163,10 @@ extern CV_PossibleValue_t cv_renderer_t[];
 extern INT32 scr_bpp;
 
 extern consvar_t cv_scr_width, cv_scr_height, cv_scr_width_w, cv_scr_height_w, cv_scr_depth, cv_fullscreen;
+extern consvar_t cv_scr_effect;
+extern consvar_t cv_scr_scale;
+extern consvar_t cv_scr_x;
+extern consvar_t cv_scr_y;
 extern consvar_t cv_renderer;
 // wait for page flipping to end or not
 extern consvar_t cv_vidwait;

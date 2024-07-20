@@ -952,13 +952,23 @@ void M_StartMovie(void)
 #endif
 }
 
-void M_SaveFrame(void)
+void M_LegacySaveFrame(void)
 {
 #if NUMSCREENS > 2
+	// TODO: until HWR2 replaces legacy OpenGL renderer, this
+	//       function still needs to called for OpenGL.
+#ifdef HWRENDER
+	if (rendermode != render_opengl)
+#endif
+	{
+		return;
+	}
+
 	// paranoia: should be unnecessary without singletics
 	static tic_t oldtic = 0;
 
-	if (oldtic == I_GetTime() && !singletics)
+	// skip interpolated frames for other modes
+	if (oldtic == I_GetTime())
 		return;
 	else
 		oldtic = I_GetTime();
@@ -975,6 +985,38 @@ void M_SaveFrame(void)
 			return;
 	}
 #endif
+}
+
+static void M_SaveFrame_GIF(uint32_t width, uint32_t height, tcb::span<const std::byte> data)
+{
+	if (moviemode != MM_GIF)
+	{
+		return;
+	}
+
+	static tic_t oldtic = 0;
+
+	// limit the recording to TICRATE
+	if (oldtic == I_GetTime())
+	{
+		return;
+	}
+
+	oldtic = I_GetTime();
+
+	GIF_frame_rgb24(width, height, reinterpret_cast<const uint8_t*>(data.data()));
+}
+
+void M_SaveFrame(uint32_t width, uint32_t height, tcb::span<const std::byte> data)
+{
+	switch (moviemode)
+	{
+	case MM_GIF:
+		M_SaveFrame_GIF(width, height, data);
+		break;
+	default:
+		break;
+	}
 }
 
 void M_StopMovie(void)
@@ -1189,13 +1231,19 @@ void M_ScreenShot(void)
 	takescreenshot = true;
 }
 
+void M_DoLegacyGLScreenShot(void)
+{
+	const std::byte* fake_data = nullptr;
+	M_DoScreenShot(vid.width, vid.height, tcb::span(fake_data, vid.width * vid.height));
+}
+
 /** Takes a screenshot.
   * The screenshot is saved as "srb2xxxx.png" where xxxx is the lowest
   * four-digit number for which a file does not already exist.
   *
   * \sa HWR_ScreenShot
   */
-void M_DoScreenShot(void)
+void M_DoScreenShot(uint32_t width, uint32_t height, tcb::span<const std::byte> data)
 {
 #if NUMSCREENS > 2
 	const char *freename = NULL;

@@ -27,6 +27,8 @@ patch_t *Patch_CreateFromDoomPatch(softwarepatch_t *source);
 void Patch_CalcDataSizes(softwarepatch_t *source, size_t *total_pixels, size_t *total_posts);
 void Patch_MakeColumns(softwarepatch_t *source, size_t num_columns, INT16 width, UINT8 *pixels, column_t *columns, post_t *posts, boolean flip);
 void Patch_Free(patch_t *patch);
+boolean Patch_WasFreedThisFrame(void);
+void Patch_ResetFreedThisFrame(void);
 
 #define Patch_FreeTag(tagnum) Patch_FreeTags(tagnum, tagnum)
 void Patch_FreeTags(INT32 lowtag, INT32 hightag);

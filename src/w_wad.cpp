@@ -1292,12 +1292,16 @@ UINT16 W_CheckNumForNamePwad(const char *name, UINT16 wad, UINT16 startlump)
 UINT16 W_CheckNumForLongNamePwad(const char *name, UINT16 wad, UINT16 startlump)
 {
 	UINT16 i;
+	char lumpname[9];
 
 	if (!TestValidLump(wad,0))
 		return INT16_MAX;
 
+	strlcpy(lumpname, name, 9);
+	lumpname[8] = 0;
+
 	size_t namelen = strlen(name);
-	UINT32 hash = W_HashLumpName(name);
+	UINT32 hash = W_HashLumpName(lumpname);
 
 	//
 	// scan forward

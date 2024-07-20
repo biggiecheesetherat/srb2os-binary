@@ -126,7 +126,7 @@ static fademask_t *F_GetFadeMask(UINT8 masknum, UINT8 scrnnum) {
 	if (lumpnum == LUMPERROR)
 		goto freemask;
 
-	lump = W_CacheLumpNum(lumpnum, PU_CACHE);
+	lump = static_cast<UINT8*>(W_CacheLumpNum(lumpnum, PU_CACHE));
 	lsize = W_LumpLength(lumpnum);
 	switch (lsize)
 	{
@@ -153,7 +153,7 @@ static fademask_t *F_GetFadeMask(UINT8 masknum, UINT8 scrnnum) {
 			goto freemask;
 	}
 	if (lsize != fm.size)
-		fm.mask = Z_Realloc(fm.mask, lsize, PU_STATIC, NULL);
+		fm.mask = static_cast<UINT8*>(Z_Realloc(fm.mask, lsize, PU_STATIC, NULL));
 	fm.size = lsize;
 
 	mask = fm.mask;

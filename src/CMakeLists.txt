@@ -12,7 +12,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	deh_tables.c
 	z_zone.c
 	f_finale.c
-	f_wipe.c
+	f_wipe.cpp
 	g_demo.cpp
 	g_game.c
 	g_input.c

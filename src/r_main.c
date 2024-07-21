@@ -1095,7 +1095,7 @@ void R_SetupFrame(player_t *player)
 	camera_t *thiscam;
 	boolean chasecam = R_ViewpointHasChasecam(player);
 	boolean ispaused = paused || P_AutoPause();
-	
+
 	if (splitscreen && player == &players[secondarydisplayplayer] && player != &players[consoleplayer])
 		thiscam = &camera2;
 	else
@@ -1369,7 +1369,7 @@ boolean R_ViewpointHasChasecam(player_t *player)
 		chasecam = true; // force chasecam on
 	else if (player->spectator) // no spectator chasecam
 		chasecam = false; // force chasecam off
-		
+
 	if (chasecam && !thiscam->chase)
 	{
 		P_ResetCamera(player, thiscam);
@@ -1380,7 +1380,7 @@ boolean R_ViewpointHasChasecam(player_t *player)
 		P_ResetCamera(player, thiscam);
 		thiscam->chase = false;
 	}
-	
+
 	if (isplayer2)
 	{
 		R_SetViewContext(VIEWCONTEXT_PLAYER2);
@@ -1481,9 +1481,9 @@ void R_RenderPlayerView(player_t *player)
 	if (cv_homremoval.value && player == &players[displayplayer]) // if this is display player 1
 	{
 		if (cv_homremoval.value == 1)
-			V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 31); // No HOM effect!
+			memset(screens[0], 31, vid.width * vid.height * vid.bpp);
 		else //'development' HOM removal -- makes it blindingly obvious if HOM is spotted.
-			V_DrawFill(0, 0, BASEVIDWIDTH, BASEVIDHEIGHT, 32+(timeinmap&15));
+			memset(screens[0], 32+(timeinmap%15), vid.width * vid.height * vid.bpp);
 	}
 
 	fixed_t fov = R_GetPlayerFov(player);

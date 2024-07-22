@@ -1335,11 +1335,6 @@ INT32 I_mkdir(const char *dirname, INT32 unixright)
 #endif
 }
 
-const CPUInfoFlags *I_CPUInfo(void)
-{
-	return NULL;
-}
-
 static boolean isWadPathOk(const char *path)
 {
 	char *wad3path = malloc(256);

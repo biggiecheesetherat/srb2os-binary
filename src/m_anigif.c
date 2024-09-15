@@ -509,7 +509,7 @@ static size_t gifframe_size = 8192;
 #ifdef HWRENDER
 static colorlookup_t gif_colorlookup;
 
-static void GIF_rgbconvert(UINT8 *linear, UINT8 *scr)
+static void GIF_rgbconvert(const UINT8 *linear, UINT8 *scr)
 {
 	UINT8 r, g, b;
 	size_t src = 0, dest = 0;
@@ -603,7 +603,10 @@ static void GIF_framewrite(INT32 input_width, INT32 input_height, const UINT8 *i
 		// Copy the first frame into the movie screen
 		// OpenGL already does the same above.
 		if (gif_frames == 0 && rendermode == render_soft)
-			I_ReadScreen(movie_screen);
+		{
+			I_Assert(input != NULL);
+			GIF_rgbconvert(input, screens[0]);
+		}
 
 		movie_screen = screens[0];
 	}

@@ -10,7 +10,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	deh_soc.c
 	deh_lua.c
 	deh_tables.c
-	z_zone.c
+	z_zone.cpp
 	f_finale.cpp
 	f_wipe.cpp
 	g_demo.cpp

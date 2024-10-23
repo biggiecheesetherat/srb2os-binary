@@ -31,6 +31,7 @@ typedef struct Tokenizer
 	UINT8 inComment; // 0 = not in comment, 1 = // Single-line, 2 = /* Multi-line */
 	UINT8 inString; // 0 = not in string, 1 = in string, 2 = just left string
 	int line;
+	boolean isString;
 	const char *(*get)(struct Tokenizer*, UINT32);
 } tokenizer_t;
 
@@ -41,6 +42,7 @@ const char *Tokenizer_Read(tokenizer_t *tokenizer, UINT32 i);
 const char *Tokenizer_SRB2Read(tokenizer_t *tokenizer, UINT32 i);
 UINT32 Tokenizer_GetEndPos(tokenizer_t *tokenizer);
 void Tokenizer_SetEndPos(tokenizer_t *tokenizer, UINT32 newPos);
+boolean Tokenizer_JustReadString(tokenizer_t *tokenizer);
 
 #ifdef __cplusplus
 } // extern "C"

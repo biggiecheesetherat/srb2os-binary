@@ -542,6 +542,8 @@ const char *M_TokenizerRead(UINT32 i);
 const char *M_TokenizerReadZDoom(UINT32 i);
 UINT32 M_TokenizerGetEndPos(void);
 void M_TokenizerSetEndPos(UINT32 newPos);
+boolean M_TokenizerJustReadString(void);
+
 char *sizeu1(size_t num);
 char *sizeu2(size_t num);
 char *sizeu3(size_t num);

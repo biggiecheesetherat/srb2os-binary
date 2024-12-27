@@ -1706,6 +1706,14 @@ void M_TokenizerSetEndPos(UINT32 newPos)
 		Tokenizer_SetEndPos(globalTokenizer, newPos);
 }
 
+boolean M_TokenizerJustReadString(void)
+{
+	if (!globalTokenizer)
+		return false;
+
+	return Tokenizer_JustReadString(globalTokenizer);
+}
+
 /** Count bits in a number.
   */
 UINT8 M_CountBits(UINT32 num, UINT8 size)

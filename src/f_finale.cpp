@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -1085,6 +1085,7 @@ static const char *credits[] = {
 	"Louis-Antoine \"LJ Sonic\" de Moulins", // de Rochefort doesn't quite fit on the screen sorry lol
 	"John \"JTE\" Muniz",
 	"Colin \"Sonict\" Pfaff",
+	"\"Radicalicious\"",
 	"James \"james\" Robert Roman",
 	"Sean \"Sryder13\" Ryder",
 	"Ehab \"Wolfy\" Saeed",
@@ -1108,7 +1109,7 @@ static const char *credits[] = {
 	"\"ChrispyPixels\"",
 	"Paul \"Boinciel\" Clempson",
 	"Sally \"TehRealSalt\" Cochenour",
-	"\"Dave Lite\"",
+	"\"DaJumpJump\"", // New Ringslinger graphics (2.2.14)
 	"Desmond \"Blade\" DesJardins",
 	"Sherman \"CoatRack\" DesJardins",
 	"\"DirkTheHusky\"",
@@ -1128,10 +1129,12 @@ static const char *credits[] = {
 	"\"MotorRoach\"",
 	"Phillip \"TelosTurntable\" Robinson",
 	"\"Scizor300\"",
+	"\"Skydusk\"",
 	"Wessel \"sphere\" Smit",
 	"David \"Instant Sonic\" Spencer Jr.",
 	"\"SSNTails\"",
 	"Daniel \"Inazuma\" Trinh",
+	"Samuel \"Spectorious\" Tuttle",
 	"\"VelocitOni\"",
 	"Jarrett \"JEV3\" Voight",
 	"",
@@ -1140,6 +1143,7 @@ static const char *credits[] = {
 	"Victor \"VAdaPEGA\" Ara\x1Fjo", // Araújo
 	"Malcolm \"RedXVI\" Brown",
 	"Dave \"DemonTomatoDave\" Bulmer",
+	"Dan Cidoni", // aka Krabs
 	"Paul \"Boinciel\" Clempson",
 	"\"Cyan Helkaraxe\"",
 	"Claire \"clairebun\" Ellis",
@@ -1158,24 +1162,32 @@ static const char *credits[] = {
 	"Colette \"fickleheart\" Bordelon",
 	"Hank \"FuriousFox\" Brannock",
 	"Matthew \"Fawfulfan\" Chapman",
+	"Dan Cidoni", // aka Krabs
 	"Paul \"Boinciel\" Clempson",
 	"Sally \"TehRealSalt\" Cochenour",
 	"Desmond \"Blade\" DesJardins",
 	"Sherman \"CoatRack\" DesJardins",
 	"Ben \"Mystic\" Geyer",
 	"Nathan \"Jazz\" Giroux",
+	"\"GomaTheMascar\"",
 	"Vivian \"toaster\" Grannell",
 	"James \"SeventhSentinel\" Hall",
 	"Kepa \"Nev3r\" Iceta",
 	"Thomas \"Shadow Hog\" Igoe",
+	"Mujamel \"MK\" Khan",
 	"\"Kaito Sinclaire\"",
 	"Alexander \"DrTapeworm\" Moench-Ford",
+	"\"orbitalviolet\"", // summit showdown hehehehe (aka Evertone)
+	"\"Radicalicious\"",
 	"\"Revan\"",
 	"Anna \"QueenDelta\" Sandlin",
+	"\"Skydusk\"",
 	"Wessel \"sphere\" Smit",
 	"\"SSNTails\"",
+	"Aaron \"Othius\" Stojkov",
 	"Rob Tisdell",
 	"\"Torgo\"",
+	"Samuel \"Spectorious\" Tuttle",
 	"Jarrett \"JEV3\" Voight",
 	"Johnny \"Sonikku\" Wallbank",
 	"Marco \"mazmazz\" Zafra",
@@ -3440,7 +3452,7 @@ void F_TitleScreenTicker(boolean run)
 		{
 			for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 			{
-				if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+				if (th->removing)
 					continue;
 
 				mo2 = (mobj_t *)th;

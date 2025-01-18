@@ -94,7 +94,7 @@
 #endif
 
 // maximum number of windowed modes (see windowedModes[][])
-#define MAXWINMODES (18)
+#define MAXWINMODES (21)
 
 using namespace srb2;
 
@@ -167,7 +167,9 @@ static INT32 windowedModes[MAXWINMODES][2] =
 	{1920,1080}, // 1.66
 	{1680,1050}, // 1.60,5.25
 	{1600,1200}, // 1.33
+	{1600,1000}, // 1.60,5.00
 	{1600, 900}, // 1.66
+	{1536, 864}, // 1.66,4.80
 	{1366, 768}, // 1.66
 	{1440, 900}, // 1.60,4.50
 	{1280,1024}, // 1.33?
@@ -176,6 +178,7 @@ static INT32 windowedModes[MAXWINMODES][2] =
 	{1280, 720}, // 1.66
 	{1152, 864}, // 1.33,3.60
 	{1024, 768}, // 1.33,3.20
+	{ 960, 600}, // 1.60,3.00
 	{ 800, 600}, // 1.33,2.50
 	{ 640, 480}, // 1.33,2.00
 	{ 640, 400}, // 1.60,2.00
@@ -1788,6 +1791,7 @@ void VID_StartupOpenGL(void)
 
 		*(void**)&HWD.pfnSetPaletteLookup = hwSym("SetPaletteLookup",NULL);
 		*(void**)&HWD.pfnCreateLightTable = hwSym("CreateLightTable",NULL);
+		*(void**)&HWD.pfnUpdateLightTable = hwSym("UpdateLightTable",NULL);
 		*(void**)&HWD.pfnClearLightTables = hwSym("ClearLightTables",NULL);
 		*(void**)&HWD.pfnSetScreenPalette = hwSym("SetScreenPalette",NULL);
 
@@ -1832,8 +1836,6 @@ void I_ShutdownGraphics(void)
 	I_OutputMsg("shut down\n");
 
 #ifdef HWRENDER
-	if (GLUhandle)
-		hwClose(GLUhandle);
 	if (sdlglcontext)
 	{
 		SDL_GL_DeleteContext(sdlglcontext);

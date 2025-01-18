@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -1519,13 +1519,13 @@ static void UnArchiveSectors(save_t *save_p)
 			sectors[i].ceilingheight = P_ReadFixed(save_p);
 		if (diff & SD_FLOORPIC)
 		{
-			sectors[i].floorpic = P_AddLevelFlatRuntime((char *)save_p);
-			save_p += 8;
+			sectors[i].floorpic = P_AddLevelFlatRuntime((char *)&save_p->buf[save_p->pos]);
+			save_p->pos += 8;
 		}
 		if (diff & SD_CEILPIC)
 		{
-			sectors[i].ceilingpic = P_AddLevelFlatRuntime((char *)save_p);
-			save_p += 8;
+			sectors[i].ceilingpic = P_AddLevelFlatRuntime((char *)&save_p->buf[save_p->pos]);
+			save_p->pos += 8;
 		}
 		if (diff & SD_LIGHT)
 			sectors[i].lightlevel = P_ReadINT16(save_p);
@@ -3107,8 +3107,7 @@ static void P_NetArchiveThinkers(save_t *save_p)
 		// save off the current thinkers
 		for (th = thlist[i].next; th != &thlist[i]; th = th->next)
 		{
-			if (!(th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed
-			 || th->function.acp1 == (actionf_p1)P_NullPrecipThinker))
+			if (!(th->removing || th->function.acp1 == (actionf_p1)P_NullPrecipThinker))
 				numsaved++;
 
 			if (th->function.acp1 == (actionf_p1)P_MobjThinker)
@@ -3321,7 +3320,7 @@ static void P_NetArchiveThinkers(save_t *save_p)
 			}
 #ifdef PARANOIA
 			else
-				I_Assert(th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed); // wait garbage collection
+				I_Assert(th->removing); // wait garbage collection
 #endif
 		}
 
@@ -3342,7 +3341,7 @@ mobj_t *P_FindNewPosition(UINT32 oldposition)
 
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mobj = (mobj_t *)th;
@@ -4663,7 +4662,7 @@ static inline void P_FinishMobjs(void)
 	for (currentthinker = thlist[THINK_MOBJ].next; currentthinker != &thlist[THINK_MOBJ];
 		currentthinker = currentthinker->next)
 	{
-		if (currentthinker->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (currentthinker->removing)
 			continue;
 
 		mobj = (mobj_t *)currentthinker;
@@ -4681,7 +4680,7 @@ static void P_RelinkPointers(void)
 	for (currentthinker = thlist[THINK_MOBJ].next; currentthinker != &thlist[THINK_MOBJ];
 		currentthinker = currentthinker->next)
 	{
-		if (currentthinker->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (currentthinker->removing)
 			continue;
 
 		mobj = (mobj_t *)currentthinker;
@@ -5408,8 +5407,8 @@ static void P_NetArchiveSectorPortals(save_t *save_p)
 		UINT8 type = secportals[i].type;
 
 		P_WriteUINT8(save_p, type);
-		P_WriteFixed(save_p, secportals[i].origin.x);
-		P_WriteFixed(save_p, secportals[i].origin.y);
+		P_WriteUINT8(save_p, secportals[i].ceiling ? 1 : 0);
+		P_WriteUINT32(save_p, SaveSector(secportals[i].target));
 
 		switch (type)
 		{
@@ -5424,8 +5423,8 @@ static void P_NetArchiveSectorPortals(save_t *save_p)
 			P_WriteUINT32(save_p, SaveSector(secportals[i].sector));
 			break;
 		case SECPORTAL_OBJECT:
-			if (secportals[i].mobj && !P_MobjWasRemoved(secportals[i].mobj))
-				SaveMobjnum(secportals[i].mobj);
+			if (!P_MobjWasRemoved(secportals[i].mobj))
+				P_WriteUINT32(save_p, SaveMobjnum(secportals[i].mobj));
 			else
 				P_WriteUINT32(save_p, 0);
 			break;
@@ -5452,8 +5451,8 @@ static void P_NetUnArchiveSectorPortals(save_t *save_p)
 		sectorportal_t *secportal = &secportals[id];
 
 		secportal->type = P_ReadUINT8(save_p);
-		secportal->origin.x = P_ReadFixed(save_p);
-		secportal->origin.y = P_ReadFixed(save_p);
+		secportal->ceiling = (P_ReadUINT8(save_p) != 0) ? true : false;
+		secportal->target = LoadSector(P_ReadUINT32(save_p));
 
 		switch (secportal->type)
 		{
@@ -5545,7 +5544,7 @@ void P_SaveNetGame(save_t *save_p, boolean resending)
 	// Assign the mobjnumber for pointer tracking
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mobj = (mobj_t *)th;

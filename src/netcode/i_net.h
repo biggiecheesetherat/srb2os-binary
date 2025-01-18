@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -67,17 +67,9 @@ extern doomcom_t *doomcom;
 */
 extern boolean (*I_NetGet)(void);
 
-/**	\brief ask to driver if there is data waiting
-*/
-extern boolean (*I_NetCanGet)(void);
-
 /**	\brief send packet within doomcom struct
 */
 extern void (*I_NetSend)(void);
-
-/**	\brief ask to driver if all is ok to send data now
-*/
-extern boolean (*I_NetCanSend)(void);
 
 /**	\brief	close a connection
 

@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -648,7 +648,7 @@ static void COM_ExecuteString(char *ptext)
 		{
 			if ((com_flags & COM_LUA) && !(cmd->flags & COM_LUA))
 			{
-				CONS_Alert(CONS_WARNING, "Command '%s' cannot be run from Lua.\n", cmd->name);
+				CONS_Alert(CONS_WARNING, "Command '%s' cannot be run from a script.\n", cmd->name);
 				return;
 			}
 
@@ -809,10 +809,46 @@ static void COM_CEchoDuration_f(void)
 
 /** Executes a script file.
   */
-static void COM_Exec_f(void)
+boolean COM_ExecFile(const char *scriptname, com_flags_t flags, boolean silent)
 {
 	UINT8 *buf = NULL;
 	char filename[256];
+
+	if (!D_CheckPathAllowed(scriptname, "tried to exec"))
+		return false;
+
+	// load file
+	// Try with Argv passed verbatim first, for back compat
+	FIL_ReadFile(scriptname, &buf);
+
+	if (!buf)
+	{
+		// Now try by searching the file path
+		// filename is modified with the full found path
+		strlcpy(filename, scriptname, sizeof(filename));
+		if (findfile(filename, NULL, true) != FS_NOTFOUND)
+			FIL_ReadFile(filename, &buf);
+
+		if (!buf)
+			return false;
+	}
+
+	if (!silent)
+		CONS_Printf(M_GetText("Executing %s\n"), scriptname);
+
+	// insert text file into the command buffer
+	COM_BufAddTextEx((char *)buf, flags);
+	COM_BufAddTextEx("\n", flags);
+
+	// free buffer
+	Z_Free(buf);
+
+	return true;
+}
+
+static void COM_Exec_f(void)
+{
+	boolean silent;
 
 	if (COM_Argc() < 2 || COM_Argc() > 3)
 	{
@@ -820,38 +856,13 @@ static void COM_Exec_f(void)
 		return;
 	}
 
-	if (!D_CheckPathAllowed(COM_Argv(1), "tried to exec"))
+	silent = COM_CheckParm("-silent");
+
+	if (COM_ExecFile(COM_Argv(1), com_flags, silent))
 		return;
 
-	// load file
-	// Try with Argv passed verbatim first, for back compat
-	FIL_ReadFile(COM_Argv(1), &buf);
-
-	if (!buf)
-	{
-		// Now try by searching the file path
-		// filename is modified with the full found path
-		strcpy(filename, COM_Argv(1));
-		if (findfile(filename, NULL, true) != FS_NOTFOUND)
-			FIL_ReadFile(filename, &buf);
-
-		if (!buf)
-		{
-			if (!COM_CheckParm("-noerror"))
-				CONS_Printf(M_GetText("couldn't execute file %s\n"), COM_Argv(1));
-			return;
-		}
-	}
-
-	if (!COM_CheckParm("-silent"))
-		CONS_Printf(M_GetText("executing %s\n"), COM_Argv(1));
-
-	// insert text file into the command buffer
-	COM_BufAddTextEx((char *)buf, com_flags);
-	COM_BufAddTextEx("\n", com_flags);
-
-	// free buffer
-	Z_Free(buf);
+	if (!COM_CheckParm("-noerror"))
+		CONS_Printf(M_GetText("Couldn't execute file %s\n"), COM_Argv(1));
 }
 
 /** Delays execution of the rest of the commands until the next frame.
@@ -1988,7 +1999,7 @@ static void CV_SetCVar(consvar_t *var, const char *value, boolean stealth)
 	if (!var->string)
 		I_Error("CV_Set: %s no string set!\n", var->name);
 #endif
-	if (!var || !var->string || !value || !stricmp(var->string, value))
+	if (!var || !var->string || !value || (var->can_change == NULL && !stricmp(var->string, value)))
 		return; // no changes
 
 	if (var->flags & CV_NETVAR)
@@ -2492,7 +2503,7 @@ static boolean CV_Command(void)
 
 	if (CV_Immutable(v))
 	{
-		CONS_Alert(CONS_WARNING, "Variable '%s' cannot be changed from Lua.\n", v->name);
+		CONS_Alert(CONS_WARNING, "Variable '%s' cannot be changed from a script.\n", v->name);
 		return true;
 	}
 

@@ -15,6 +15,15 @@ target_sources(SRB2SDL2 PRIVATE
 	hwsym_sdl.c
 )
 
+if (NOT SRB2_CONFIG_FORCE_NO_MS_BITFIELDS)
+	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+		check_cxx_compiler_flag("-mno-ms-bitfields" HAS_NO_MS_BITFIELDS)
+		if(HAS_NO_MS_BITFIELDS)
+			target_compile_options(SRB2SDL2 PRIVATE -mno-ms-bitfields)
+		endif()
+	endif()
+endif()
+
 if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
 	target_sources(SRB2SDL2 PRIVATE
 		../win32/win_dbg.c

@@ -46,12 +46,6 @@ Debian stable:amd64:
           echo -e "\e[0Ksection_end:`date +%s`:cmake\r\e[0K"
 
     - - |
-            -DSRB2_CONFIG_ENABLE_WEBM_MOVIES=OFF
-      - |
-          # cmake
-          echo -e "\e[0Ksection_end:`date +%s`:cmake\r\e[0K"
-
-    - - |
           # make
           echo -e "\e[0Ksection_start:`date +%s`:make[collapsed=false]\r\e[0KCompiling SRB2"
       - cmake --build build.cmake --parallel 1 --verbose

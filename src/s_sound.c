@@ -2546,7 +2546,9 @@ static void Command_Tunes_f(void)
 	if (argc > 2)
 		track = (UINT16)atoi(COM_Argv(2))-1;
 
-	strlcpy(mapmusname, tunearg, MAX_MUSIC_NAME+1);
+	strlcpy(mapmusname, tunearg, sizeof(mapmusname));
+
+	mapmusname[sizeof(mapmusname)-1] = 0;
 
 	if (argc > 4)
 		position = (UINT32)atoi(COM_Argv(4));

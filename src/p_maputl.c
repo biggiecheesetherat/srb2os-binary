@@ -743,6 +743,31 @@ static void P_ReleaseBlockNode(blocknode_t *node)
 //
 // P_UnsetThingPosition
 // Unlinks a thing from block map and sectors.
+//
+void P_UnsetBlockmapEntry(mobj_t *thing)
+{
+	if (!(thing->flags & MF_NOBLOCKMAP))
+	{
+		// [RH] Unlink from all blocks this actor uses
+		blocknode_t *block = thing->blocknode;
+
+		while (block != NULL)
+		{
+			if (block->mnext != NULL)
+				block->mnext->mprev = block->mprev;
+			*(block->mprev) = block->mnext;
+			blocknode_t *next = block->bnext;
+			P_ReleaseBlockNode(block);
+			block = next;
+		}
+
+		thing->blocknode = NULL;
+	}
+}
+
+//
+// P_UnsetThingPosition
+// Unlinks a thing from block map and sectors.
 // On each position change, BLOCKMAP and other
 // lookups maintaining lists ot things inside
 // these structures need to be updated.
@@ -783,23 +808,7 @@ void P_UnsetThingPosition(mobj_t *thing)
 		thing->touching_sectorlist = NULL; //to be restored by P_SetThingPosition
 	}
 
-	if (!(thing->flags & MF_NOBLOCKMAP))
-	{
-		// [RH] Unlink from all blocks this actor uses
-		blocknode_t *block = thing->blocknode;
-
-		while (block != NULL)
-		{
-			if (block->mnext != NULL)
-				block->mnext->mprev = block->mprev;
-			*(block->mprev) = block->mnext;
-			blocknode_t *next = block->bnext;
-			P_ReleaseBlockNode(block);
-			block = next;
-		}
-
-		thing->blocknode = NULL;
-	}
+	P_UnsetBlockmapEntry(thing);
 }
 
 void P_UnsetPrecipThingPosition(precipmobj_t *thing)
@@ -814,57 +823,12 @@ void P_UnsetPrecipThingPosition(precipmobj_t *thing)
 }
 
 //
-// P_SetThingPosition
-// Links a thing into both a block and a subsector
-// based on it's x y.
-// Sets thing->subsector properly
+// P_SetBlockmapEntry
+// Links a thing into a block based on its x y.
+// Used when objects are scaled to ensure they are in the right blocknode
 //
-void P_SetThingPosition(mobj_t *thing)
-{                                                      // link into subsector
-	subsector_t *ss;
-	sector_t *oldsec = NULL;
-	fixed_t tfloorz, tceilz;
-
-	I_Assert(thing != NULL);
-	I_Assert(!P_MobjWasRemoved(thing));
-
-	if (thing->player && thing->z <= thing->floorz && thing->subsector)
-		oldsec = thing->subsector->sector;
-
-	ss = thing->subsector = R_PointInSubsector(thing->x, thing->y);
-
-	if (!(thing->flags & MF_NOSECTOR))
-	{
-		// invisible things don't go into the sector links
-
-		// killough 8/11/98: simpler scheme using pointer-to-pointer prev
-		// pointers, allows head nodes to be treated like everything else
-
-		mobj_t **link = &ss->sector->thinglist;
-		mobj_t *snext = *link;
-		if ((thing->snext = snext) != NULL)
-			snext->sprev = &thing->snext;
-		thing->sprev = link;
-		*link = thing;
-
-		// phares 3/16/98
-		//
-		// If sector_list isn't NULL, it has a collection of sector
-		// nodes that were just removed from this Thing.
-
-		// Collect the sectors the object will live in by looking at
-		// the existing sector_list and adding new nodes and deleting
-		// obsolete ones.
-
-		// When a node is deleted, its sector links (the links starting
-		// at sector_t->touching_thinglist) are broken. When a node is
-		// added, new sector links are created.
-
-		P_CreateSecNodeList(thing,thing->x,thing->y);
-		thing->touching_sectorlist = sector_list; // Attach to Thing's mobj_t
-		sector_list = NULL; // clear for next time
-	}
-
+void P_SetBlockmapEntry(mobj_t *thing)
+{
 	// link into blockmap
 	if (!(thing->flags & MF_NOBLOCKMAP))
 	{
@@ -909,6 +873,62 @@ void P_SetThingPosition(mobj_t *thing)
 			}
 		}
 	}
+}
+
+//
+// P_SetThingPosition
+// Links a thing into both a block and a subsector
+// based on its x y.
+// Sets thing->subsector properly
+//
+void P_SetThingPosition(mobj_t *thing)
+{                                                      // link into subsector
+	subsector_t *ss;
+	subsector_t *ss;
+	sector_t *oldsec = NULL;
+	fixed_t tfloorz, tceilz;
+
+	I_Assert(thing != NULL);
+	I_Assert(!P_MobjWasRemoved(thing));
+
+	if (thing->player && thing->z <= thing->floorz && thing->subsector)
+		oldsec = thing->subsector->sector;
+
+	ss = thing->subsector = R_PointInSubsector(thing->x, thing->y);
+
+	if (!(thing->flags & MF_NOSECTOR))
+	{
+		// invisible things don't go into the sector links
+
+		// killough 8/11/98: simpler scheme using pointer-to-pointer prev
+		// pointers, allows head nodes to be treated like everything else
+
+		mobj_t **link = &ss->sector->thinglist;
+		mobj_t *snext = *link;
+		if ((thing->snext = snext) != NULL)
+			snext->sprev = &thing->snext;
+		thing->sprev = link;
+		*link = thing;
+
+		// phares 3/16/98
+		//
+		// If sector_list isn't NULL, it has a collection of sector
+		// nodes that were just removed from this Thing.
+
+		// Collect the sectors the object will live in by looking at
+		// the existing sector_list and adding new nodes and deleting
+		// obsolete ones.
+
+		// When a node is deleted, its sector links (the links starting
+		// at sector_t->touching_thinglist) are broken. When a node is
+		// added, new sector links are created.
+
+		P_CreateSecNodeList(thing,thing->x,thing->y);
+		thing->touching_sectorlist = sector_list; // Attach to Thing's mobj_t
+		sector_list = NULL; // clear for next time
+	}
+
+	P_SetBlockmapEntry(thing);
 
 	// Allows you to 'step' on a new linedef exec when the previous
 	// sector's floor is the same height.

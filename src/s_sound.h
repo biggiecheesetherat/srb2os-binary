@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -20,16 +20,15 @@
 #include "command.h"
 #include "tables.h" // angle_t
 
-#ifdef HAVE_OPENMPT
-#include "libopenmpt/libopenmpt.h"
-extern openmpt_module *openmpt_mhandle;
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 // mask used to indicate sound origin is player item pickup
 #define PICKUP_SOUND 0x8000
 
 extern consvar_t stereoreverse;
-extern consvar_t cv_soundvolume, cv_closedcaptioning, cv_digmusicvolume, cv_midimusicvolume;
+extern consvar_t cv_mastervolume, cv_soundvolume, cv_closedcaptioning, cv_digmusicvolume;
 extern consvar_t cv_numChannels;
 
 extern consvar_t cv_resetmusic;
@@ -43,23 +42,8 @@ extern consvar_t cv_1upsound;
 		: cv_resetmusic.value) \
 	)
 
-extern consvar_t cv_gamedigimusic;
-extern consvar_t cv_gamemidimusic;
-extern consvar_t cv_gamesounds;
-extern consvar_t cv_musicpref;
-
 extern consvar_t cv_playmusicifunfocused;
 extern consvar_t cv_playsoundsifunfocused;
-
-#ifdef HAVE_OPENMPT
-extern consvar_t cv_modfilter;
-#endif
-
-#ifdef HAVE_MIXERX
-extern consvar_t cv_midiplayer;
-extern consvar_t cv_midisoundfontpath;
-extern consvar_t cv_miditimiditypath;
-#endif
 
 extern CV_PossibleValue_t soundvolume_cons_t[];
 
@@ -155,21 +139,17 @@ void S_StopSound(void *origin);
 //
 
 boolean S_DigMusicDisabled(void);
-boolean S_MIDIMusicDisabled(void);
 boolean S_MusicDisabled(void);
 boolean S_MusicPlaying(void);
 boolean S_MusicPaused(void);
 boolean S_MusicNotInFocus(void);
 musictype_t S_MusicType(void);
 const char *S_MusicName(void);
-boolean S_MusicExists(const char *mname, boolean checkMIDI, boolean checkDigi);
-#define S_DigExists(a) S_MusicExists(a, false, true)
-#define S_MIDIExists(a) S_MusicExists(a, true, false)
+boolean S_MusicExists(const char *mname);
 
 // Returns whether the preferred format a (true = MIDI, false = Digital)
 // exists and is enabled for musicname b
 #define S_PrefAvailable(a, b) (a ? \
-	(!S_MIDIMusicDisabled() && S_MIDIExists(b)) : \
 	(!S_DigMusicDisabled() && S_DigExists(b)))
 
 //
@@ -182,7 +162,7 @@ boolean S_SpeedMusic(float speed);
 // Music definitions
 typedef struct musicdef_s
 {
-	char name[7];
+	char name[MAX_MUSIC_NAME+1];
 	char title[32];
 	char alttitle[64];
 	char authors[256];
@@ -238,7 +218,7 @@ UINT32 S_GetMusicPosition(void);
 
 typedef struct musicstack_s
 {
-	char musname[7+1];
+	char musname[MAX_MUSIC_NAME+1];
 	UINT16 musflags;
 	boolean looping;
 	UINT32 position;
@@ -251,7 +231,7 @@ typedef struct musicstack_s
     struct musicstack_s *next;
 } musicstack_t;
 
-extern char music_stack_nextmusname[7];
+extern char music_stack_nextmusname[MAX_MUSIC_NAME+1];
 extern boolean music_stack_noposition;
 extern UINT32 music_stack_fadeout;
 extern UINT32 music_stack_fadein;
@@ -309,11 +289,11 @@ void S_UpdateClosedCaptions(void);
 
 FUNCMATH fixed_t S_CalculateSoundDistance(fixed_t px1, fixed_t py1, fixed_t pz1, fixed_t px2, fixed_t py2, fixed_t pz2);
 
+void S_SetMasterVolume(INT32 volume);
 void S_SetSfxVolume(INT32 volume);
-void S_SetMusicVolume(INT32 digvolume, INT32 seqvolume);
-#define S_SetDigMusicVolume(a) S_SetMusicVolume(a,-1)
-#define S_SetMIDIMusicVolume(a) S_SetMusicVolume(-1,a)
-#define S_InitMusicVolume() S_SetMusicVolume(-1,-1)
+void S_SetMusicVolume(INT32 digvolume);
+#define S_SetDigMusicVolume(a) S_SetMusicVolume(a)
+#define S_InitMusicVolume() S_SetMusicVolume(-1)
 
 INT32 S_OriginPlaying(void *origin);
 INT32 S_IdPlaying(sfxenum_t id);
@@ -327,6 +307,10 @@ void S_StopSoundByNum(sfxenum_t sfxnum);
 #ifndef HW3SOUND
 #define S_StartAttackSound S_StartSound
 #define S_StartScreamSound S_StartSound
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif

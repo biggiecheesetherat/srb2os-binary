@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -20,6 +20,10 @@
 #include "hw_md2.h"
 
 #include "hw_dll.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // ==========================================================================
 //                                                       STANDARD DLL EXPORTS
@@ -71,6 +75,7 @@ EXPORT void HWRAPI(SetShaderInfo) (hwdshaderinfo_t info, INT32 value);
 
 EXPORT void HWRAPI(SetPaletteLookup)(UINT8 *lut);
 EXPORT UINT32 HWRAPI(CreateLightTable)(RGBA_t *hw_lighttable);
+EXPORT void HWRAPI(UpdateLightTable)(UINT32 id, RGBA_t *hw_lighttable);
 EXPORT void HWRAPI(ClearLightTables)(void);
 EXPORT void HWRAPI(SetScreenPalette)(RGBA_t *palette);
 
@@ -125,6 +130,7 @@ struct hwdriver_s
 
 	SetPaletteLookup    pfnSetPaletteLookup;
 	CreateLightTable    pfnCreateLightTable;
+	UpdateLightTable    pfnUpdateLightTable;
 	ClearLightTables    pfnClearLightTables;
 	SetScreenPalette    pfnSetScreenPalette;
 };
@@ -134,5 +140,9 @@ extern struct hwdriver_s hwdriver;
 #define HWD hwdriver
 
 #endif //not defined _CREATE_DLL_
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //__HWR_DRV_H__

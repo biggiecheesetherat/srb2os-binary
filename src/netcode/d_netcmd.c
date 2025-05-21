@@ -320,7 +320,7 @@ consvar_t cv_overtime = CVAR_INIT ("overtime", "Yes", CV_SAVE|CV_NETVAR|CV_ALLOW
 consvar_t cv_rollingdemos = CVAR_INIT ("rollingdemos", "On", CV_SAVE, CV_OnOff, NULL);
 
 static CV_PossibleValue_t timetic_cons_t[] = {{0, "Classic"}, {1, "Centiseconds"}, {2, "Mania"}, {3, "Tics"}, {0, NULL}};
-consvar_t cv_timetic = CVAR_INIT ("timerres", "Classic", CV_SAVE, timetic_cons_t, NULL);
+consvar_t cv_timetic = CVAR_INIT ("timerres", "Mania", CV_SAVE, timetic_cons_t, NULL);
 
 static CV_PossibleValue_t powerupdisplay_cons_t[] = {{0, "Never"}, {1, "First-person only"}, {2, "Always"}, {0, NULL}};
 consvar_t cv_powerupdisplay = CVAR_INIT ("powerupdisplay", "First-person only", CV_SAVE, powerupdisplay_cons_t, NULL);
@@ -372,10 +372,10 @@ static CV_PossibleValue_t cooplives_cons_t[] = {{0, "Infinite"}, {1, "Per-player
 consvar_t cv_cooplives = CVAR_INIT ("cooplives", "Avoid Game Over", CV_SAVE|CV_NETVAR|CV_CALL|CV_CHEAT|CV_ALLOWLUA, cooplives_cons_t, CoopLives_OnChange);
 
 static CV_PossibleValue_t advancemap_cons_t[] = {{0, "Off"}, {1, "Next"}, {2, "Random"}, {0, NULL}};
-consvar_t cv_advancemap = CVAR_INIT ("advancemap", "Next", CV_SAVE|CV_NETVAR|CV_ALLOWLUA, advancemap_cons_t, NULL);
+consvar_t cv_advancemap = CVAR_INIT ("advancemap", "Random", CV_SAVE|CV_NETVAR|CV_ALLOWLUA, advancemap_cons_t, NULL);
 
 static CV_PossibleValue_t playersforexit_cons_t[] = {{0, "One"}, {1, "1/4"}, {2, "Half"}, {3, "3/4"}, {4, "All"}, {0, NULL}};
-consvar_t cv_playersforexit = CVAR_INIT ("playersforexit", "All", CV_SAVE|CV_NETVAR|CV_ALLOWLUA, playersforexit_cons_t, NULL);
+consvar_t cv_playersforexit = CVAR_INIT ("playersforexit", "3/4", CV_SAVE|CV_NETVAR|CV_ALLOWLUA, playersforexit_cons_t, NULL);
 
 consvar_t cv_exitmove = CVAR_INIT ("exitmove", "On", CV_SAVE|CV_NETVAR|CV_CALL|CV_ALLOWLUA, CV_OnOff, ExitMove_OnChange);
 
@@ -391,7 +391,7 @@ static CV_PossibleValue_t perfstats_cons_t[] = {
 consvar_t cv_perfstats = CVAR_INIT ("perfstats", "Off", CV_CALL, perfstats_cons_t, PS_PerfStats_OnChange);
 static CV_PossibleValue_t ps_samplesize_cons_t[] = {
 	{1, "MIN"}, {1000, "MAX"}, {0, NULL}};
-consvar_t cv_ps_samplesize = CVAR_INIT ("ps_samplesize", "1", CV_CALL, ps_samplesize_cons_t, PS_SampleSize_OnChange);
+consvar_t cv_ps_samplesize = CVAR_INIT ("ps_samplesize", "175", CV_CALL, ps_samplesize_cons_t, PS_SampleSize_OnChange);
 static CV_PossibleValue_t ps_descriptor_cons_t[] = {
 	{1, "Average"}, {2, "SD"}, {3, "Minimum"}, {4, "Maximum"}, {0, NULL}};
 consvar_t cv_ps_descriptor = CVAR_INIT ("ps_descriptor", "Average", 0, ps_descriptor_cons_t, NULL);
@@ -620,6 +620,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_blamecfail);
 	CV_RegisterVar(&cv_dedicatedidletime);
 	CV_RegisterVar(&cv_idletime);
+	CV_RegisterVar(&cv_idleaction);
 	CV_RegisterVar(&cv_httpsource);
 
 	COM_AddCommand("ping", Command_Ping_f, COM_LUA);
@@ -713,13 +714,6 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_zlib_memory);
 	CV_RegisterVar(&cv_zlib_strategy);
 	CV_RegisterVar(&cv_zlib_window_bits);
-	// APNG variables
-	CV_RegisterVar(&cv_zlib_levela);
-	CV_RegisterVar(&cv_zlib_memorya);
-	CV_RegisterVar(&cv_zlib_strategya);
-	CV_RegisterVar(&cv_zlib_window_bitsa);
-	CV_RegisterVar(&cv_apng_delay);
-	CV_RegisterVar(&cv_apng_downscale);
 	// GIF variables
 	CV_RegisterVar(&cv_gif_optimize);
 	CV_RegisterVar(&cv_gif_downscale);
@@ -823,8 +817,6 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_jumpaxis2);
 	CV_RegisterVar(&cv_spinaxis);
 	CV_RegisterVar(&cv_spinaxis2);
-	CV_RegisterVar(&cv_shieldaxis);
-	CV_RegisterVar(&cv_shieldaxis2);
 	CV_RegisterVar(&cv_fireaxis);
 	CV_RegisterVar(&cv_fireaxis2);
 	CV_RegisterVar(&cv_firenaxis);
@@ -901,10 +893,10 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_cam_lockonboss[1]);
 
 	// s_sound.c
+	CV_RegisterVar(&cv_mastervolume);
 	CV_RegisterVar(&cv_soundvolume);
 	CV_RegisterVar(&cv_closedcaptioning);
 	CV_RegisterVar(&cv_digmusicvolume);
-	CV_RegisterVar(&cv_midimusicvolume);
 	CV_RegisterVar(&cv_numChannels);
 
 	// screen.c
@@ -915,6 +907,10 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_scr_height);
 	CV_RegisterVar(&cv_scr_width_w);
 	CV_RegisterVar(&cv_scr_height_w);
+	CV_RegisterVar(&cv_scr_effect);
+	CV_RegisterVar(&cv_scr_scale);
+	CV_RegisterVar(&cv_scr_x);
+	CV_RegisterVar(&cv_scr_y);
 
 	CV_RegisterVar(&cv_soundtest);
 
@@ -1742,7 +1738,7 @@ void D_MapChange(INT32 mapnum, INT32 newgametype, boolean pultmode, boolean rese
 	{
 		UINT8 flags = 0;
 		const char *mapname = G_BuildMapName(mapnum);
-		I_Assert(W_CheckNumForName(mapname) != LUMPERROR);
+		I_Assert(G_MapFileExists(mapname) == true);
 		buf_p = buf;
 		if (pultmode)
 			flags |= 1;
@@ -2044,8 +2040,8 @@ static void Command_Map_f(void)
 static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 {
 	char mapname[MAX_WADPATH+1];
-	UINT8 flags;
-	INT32 resetplayer = 1, lastgametype;
+	UINT8 flags, newgametype;
+	INT32 resetplayer = 1, lastgametype = gametype;
 	UINT8 skipprecutscene, FLS;
 	INT16 mapnumber;
 
@@ -2061,6 +2057,12 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 		chmappending--;
 
 	flags = READUINT8(*cp);
+	newgametype = READUINT8(*cp);
+	READSTRINGN(*cp, mapname, MAX_WADPATH);
+
+	mapnumber = G_GetMapNumber(mapname);
+	if (!mapnumber) // Not valid???
+		return;
 
 	ultimatemode = ((flags & 1) != 0);
 	if (netgame || multiplayer)
@@ -2068,13 +2070,8 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 
 	resetplayer = ((flags & (1<<1)) == 0);
 
-	lastgametype = gametype;
-	gametype = READUINT8(*cp);
-
-	if (gametype < 0 || gametype >= gametypecount)
-		gametype = lastgametype;
-	else
-		G_SetGametype(gametype);
+	if (newgametype < gametypecount)
+		G_SetGametype(newgametype);
 
 	if (gametype != lastgametype)
 		D_GameTypeChanged(lastgametype); // emulate consvar_t behavior for gametype
@@ -2082,8 +2079,6 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 	skipprecutscene = ((flags & (1<<2)) != 0);
 
 	FLS = ((flags & (1<<3)) != 0);
-
-	READSTRINGN(*cp, mapname, MAX_WADPATH);
 
 	if (netgame)
 		P_SetRandSeed(READUINT32(*cp));
@@ -2104,7 +2099,6 @@ static void Got_Mapcmd(UINT8 **cp, INT32 playernum)
 		players[0].skincolor = skins[players[0].skin]->prefcolor;
 	}
 
-	mapnumber = M_MapNumber(mapname[3], mapname[4]);
 	LUA_HookInt(mapnumber, HOOK(MapChange));
 
 	G_InitNew(ultimatemode, mapname, resetplayer, skipprecutscene, FLS);
@@ -2510,11 +2504,11 @@ static void MutePlayer(boolean mute)
 
 	if (COM_Argc() < 2)
 	{
-		CONS_Printf(M_GetText("muteplayer <playernum>: mute a player\n"));
+		CONS_Printf(M_GetText("muteplayer <playername/playernum>: mute a player\n"));
 		return;
 	}
 
-	data[0] = atoi(COM_Argv(1));
+	data[0] = nametonum(COM_Argv(1));
 	if (data[0] >= MAXPLAYERS || !playeringame[data[0]])
 	{
 		CONS_Alert(CONS_NOTICE, M_GetText("There is no player %u!\n"), (unsigned int)data[0]);
@@ -2603,11 +2597,11 @@ static void Command_ServerTeamChange_f(void)
 	if (COM_Argc() < 3)
 	{
 		if (G_TagGametype())
-			CONS_Printf(M_GetText("serverchangeteam <playernum> <team>: switch player to a new team (%s)\n"), "it, notit, playing, or spectator");
+			CONS_Printf(M_GetText("serverchangeteam <playername/playernum> <team>: switch player to a new team (%s)\n"), "it, notit, playing, or spectator");
 		else if (G_GametypeHasTeams())
-			CONS_Printf(M_GetText("serverchangeteam <playernum> <team>: switch player to a new team (%s)\n"), "red, blue or spectator");
+			CONS_Printf(M_GetText("serverchangeteam <playername/playernum> <team>: switch player to a new team (%s)\n"), "red, blue or spectator");
 		else if (G_GametypeHasSpectators())
-			CONS_Printf(M_GetText("serverchangeteam <playernum> <team>: switch player to a new team (%s)\n"), "spectator or playing");
+			CONS_Printf(M_GetText("serverchangeteam <playername/playernum> <team>: switch player to a new team (%s)\n"), "spectator or playing");
 		else
 			CONS_Alert(CONS_NOTICE, M_GetText("This command cannot be used in this gametype.\n"));
 		return;
@@ -2655,19 +2649,19 @@ static void Command_ServerTeamChange_f(void)
 	if (error)
 	{
 		if (G_TagGametype())
-			CONS_Printf(M_GetText("serverchangeteam <playernum> <team>: switch player to a new team (%s)\n"), "it, notit, playing, or spectator");
+			CONS_Printf(M_GetText("serverchangeteam <playername/playernum> <team>: switch player to a new team (%s)\n"), "it, notit, playing, or spectator");
 		else if (G_GametypeHasTeams())
-			CONS_Printf(M_GetText("serverchangeteam <playernum> <team>: switch player to a new team (%s)\n"), "red, blue or spectator");
+			CONS_Printf(M_GetText("serverchangeteam <playername/playernum> <team>: switch player to a new team (%s)\n"), "red, blue or spectator");
 		else if (G_GametypeHasSpectators())
-			CONS_Printf(M_GetText("serverchangeteam <playernum> <team>: switch player to a new team (%s)\n"), "spectator or playing");
+			CONS_Printf(M_GetText("serverchangeteam <playername/playernum> <team>: switch player to a new team (%s)\n"), "spectator or playing");
 		return;
 	}
 
-	NetPacket.packet.playernum = atoi(COM_Argv(1));
+	NetPacket.packet.playernum = nametonum(COM_Argv(1));
 
-	if (!playeringame[NetPacket.packet.playernum])
+	if (NetPacket.packet.playernum == -1 || !playeringame[NetPacket.packet.playernum])
 	{
-		CONS_Alert(CONS_NOTICE, M_GetText("There is no player %d!\n"), NetPacket.packet.playernum);
+		CONS_Alert(CONS_NOTICE, M_GetText("There is no player %s!\n"), COM_Argv(1));
 		return;
 	}
 
@@ -3106,13 +3100,16 @@ static void Command_Verify_f(void)
 
 	if (COM_Argc() != 2)
 	{
-		CONS_Printf(M_GetText("promote <playernum>: give admin privileges to a player\n"));
+		CONS_Printf(M_GetText("promote <playername/playernum>: give admin privileges to a player\n"));
 		return;
 	}
 
-	strlcpy(buf, COM_Argv(1), sizeof (buf));
-
-	playernum = atoi(buf);
+	playernum = nametonum(COM_Argv(1));
+	if (playernum == -1)
+	{
+		CONS_Alert(CONS_NOTICE, M_GetText("There is no player %s!\n"), COM_Argv(1));
+		return;
+	}
 
 	temp = buf;
 
@@ -3156,13 +3153,16 @@ static void Command_RemoveAdmin_f(void)
 
 	if (COM_Argc() != 2)
 	{
-		CONS_Printf(M_GetText("demote <playernum>: remove admin privileges from a player\n"));
+		CONS_Printf(M_GetText("demote <playername/playernum>: remove admin privileges from a player\n"));
 		return;
 	}
 
-	strlcpy(buf, COM_Argv(1), sizeof(buf));
-
-	playernum = atoi(buf);
+	playernum = nametonum(COM_Argv(1));
+	if (playernum == -1)
+	{
+		CONS_Alert(CONS_NOTICE, M_GetText("There is no player %s!\n"), COM_Argv(1));
+		return;
+	}
 
 	temp = buf;
 
@@ -4248,9 +4248,9 @@ void D_GameTypeChanged(INT32 lastgametype)
 			case GT_TEAMMATCH:
 				if (!cv_timelimit.changed && !cv_pointlimit.changed) // user hasn't changed limits
 				{
-					// default settings for match: timelimit 10 mins, no pointlimit
+					// default settings for match: timelimit 7 mins, no pointlimit
 					CV_SetValue(&cv_pointlimit, 0);
-					CV_SetValue(&cv_timelimit, 10);
+					CV_SetValue(&cv_timelimit, 7);
 				}
 				if (!cv_itemrespawntime.changed)
 					CV_Set(&cv_itemrespawntime, cv_itemrespawntime.defaultvalue); // respawn normally
@@ -4259,9 +4259,9 @@ void D_GameTypeChanged(INT32 lastgametype)
 			case GT_HIDEANDSEEK:
 				if (!cv_timelimit.changed && !cv_pointlimit.changed) // user hasn't changed limits
 				{
-					// default settings for tag: 5 mins, no pointlimit
+					// default settings for tag: 7 mins, no pointlimit
 					// Note that tag mode also uses an alternate timing mechanism in tandem with timelimit.
-					CV_SetValue(&cv_timelimit, 5);
+					CV_SetValue(&cv_timelimit, 7);
 					CV_SetValue(&cv_pointlimit, 0);
 				}
 				if (!cv_itemrespawntime.changed)
@@ -4270,8 +4270,8 @@ void D_GameTypeChanged(INT32 lastgametype)
 			case GT_CTF:
 				if (!cv_timelimit.changed && !cv_pointlimit.changed) // user hasn't changed limits
 				{
-					// default settings for CTF: no timelimit, pointlimit 5
-					CV_SetValue(&cv_timelimit, 0);
+					// default settings for CTF: 15 mins, pointlimit 5
+					CV_SetValue(&cv_timelimit, 15);
 					CV_SetValue(&cv_pointlimit, 5);
 				}
 				if (!cv_itemrespawntime.changed)
@@ -4792,12 +4792,11 @@ static void Command_Togglemodified_f(void)
 	modifiedgame = !modifiedgame;
 }
 
-extern UINT8 *save_p;
 static void Command_Archivetest_f(void)
 {
-	UINT8 *buf;
 	UINT32 i, wrote;
 	thinker_t *th;
+	save_t savebuffer;
 	if (gamestate != GS_LEVEL)
 	{
 		CONS_Printf("This command only works in-game, you dummy.\n");
@@ -4811,28 +4810,29 @@ static void Command_Archivetest_f(void)
 			((mobj_t *)th)->mobjnum = i++;
 
 	// allocate buffer
-	buf = save_p = ZZ_Alloc(1024);
+	savebuffer.size = 1024;
+	savebuffer.buf = malloc(savebuffer.size);
+	savebuffer.pos = 0;
 
 	// test archive
 	CONS_Printf("LUA_Archive...\n");
-	LUA_Archive();
-	WRITEUINT8(save_p, 0x7F);
-	wrote = (UINT32)(save_p-buf);
+	LUA_Archive(&savebuffer);
+	P_WriteUINT8(&savebuffer, 0x7F);
+	wrote = savebuffer.pos;
 
 	// clear Lua state, so we can really see what happens!
 	CONS_Printf("Clearing state!\n");
 	LUA_ClearExtVars();
 
 	// test unarchive
-	save_p = buf;
 	CONS_Printf("LUA_UnArchive...\n");
-	LUA_UnArchive();
-	i = READUINT8(save_p);
-	if (i != 0x7F || wrote != (UINT32)(save_p-buf))
-		CONS_Printf("Savegame corrupted. (write %u, read %u)\n", wrote, (UINT32)(save_p-buf));
+	LUA_UnArchive(&savebuffer);
+	i = P_ReadUINT8(&savebuffer);
+	if (i != 0x7F || wrote != (UINT32)(savebuffer.pos))
+		CONS_Printf("Savegame corrupted. (write %u, read %u)\n", wrote, (UINT32)(savebuffer.pos));
 
 	// free buffer
-	Z_Free(buf);
+	free(savebuffer.buf);
 	CONS_Printf("Done. No crash.\n");
 }
 #endif
@@ -4903,10 +4903,12 @@ static void Name2_OnChange(void)
 
 static boolean Skin_CanChange(const char *valstr)
 {
-	(void)valstr;
-
 	if (!Playing())
 		return true; // do whatever you want
+
+	// You already are that skin.
+	if (stricmp(skins[players[consoleplayer].skin]->name, valstr) == 0)
+		return false;
 
 	if (!(multiplayer || netgame)) // In single player.
 		return true;
@@ -4922,10 +4924,12 @@ static boolean Skin_CanChange(const char *valstr)
 
 static boolean Skin2_CanChange(const char *valstr)
 {
-	(void)valstr;
-
 	if (!Playing() || !splitscreen)
 		return true; // do whatever you want
+
+	// You already are that skin.
+	if (stricmp(skins[players[secondarydisplayplayer].skin]->name, valstr) == 0)
+		return false;
 
 	if (CanChangeSkin(secondarydisplayplayer) && !P_PlayerMoving(secondarydisplayplayer))
 		return true;

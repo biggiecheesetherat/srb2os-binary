@@ -12,6 +12,10 @@
 #include "../tables.h"
 #include "../doomtype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //#define HAVE_SPHEREFRUSTRUM // enable if you want gld_SphereInFrustum and related code
 
 boolean gld_clipper_SafeCheckRange(angle_t startAngle, angle_t endAngle);
@@ -21,4 +25,8 @@ angle_t gld_FrustumAngle(float render_fov, angle_t tiltangle);
 #ifdef HAVE_SPHEREFRUSTRUM
 void gld_FrustrumSetup(void);
 boolean gld_SphereInFrustum(float x, float y, float z, float radius);
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif

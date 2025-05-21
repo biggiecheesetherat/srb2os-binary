@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -18,6 +18,10 @@
 #include "doomtype.h"
 #ifdef __GNUC__
 #include <stdlib.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /*!
@@ -356,5 +360,9 @@ const vector4_t *FM_MultMatrixVec4(const matrix_t *matrix, const vector4_t *vec,
 void FM_MultMatrix(matrix_t *dest, const matrix_t *multme);
 void FM_Translate(matrix_t *dest, fixed_t x, fixed_t y, fixed_t z);
 void FM_Scale(matrix_t *dest, fixed_t x, fixed_t y, fixed_t z);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //m_fixed.h

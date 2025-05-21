@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -31,8 +31,8 @@
 // and the Frame Sequence table.
 #include "info.h"
 
-#ifdef __GNUG__
-#pragma interface
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /// \brief Frame flags: only the frame number - 0 to 256 (Frames from 0 to 255)
@@ -120,5 +120,9 @@ typedef enum
 	tr_trans90,
 	NUMTRANSMAPS
 } transnum_t;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

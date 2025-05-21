@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -23,16 +23,16 @@
 #define DNWH void * // unused in DOS version
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // quickhack for V_Init()... to be cleaned up
 #ifdef NOPOSTPROCESSING
 #define NUMSCREENS 2
 #else
 #define NUMSCREENS 5
 #endif
-
-// Size of statusbar.
-#define ST_HEIGHT 32
-#define ST_WIDTH 320
 
 // used now as a maximum video mode size for extra vesa modes.
 
@@ -53,6 +53,8 @@ typedef struct viddef_s
 	size_t rowbytes; // bytes per scanline of the VIDEO mode
 	INT32 width; // PIXELS per scanline
 	INT32 height;
+	UINT32 realwidth; // real pixel width of window/screen
+	UINT32 realheight; // real pixel height of window/screen
 	union { // don't need numpages for OpenGL, so we can use it for fullscreen/windowed mode
 		INT32 numpages; // always 1, page flipping todo
 		INT32 windowed; // windowed or fullscren mode?
@@ -97,6 +99,10 @@ enum
 	COLDRAWFUNC_SHADE,
 	COLDRAWFUNC_SHADOWED,
 	COLDRAWFUNC_TRANSTRANS,
+	COLDRAWFUNC_CLAMPED,
+	COLDRAWFUNC_CLAMPEDTRANS,
+	COLDRAWFUNC_TWOSMULTIPATCH,
+	COLDRAWFUNC_TWOSMULTIPATCHTRANS,
 	COLDRAWFUNC_FOG,
 
 	COLDRAWFUNC_MAX
@@ -115,6 +121,7 @@ enum
 	SPANDRAWFUNC_SPLAT,
 	SPANDRAWFUNC_TRANSSPLAT,
 	SPANDRAWFUNC_TILTEDSPLAT,
+	SPANDRAWFUNC_TILTEDTRANSSPLAT,
 
 	SPANDRAWFUNC_SPRITE,
 	SPANDRAWFUNC_TRANSSPRITE,
@@ -157,6 +164,10 @@ extern CV_PossibleValue_t cv_renderer_t[];
 extern INT32 scr_bpp;
 
 extern consvar_t cv_scr_width, cv_scr_height, cv_scr_width_w, cv_scr_height_w, cv_scr_depth, cv_fullscreen;
+extern consvar_t cv_scr_effect;
+extern consvar_t cv_scr_scale;
+extern consvar_t cv_scr_x;
+extern consvar_t cv_scr_y;
 extern consvar_t cv_renderer;
 // wait for page flipping to end or not
 extern consvar_t cv_vidwait;
@@ -190,4 +201,9 @@ void SCR_ClosedCaptions(void);
 void SCR_DisplayLocalPing(void);
 void SCR_DisplayMarathonInfo(void);
 #undef DNWH
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif //__SCREEN_H__

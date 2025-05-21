@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2012-2016 by John "JTE" Muniz.
-// Copyright (C) 2012-2023 by Sonic Team Junior.
+// Copyright (C) 2012-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -9,6 +9,13 @@
 //-----------------------------------------------------------------------------
 /// \file  lua_libs.h
 /// \brief libraries for Lua scripting
+
+#ifndef __LUA_LIBS_H__
+#define __LUA_LIBS_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern lua_State *gL;
 
@@ -55,6 +62,7 @@ extern boolean ignoregameinputs;
 #define META_SEG "SEG_T*"
 #define META_NODE "NODE_T*"
 #endif
+#define META_SIDEOVERLAY "SIDE_T*OVERLAY"
 #define META_SLOPE "PSLOPE_T*"
 #define META_VECTOR2 "VECTOR2_T"
 #define META_VECTOR3 "VECTOR3_T"
@@ -115,3 +123,9 @@ int LUA_BlockmapLib(lua_State *L);
 int LUA_HudLib(lua_State *L);
 int LUA_ColorLib(lua_State *L);
 int LUA_InputLib(lua_State *L);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif // __LUA_LIBS_H__

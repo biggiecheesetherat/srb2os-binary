@@ -28,10 +28,18 @@
 #include "dehacked.h"
 #include "deh_tables.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void LUA_UpdateSprName(const char *name, lua_Integer value);
 boolean LUA_SetLuaAction(void *state, const char *actiontocompare);
 const char *LUA_GetActionName(void *action);
 void LUA_SetActionByName(void *state, const char *actiontocompare);
 enum actionnum LUA_GetActionNumByName(const char *actiontocompare);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

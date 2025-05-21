@@ -18,6 +18,10 @@
 #include "r_textures.h"
 #include "r_plane.h" // visplanes
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Portal structure for the software renderer.
  */
 typedef struct portal_s
@@ -35,6 +39,8 @@ typedef struct portal_s
 	sector_t *horizon_sector;
 
 	boolean is_skybox;
+
+	mobj_t *viewmobj;
 
 	UINT8 pass;			/**< Keeps track of the portal's recursion depth. */
 	INT32 clipline;		/**< Optional clipline for line-based portals. */
@@ -58,10 +64,15 @@ extern INT32 portalclipstart, portalclipend;
 void Portal_InitList		(void);
 void Portal_Remove			(portal_t* portal);
 void Portal_Add2Lines		(const INT32 line1, const INT32 line2, const INT32 x1, const INT32 x2);
-void Portal_AddTransferred	(UINT32 secportalnum, const INT32 x1, const INT32 x2);
+void Portal_AddTransferred	(const UINT32 secportalnum, const INT32 x1, const INT32 x2);
 
 void Portal_ClipRange (portal_t* portal);
 void Portal_ClipApply (const portal_t* portal);
 
 void Portal_AddPlanePortals (boolean add_skyboxes);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

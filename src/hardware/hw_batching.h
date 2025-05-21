@@ -1,6 +1,6 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2020-2023 by Sonic Team Junior.
+// Copyright (C) 2020-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -15,6 +15,10 @@
 #include "hw_defs.h"
 #include "hw_data.h"
 #include "hw_drv.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct
 {
@@ -33,5 +37,9 @@ void HWR_StartBatching(void);
 void HWR_SetCurrentTexture(GLMipmap_t *texture);
 void HWR_ProcessPolygon(FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags, int shader, boolean horizonSpecial);
 void HWR_RenderBatches(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

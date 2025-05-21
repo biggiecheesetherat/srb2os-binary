@@ -12,8 +12,8 @@
 #ifndef __I_ADDRINFO__
 #define __I_ADDRINFO__
 
-#ifdef __GNUG__
-#pragma interface
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #ifndef AI_PASSIVE
@@ -67,5 +67,8 @@ int I_getaddrinfo(const char *node, const char *service,
 #define I_freeaddrinfo freeaddrinfo
 #endif
 
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

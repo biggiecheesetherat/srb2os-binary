@@ -53,6 +53,11 @@ void I_UpdateSoundParams(INT32 handle, UINT8 vol, UINT8 sep, UINT8 pitch)
 	(void)pitch;
 }
 
+void I_SetMasterVolume(UINT8 volume)
+{
+	(void)volume;
+}
+
 void I_SetSfxVolume(UINT8 volume)
 {
 	(void)volume;

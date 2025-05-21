@@ -15,6 +15,10 @@
 
 #include "../doomtype.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern UINT8 hu_redownloadinggamestate;
 extern boolean cl_redownloadinggamestate;
 
@@ -27,5 +31,9 @@ void Command_ResendGamestate(void);
 void PT_CanReceiveGamestate(SINT8 node);
 void PT_ReceivedGamestate(SINT8 node);
 void PT_WillResendGamestate(SINT8 node);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

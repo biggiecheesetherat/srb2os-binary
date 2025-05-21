@@ -15,6 +15,10 @@
 
 #include "m_fixed.h" // for get_number
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum
 {
 	UNDO_NONE    = 0x00,
@@ -39,6 +43,7 @@ extern boolean deh_loaded;
 extern boolean gamedataadded;
 extern boolean titlechanged;
 extern boolean introchanged;
+extern boolean bootmapchanged;
 
 #define MAX_ACTION_RECURSION 30
 extern const char *luaactions[MAX_ACTION_RECURSION];
@@ -62,4 +67,9 @@ typedef struct
 char *myfgets(char *buf, size_t bufsize, MYFILE *f);
 char *myhashfgets(char *buf, size_t bufsize, MYFILE *f);
 void ignorelinesuntilhash(MYFILE *f);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

@@ -18,6 +18,10 @@
 #include "keys.h"
 #include "command.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // number of total 'button' inputs, include keyboard keys, plus virtual
 // keys (mousebuttons and joybuttons becomes keys)
 #define NUMKEYS 256
@@ -74,7 +78,9 @@ typedef enum
 	GC_WEPSLOT5,
 	GC_WEPSLOT6,
 	GC_WEPSLOT7,
-	GC_SHIELD,
+	GC_WEPSLOT8,
+	GC_WEPSLOT9,
+	GC_WEPSLOT10,
 	GC_FIRE,
 	GC_FIRENORMAL,
 	GC_TOSSFLAG,
@@ -196,5 +202,9 @@ INT32 G_CheckDoubleUsage(INT32 keynum, boolean modify);
 
 // sets the members of a mouse_t given position deltas
 void G_SetMouseDeltas(INT32 dx, INT32 dy, UINT8 ssplayer);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

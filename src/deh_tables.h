@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -17,6 +17,10 @@
 #include "d_think.h" // actionf_t
 #include "info.h" // Mobj, state, sprite, etc constants
 #include "lua_script.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // Free slot names
 // The crazy word-reading stuff uses these.
@@ -81,5 +85,9 @@ extern struct int_const_s const INT_CONST[];
 
 // Moved to this file because it can't work compile-time otherwise
 void DEH_TableCheck(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

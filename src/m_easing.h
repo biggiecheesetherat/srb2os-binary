@@ -1,6 +1,6 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2020-2023 by Jaime "Lactozilla" Passos.
+// Copyright (C) 2020-2023 by Lactozilla.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -14,6 +14,10 @@
 
 #include "doomtype.h"
 #include "m_fixed.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum
 {
@@ -98,4 +102,9 @@ EASINGFUNC(OutBackParameterized) /* Easing_OutBackParameterized */
 EASINGFUNC(InOutBackParameterized) /* Easing_InOutBackParameterized */
 
 #undef EASINGFUNC
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

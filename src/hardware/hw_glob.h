@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -17,6 +17,10 @@
 #include "hw_main.h"
 #include "../m_misc.h"
 #include "../p_setup.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // the original aspect ratio of Doom graphics isn't square
 #define ORIGINAL_ASPECT (320.0f/200.0f)
@@ -120,7 +124,7 @@ void HWR_GetPatch(patch_t *patch);
 void HWR_GetMappedPatch(patch_t *patch, const UINT8 *colormap);
 void HWR_GetFadeMask(lumpnum_t fademasklumpnum);
 
-GLMapTexture_t *HWR_GetTexture(INT32 tex);
+GLMapTexture_t *HWR_GetTexture(INT32 tex, boolean chromakeyed);
 void HWR_GetLevelFlat(levelflat_t *levelflat, boolean chromakeyed);
 void HWR_GetRawFlat(lumpnum_t flatlumpnum);
 
@@ -133,7 +137,8 @@ void HWR_UnlockCachedPatch(GLPatch_t *gpatch);
 
 void HWR_SetPalette(RGBA_t *palette);
 void HWR_SetMapPalette(void);
-UINT32 HWR_CreateLightTable(UINT8 *lighttable);
+UINT32 HWR_CreateLightTable(UINT8 *lighttable, RGBA_t *hw_lighttable);
+void HWR_UpdateLightTable(UINT32 id, UINT8 *lighttable, RGBA_t *hw_lighttable);
 UINT32 HWR_GetLightTableID(extracolormap_t *colormap);
 void HWR_ClearLightTables(void);
 
@@ -157,5 +162,9 @@ void HWR_LoadCustomShadersFromFile(UINT16 wadnum, boolean PK3);
 const char *HWR_GetShaderName(INT32 shader);
 
 extern customshaderxlat_t shaderxlat[];
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //_HW_GLOB_

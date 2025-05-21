@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -17,6 +17,10 @@
 #include "d_event.h"
 #include "w_wad.h"
 #include "r_defs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //------------------------------------
 //           Fonts & stuff
@@ -79,6 +83,9 @@ void HU_AddChatText(const char *text, boolean playsound);
 // set true when entering a chat message
 extern boolean chat_on;
 
+extern UINT8 spam_tokens[MAXPLAYERS];
+extern tic_t spam_tics[MAXPLAYERS];
+
 extern patch_t *emeraldpics[3][8];
 extern patch_t *rflagico;
 extern patch_t *bflagico;
@@ -123,4 +130,9 @@ void HU_DoCEcho(const char *msg);
 extern UINT32 hu_demoscore;
 extern UINT32 hu_demotime;
 extern UINT16 hu_demorings;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

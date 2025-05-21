@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -17,6 +17,10 @@
 #include "doomdef.h"
 #include "doomstat.h"
 #include "d_event.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // ======================================
 // DEMO playback/recording related stuff.
@@ -108,5 +112,9 @@ void G_StopDemo(void);
 boolean G_CheckDemoStatus(void);
 INT32 G_ConvertOldFrameFlags(INT32 frame);
 UINT8 G_CheckDemoForError(char *defdemoname);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // __G_DEMO__

@@ -1,8 +1,8 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2018-2023 by Jaime "Lactozilla" Passos.
-// Copyright (C) 2019-2023 by Sonic Team Junior.
+// Copyright (C) 2018-2024 by Lactozilla.
+// Copyright (C) 2019-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -16,6 +16,10 @@
 
 #include "r_defs.h"
 #include "doomdef.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum
 {
@@ -123,7 +127,11 @@ boolean Picture_PNGDimensions(UINT8 *png, INT32 *width, INT32 *height, INT16 *to
 
 // SpriteInfo
 extern spriteinfo_t spriteinfo[NUMSPRITES];
-void R_LoadSpriteInfoLumps(UINT16 wadnum, UINT16 numlumps);
+void R_LoadSpriteInfoLumps(UINT16 wadnum);
 void R_ParseSPRTINFOLump(UINT16 wadNum, UINT16 lumpNum);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // __R_PICFORMATS__

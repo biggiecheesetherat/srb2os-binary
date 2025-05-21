@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -22,6 +22,11 @@
 #include "p_tick.h"
 #include "r_defs.h"
 #include "p_maputl.h"
+#include "p_spec.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define FLOATSPEED (FRACUNIT*4)
 
@@ -38,11 +43,6 @@
 
 // Convenience macro to fix issue with collision along bottom/left edges of blockmap -Red
 #define BMBOUNDFIX(xl, xh, yl, yh) {if (xl > xh) xl = 0; if (yl > yh) yl = 0;}
-
-// MAXRADIUS is for precalculated sector block boxes
-// the spider demon is larger,
-// but we do not have any moving sectors nearby
-#define MAXRADIUS (32*FRACUNIT)
 
 // max Z move up or down without jumping
 // above this, a height difference is considered as a 'dropoff'
@@ -204,7 +204,7 @@ mobj_t *P_LookForEnemies(player_t *player, boolean nonenemies, boolean bullet);
 void P_NukeEnemies(mobj_t *inflictor, mobj_t *source, fixed_t radius);
 void P_Earthquake(mobj_t *inflictor, mobj_t *source, fixed_t radius);
 boolean P_HomingAttack(mobj_t *source, mobj_t *enemy); /// \todo doesn't belong in p_user
-boolean P_SuperReady(player_t *player, boolean transform);
+boolean P_SuperReady(player_t *player);
 void P_DoJump(player_t *player, boolean soundandstate, boolean allowflip);
 void P_DoSpinDashDust(player_t *player);
 #define P_AnalogMove(player) (P_ControlStyle(player) == CS_LMAOGALOG)
@@ -259,7 +259,7 @@ typedef enum
 
 typedef struct
 {
-	char musname[7];
+	char musname[MAX_MUSIC_NAME+1];
 	boolean looping;
 } jingle_t;
 
@@ -295,7 +295,6 @@ void P_RecalcPrecipInSector(sector_t *sector);
 void P_PrecipitationEffects(void);
 
 void P_RemoveMobj(mobj_t *th);
-boolean P_MobjWasRemoved(mobj_t *th);
 void P_RemoveSavegameMobj(mobj_t *th);
 boolean P_SetMobjState(mobj_t *mobj, statenum_t state);
 UINT8 P_SetupSkinAnimation(mobj_t *mobj, state_t *st);
@@ -308,6 +307,12 @@ boolean P_CheckSkyHit(mobj_t *mo, line_t *line);
 void P_PushableThinker(mobj_t *mobj);
 void P_SceneryThinker(mobj_t *mobj);
 
+// This does not need to be added to Lua.
+// To test it in Lua, check mobj.valid
+FUNCINLINE static ATTRINLINE boolean P_MobjWasRemoved(mobj_t *mobj)
+{
+	return mobj == NULL || mobj->thinker.function.acp1 != (actionf_p1)P_MobjThinker;
+}
 
 fixed_t P_MobjFloorZ(sector_t *sector, sector_t *boundsec, fixed_t x, fixed_t y, fixed_t radius, line_t *line, boolean lowest, boolean perfect);
 fixed_t P_MobjCeilingZ(sector_t *sector, sector_t *boundsec, fixed_t x, fixed_t y, fixed_t radius, line_t *line, boolean lowest, boolean perfect);
@@ -424,6 +429,7 @@ boolean P_Move(mobj_t *actor, fixed_t speed);
 boolean P_SetOrigin(mobj_t *thing, fixed_t x, fixed_t y, fixed_t z);
 boolean P_MoveOrigin(mobj_t *thing, fixed_t x, fixed_t y, fixed_t z);
 boolean P_LineIsBlocking(mobj_t *mo, line_t *li);
+boolean P_OneWayBlocking(mobj_t *mo, line_t *li);
 void P_SlideMove(mobj_t *mo);
 void P_BounceMove(mobj_t *mo);
 boolean P_CheckSight(mobj_t *t1, mobj_t *t2);
@@ -531,7 +537,6 @@ void P_DoMatchSuper(player_t *player);
 //
 // P_SPEC
 //
-#include "p_spec.h"
 
 extern INT32 ceilmovesound;
 
@@ -555,5 +560,9 @@ void P_DoSuperDetransformation(player_t *player);
 void P_ExplodeMissile(mobj_t *mo);
 void P_CheckGravity(mobj_t *mo, boolean affect);
 void P_SetPitchRollFromSlope(mobj_t *mo, pslope_t *slope);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // __P_LOCAL__

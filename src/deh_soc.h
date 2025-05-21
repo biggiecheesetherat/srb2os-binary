@@ -45,6 +45,10 @@
 #include "dehacked.h"
 #include "doomdef.h" // HWRENDER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 spritenum_t DEH_FindSpriteByName(const char *name);
 spritenum_t DEH_AddSpriteName(const char *name);
 
@@ -87,4 +91,9 @@ void clear_emblems(void);
 void clear_unlockables(void);
 void clear_levels(void);
 void clear_conditionsets(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

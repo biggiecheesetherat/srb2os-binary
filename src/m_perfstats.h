@@ -16,6 +16,10 @@
 #include "lua_script.h"
 #include "p_local.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct
 {
 	union {
@@ -60,5 +64,9 @@ void M_DrawPerfStats(void);
 
 void PS_PerfStats_OnChange(void);
 void PS_SampleSize_OnChange(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

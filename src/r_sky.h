@@ -16,8 +16,8 @@
 
 #include "m_fixed.h"
 
-#ifdef __GNUG__
-#pragma interface
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /// \brief SKY, store the number for name.
@@ -37,5 +37,9 @@ extern INT32 globallevelskynum;
 void R_SetupSkyDraw(void);
 
 void R_SetSkyScale(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

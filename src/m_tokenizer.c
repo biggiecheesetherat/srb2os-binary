@@ -1,6 +1,6 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2013-2023 by Sonic Team Junior.
+// Copyright (C) 2013-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -30,6 +30,7 @@ tokenizer_t *Tokenizer_Open(const char *inputString, size_t len, unsigned numTok
 	tokenizer->inComment = 0;
 	tokenizer->inString = 0;
 	tokenizer->get = Tokenizer_Read;
+	tokenizer->isString = false;
 
 	if (numTokens < 1)
 		numTokens = 1;
@@ -113,6 +114,9 @@ const char *Tokenizer_Read(tokenizer_t *tokenizer, UINT32 i)
 		return NULL;
 
 	tokenizer->startPos = tokenizer->endPos;
+
+	// Reset string flag
+	tokenizer->isString = false;
 
 	// If in a string, return the entire string within quotes, except without the quotes.
 	if (tokenizer->inString == 1)
@@ -230,6 +234,9 @@ const char *Tokenizer_SRB2Read(tokenizer_t *tokenizer, UINT32 i)
 
 	tokenizer->startPos = tokenizer->endPos;
 
+	// Reset string flag
+	tokenizer->isString = false;
+
 	// Try to detect comments now, in case we're pointing right at one
 	DetectComment(tokenizer, &tokenizer->startPos);
 
@@ -289,6 +296,10 @@ const char *Tokenizer_SRB2Read(tokenizer_t *tokenizer, UINT32 i)
 
 		Tokenizer_ReadTokenString(tokenizer, i);
 		tokenizer->endPos++;
+
+		// Tell us the the token was a string.
+		tokenizer->isString = true;
+
 		return tokenizer->token[i];
 	}
 
@@ -322,4 +333,9 @@ UINT32 Tokenizer_GetEndPos(tokenizer_t *tokenizer)
 void Tokenizer_SetEndPos(tokenizer_t *tokenizer, UINT32 newPos)
 {
 	tokenizer->endPos = newPos;
+}
+
+boolean Tokenizer_JustReadString(tokenizer_t *tokenizer)
+{
+	return tokenizer->isString;
 }

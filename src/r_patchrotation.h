@@ -1,6 +1,6 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2020-2023 by Jaime "Lactozilla" Passos.
+// Copyright (C) 2020-2023 by Lactozilla.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -12,10 +12,19 @@
 #include "r_patch.h"
 #include "r_picformats.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef ROTSPRITE
 rotsprite_t *RotatedPatch_Create(INT32 numangles);
 void RotatedPatch_DoRotation(rotsprite_t *rotsprite, patch_t *patch, INT32 angle, INT32 xpivot, INT32 ypivot, boolean flip);
 
 extern fixed_t rollcosang[ROTANGLES];
 extern fixed_t rollsinang[ROTANGLES];
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif

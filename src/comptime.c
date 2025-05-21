@@ -21,6 +21,7 @@ const int compoptimized = SRB2_COMP_OPTIMIZED;
 #else
 const char *compbranch = "Unknown";
 const char *comprevision = "illegal";
+const char *compnote = "NULL"
 
 #endif
 

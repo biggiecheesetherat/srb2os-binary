@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -35,6 +35,9 @@
 #include "lua_hook.h"
 
 #include "m_perfstats.h" // ps_checkposition_calls
+
+// Formerly called MAXRADIUS
+#define MAXTRYMOVE (32*FRACUNIT)
 
 fixed_t tmbbox[4];
 mobj_t *tmthing;
@@ -148,6 +151,7 @@ boolean P_MoveOrigin(mobj_t *thing, fixed_t x, fixed_t y, fixed_t z)
 //       1 = launch players in jump
 //       2 = don't modify player at all, just add momentum
 //       3 = speed-booster mode (force onto ground, MF_AMBUSH causes auto-spin)
+//		 4 = steamjet (maintain jumping state if airborne, use values from mobj instead of mobjinfo)
 //     Negative spring modes are mildly-related gimmicks with customisation.
 //      -1 = pinball bumper
 //     Any other spring mode defaults to standard vanilla spring behaviour,
@@ -156,8 +160,8 @@ boolean P_MoveOrigin(mobj_t *thing, fixed_t x, fixed_t y, fixed_t z)
 
 boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 {
-	fixed_t vertispeed = spring->info->mass;
-	fixed_t horizspeed = spring->info->damage;
+	fixed_t vertispeed = (spring->info->painchance == 4) ? spring->extravalue1 : spring->info->mass;
+	fixed_t horizspeed = (spring->info->painchance == 4) ? spring->extravalue2 : spring->info->damage;
 	boolean final = false;
 	UINT8 strong = 0;
 
@@ -434,7 +438,7 @@ boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 		secondjump = object->player->secondjump;
 		P_ResetPlayer(object->player);
 
-		if (spring->info->painchance == 1) // For all those ancient, SOC'd abilities.
+		if (spring->info->painchance == 1 || spring->info->painchance == 4) // For all those ancient, SOC'd abilities.
 		{
 			object->player->pflags |= P_GetJumpFlags(object->player);
 			P_SetMobjState(object, S_PLAY_JUMP);
@@ -444,7 +448,7 @@ boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 			object->player->pflags |= (pflags &~ PF_STARTJUMP);
 			object->player->secondjump = secondjump;
 		}
-		else if (!vertispeed)
+		else if (!vertispeed || ((spring->info->painchance == 4) && P_IsObjectOnGround(object)))
 		{
 			if (pflags & (PF_JUMPED|PF_SPINNING))
 			{
@@ -456,7 +460,7 @@ boolean P_DoSpring(mobj_t *spring, mobj_t *object)
 			else if (P_IsObjectOnGround(object))
 				P_SetMobjState(object, (horizspeed >= FixedMul(object->player->runspeed, object->scale)) ? S_PLAY_RUN : S_PLAY_WALK);
 			else
-				P_SetMobjState(object, (object->momz > 0) ? S_PLAY_SPRING : S_PLAY_FALL);
+				P_SetMobjState(object, (object->momz > 0 || spring->info->painchance != 4) ? S_PLAY_SPRING : S_PLAY_FALL);
 		}
 		else if (P_MobjFlip(object)*vertispeed > 0)
 			P_SetMobjState(object, S_PLAY_SPRING);
@@ -1258,8 +1262,9 @@ static unsigned PIT_DoCheckThing(mobj_t *thing)
 
 		if (tmthing->type != MT_SHELL && tmthing->target && tmthing->target->type == thing->type)
 		{
-			// Don't hit same species as originator.
-			if (thing == tmthing->target)
+			// Don't hit yourself, and if a player, don't hit bots
+			if (thing == tmthing->target
+				|| (thing->player && tmthing->target->player && (thing->player->bot == BOT_2PAI || thing->player->bot == BOT_2PHUMAN)))
 				return CHECKTHING_IGNORE;
 
 			if (thing->type != MT_PLAYER)
@@ -1464,13 +1469,13 @@ static unsigned PIT_DoCheckThing(mobj_t *thing)
 	}
 
 	// check for special pickup
-	if (thing->flags & MF_SPECIAL)
+	if (thing->flags & MF_SPECIAL && (tmthing->player || (tmthing->flags & MF_PUSHABLE))) // MF_PUSHABLE added for steam jets
 	{
 		P_TouchSpecialThing(thing, tmthing, true); // can remove thing
 		return CHECKTHING_COLLIDE;
 	}
 	// check again for special pickup
-	if (tmthing->flags & MF_SPECIAL)
+	if (tmthing->flags & MF_SPECIAL && (thing->player || (thing->flags & MF_PUSHABLE))) // MF_PUSHABLE added for steam jets
 	{
 		P_TouchSpecialThing(tmthing, thing, true); // can remove thing
 		return CHECKTHING_COLLIDE;
@@ -1982,9 +1987,13 @@ static boolean PIT_CheckLine(line_t *ld)
 	{
 		if (ld->flags & ML_IMPASSIBLE) // block objects from moving through this linedef.
 			return false;
+
 		if ((tmthing->flags & (MF_ENEMY|MF_BOSS)) && ld->flags & ML_BLOCKMONSTERS)
 			return false; // block monsters only
 	}
+
+	if (P_OneWayBlocking(tmthing, ld)) // block objects from the front side
+		return false;
 
 	// set openrange, opentop, openbottom
 	P_LineOpening(ld, tmthing);
@@ -2076,8 +2085,8 @@ boolean P_CheckPosition(mobj_t *thing, fixed_t x, fixed_t y)
 			if ((rover->fofflags & (FOF_SWIMMABLE|FOF_GOOWATER)) == (FOF_SWIMMABLE|FOF_GOOWATER) && !(thing->flags & MF_NOGRAVITY))
 			{
 				// If you're inside goowater and slowing down
-				fixed_t sinklevel = FixedMul(thing->info->height/6, thing->scale);
-				fixed_t minspeed = FixedMul(thing->info->height/9, thing->scale);
+				fixed_t sinklevel = FixedMul(thing->info->height/8, thing->scale);
+				fixed_t minspeed = FixedMul(thing->info->height/4, thing->scale);
 				if (thing->z < topheight && bottomheight < thingtop
 				&& abs(thing->momz) < minspeed)
 				{
@@ -2164,15 +2173,10 @@ boolean P_CheckPosition(mobj_t *thing, fixed_t x, fixed_t y)
 		}
 	}
 
-	// The bounding box is extended by MAXRADIUS
-	// because mobj_ts are grouped into mapblocks
-	// based on their origin point, and can overlap
-	// into adjacent blocks by up to MAXRADIUS units.
-
-	xl = (unsigned)(tmbbox[BOXLEFT] - bmaporgx - MAXRADIUS)>>MAPBLOCKSHIFT;
-	xh = (unsigned)(tmbbox[BOXRIGHT] - bmaporgx + MAXRADIUS)>>MAPBLOCKSHIFT;
-	yl = (unsigned)(tmbbox[BOXBOTTOM] - bmaporgy - MAXRADIUS)>>MAPBLOCKSHIFT;
-	yh = (unsigned)(tmbbox[BOXTOP] - bmaporgy + MAXRADIUS)>>MAPBLOCKSHIFT;
+	xl = (unsigned)(tmbbox[BOXLEFT] - bmaporgx)>>MAPBLOCKSHIFT;
+	xh = (unsigned)(tmbbox[BOXRIGHT] - bmaporgx)>>MAPBLOCKSHIFT;
+	yl = (unsigned)(tmbbox[BOXBOTTOM] - bmaporgy)>>MAPBLOCKSHIFT;
+	yh = (unsigned)(tmbbox[BOXTOP] - bmaporgy)>>MAPBLOCKSHIFT;
 
 	BMBOUNDFIX(xl, xh, yl, yh);
 
@@ -2263,7 +2267,7 @@ boolean P_CheckPosition(mobj_t *thing, fixed_t x, fixed_t y)
 		for (bx = xl; bx <= xh; bx++)
 			for (by = yl; by <= yh; by++)
 			{
-				if (!P_BlockThingsIterator(bx, by, PIT_CheckThing))
+				if (!P_BlockThingsIterator(bx, by, PIT_CheckThing, tmthing))
 					blockval = false;
 				else
 					tmhitthing = tmfloorthing;
@@ -2392,11 +2396,6 @@ boolean P_CheckCameraPosition(fixed_t x, fixed_t y, camera_t *thiscam)
 		}
 	}
 
-	// The bounding box is extended by MAXRADIUS
-	// because mobj_ts are grouped into mapblocks
-	// based on their origin point, and can overlap
-	// into adjacent blocks by up to MAXRADIUS units.
-
 	xl = (unsigned)(tmbbox[BOXLEFT] - bmaporgx)>>MAPBLOCKSHIFT;
 	xh = (unsigned)(tmbbox[BOXRIGHT] - bmaporgx)>>MAPBLOCKSHIFT;
 	yl = (unsigned)(tmbbox[BOXBOTTOM] - bmaporgy)>>MAPBLOCKSHIFT;
@@ -2501,6 +2500,9 @@ boolean P_TryCameraMove(fixed_t x, fixed_t y, camera_t *thiscam)
 
 	floatok = false;
 
+	if (dedicated) // this crashes so don't even try it
+		return false;
+
 	if (twodlevel
 		|| (thiscam == &camera && players[displayplayer].mo && (players[displayplayer].mo->flags2 & MF2_TWOD))
 		|| (thiscam == &camera2 && players[secondarydisplayplayer].mo && (players[secondarydisplayplayer].mo->flags2 & MF2_TWOD)))
@@ -2524,16 +2526,16 @@ boolean P_TryCameraMove(fixed_t x, fixed_t y, camera_t *thiscam)
 		}
 
 		do {
-			if (x-tryx > MAXRADIUS)
-				tryx += MAXRADIUS;
-			else if (x-tryx < -MAXRADIUS)
-				tryx -= MAXRADIUS;
+			if (x-tryx > MAXTRYMOVE)
+				tryx += MAXTRYMOVE;
+			else if (x-tryx < -MAXTRYMOVE)
+				tryx -= MAXTRYMOVE;
 			else
 				tryx = x;
-			if (y-tryy > MAXRADIUS)
-				tryy += MAXRADIUS;
-			else if (y-tryy < -MAXRADIUS)
-				tryy -= MAXRADIUS;
+			if (y-tryy > MAXTRYMOVE)
+				tryy += MAXTRYMOVE;
+			else if (y-tryy < -MAXTRYMOVE)
+				tryy -= MAXTRYMOVE;
 			else
 				tryy = y;
 
@@ -2679,7 +2681,7 @@ increment_move
 	floatok = false;
 
 	// This makes sure that there are no freezes from computing extremely small movements.
-	// Originally was MAXRADIUS/2, but that can cause some bad inconsistencies for small players.
+	// Originally was MAXTRYMOVE/2, but that can cause some bad inconsistencies for small players.
 	radius = max(radius, thing->scale);
 
 	// And we also have to prevent Big Large (tm) movements, as those can skip too far
@@ -2868,10 +2870,10 @@ boolean P_TryMove(mobj_t *thing, fixed_t x, fixed_t y, boolean allowdropoff)
 	{
 		INT32 xl, xh, yl, yh;
 
-		yh = (unsigned)(thing->y + MAXRADIUS - bmaporgy)>>MAPBLOCKSHIFT;
-		yl = (unsigned)(thing->y - MAXRADIUS - bmaporgy)>>MAPBLOCKSHIFT;
-		xh = (unsigned)(thing->x + MAXRADIUS - bmaporgx)>>MAPBLOCKSHIFT;
-		xl = (unsigned)(thing->x - MAXRADIUS - bmaporgx)>>MAPBLOCKSHIFT;
+		yh = (unsigned)(thing->y + thing->radius - bmaporgy)>>MAPBLOCKSHIFT;
+		yl = (unsigned)(thing->y - thing->radius - bmaporgy)>>MAPBLOCKSHIFT;
+		xh = (unsigned)(thing->x + thing->radius - bmaporgx)>>MAPBLOCKSHIFT;
+		xl = (unsigned)(thing->x - thing->radius - bmaporgx)>>MAPBLOCKSHIFT;
 
 		BMBOUNDFIX(xl, xh, yl, yh);
 
@@ -2879,7 +2881,7 @@ boolean P_TryMove(mobj_t *thing, fixed_t x, fixed_t y, boolean allowdropoff)
 		standx = x;
 		standy = y;
 
-		P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_PushableMoved);
+		P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_PushableMoved, stand);
 	}
 
 	// Link the thing into its new position
@@ -2943,16 +2945,16 @@ boolean P_SceneryTryMove(mobj_t *thing, fixed_t x, fixed_t y)
 	tryx = thing->x;
 	tryy = thing->y;
 	do {
-		if (x-tryx > MAXRADIUS)
-			tryx += MAXRADIUS;
-		else if (x-tryx < -MAXRADIUS)
-			tryx -= MAXRADIUS;
+		if (x-tryx > MAXTRYMOVE)
+			tryx += MAXTRYMOVE;
+		else if (x-tryx < -MAXTRYMOVE)
+			tryx -= MAXTRYMOVE;
 		else
 			tryx = x;
-		if (y-tryy > MAXRADIUS)
-			tryy += MAXRADIUS;
-		else if (y-tryy < -MAXRADIUS)
-			tryy -= MAXRADIUS;
+		if (y-tryy > MAXTRYMOVE)
+			tryy += MAXTRYMOVE;
+		else if (y-tryy < -MAXTRYMOVE)
+			tryy -= MAXTRYMOVE;
 		else
 			tryy = y;
 
@@ -3397,6 +3399,9 @@ boolean P_LineIsBlocking(mobj_t *mo, line_t *li)
 			return true;
 	}
 
+	if (P_OneWayBlocking(mo, li))
+		return true;
+
 	// set openrange, opentop, openbottom
 	P_LineOpening(li, mo);
 
@@ -3413,6 +3418,33 @@ boolean P_LineIsBlocking(mobj_t *mo, line_t *li)
 		&& openrange < P_GetPlayerHeight(mo->player)
 		&& !P_PlayerCanEnterSpinGaps(mo->player))
 			return true; // nonspin character should not take this path
+
+	return false;
+}
+
+boolean P_OneWayBlocking(mobj_t *mo, line_t *li)
+{
+	if ((li->flags & ML_ONEWAY) != 0 // Blocks everything
+	|| (mo->player != NULL && (li->flags & ML_ONEWAYPLAYERS) != 0) // Blocks players
+	|| ((mo->flags & (MF_ENEMY | MF_BOSS)) && (li->flags & ML_ONEWAYMONSTERS) != 0) // Blocks monsters
+	|| ((mo->flags & MF_MISSILE) && (li->flags & ML_ONEWAYMISSILES) != 0)) // Blocks missiles
+	{
+		// This function used to call P_PointOnLineSide, but it was problematic with enemies that use P_Move.
+		angle_t moveangle;
+
+		if (mo->momx || mo->momy)
+		{
+			// Reduces the chances of the object getting stuck because it casually waltzed up the line
+			moveangle = R_PointToAngle2(0, 0, mo->momx, mo->momy);
+		}
+		else
+		{
+			// Not actually moving. Check if the object is facing the wall instead.
+			moveangle = mo->angle;
+		}
+
+		return abs((signed)(moveangle - ANGLE_90 - li->angle)) < ANGLE_90;
+	}
 
 	return false;
 }
@@ -3960,23 +3992,25 @@ papercollision:
 		mo->momy = tmymove;
 	}
 
+	const fixed_t tmradius = mo->radius > 8 ? mo->radius : 8;
+
 	do {
-		if (tmxmove > mo->radius) {
-			newx = mo->x + mo->radius;
-			tmxmove -= mo->radius;
-		} else if (tmxmove < -mo->radius) {
-			newx = mo->x - mo->radius;
-			tmxmove += mo->radius;
+		if (tmxmove > tmradius) {
+			newx = mo->x + tmradius;
+			tmxmove -= tmradius;
+		} else if (tmxmove < -tmradius) {
+			newx = mo->x - tmradius;
+			tmxmove += tmradius;
 		} else {
 			newx = mo->x + tmxmove;
 			tmxmove = 0;
 		}
-		if (tmymove > mo->radius) {
-			newy = mo->y + mo->radius;
-			tmymove -= mo->radius;
-		} else if (tmymove < -mo->radius) {
-			newy = mo->y - mo->radius;
-			tmymove += mo->radius;
+		if (tmymove > tmradius) {
+			newy = mo->y + tmradius;
+			tmymove -= tmradius;
+		} else if (tmymove < -tmradius) {
+			newy = mo->y - tmradius;
+			tmymove += tmradius;
 		} else {
 			newy = mo->y + tmymove;
 			tmymove = 0;
@@ -4209,7 +4243,8 @@ void P_RadiusAttack(mobj_t *spot, mobj_t *source, fixed_t damagedist, UINT8 dama
 	INT32 xl, xh, yl, yh;
 	fixed_t dist;
 
-	dist = FixedMul(damagedist, spot->scale) + MAXRADIUS;
+	dist = FixedMul(damagedist, spot->scale);
+
 	yh = (unsigned)(spot->y + dist - bmaporgy)>>MAPBLOCKSHIFT;
 	yl = (unsigned)(spot->y - dist - bmaporgy)>>MAPBLOCKSHIFT;
 	xh = (unsigned)(spot->x + dist - bmaporgx)>>MAPBLOCKSHIFT;
@@ -4223,7 +4258,7 @@ void P_RadiusAttack(mobj_t *spot, mobj_t *source, fixed_t damagedist, UINT8 dama
 	bombdamagetype = damagetype;
 	bombsightcheck = sightcheck;
 
-	P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_RadiusAttack);
+	P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_RadiusAttack, bombspot);
 }
 
 //
@@ -4379,15 +4414,15 @@ static boolean P_CheckSectorPolyObjects(sector_t *sector, boolean realcrush, boo
 			{
 				mobj_t *mo;
 				blocknode_t *block;
+				blocknode_t *next = NULL;
 
 				if (x < 0 || y < 0 || x >= bmapwidth || y >= bmapheight)
 					continue;
 
-				block = blocklinks[y * bmapwidth + x];
-
-				for (; block; block = block->mnext)
+				for (block = blocklinks[y * bmapwidth + x]; block != NULL; block = next)
 				{
 					mo = block->mobj;
+					next = block->mnext;
 
 					// Monster Iestyn: do we need to check if a mobj has already been checked? ...probably not I suspect
 					if (!P_MobjInsidePolyobj(po, mo))

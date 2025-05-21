@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -16,6 +16,10 @@
 
 #ifndef __P_SPEC__
 #define __P_SPEC__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern mobj_t *skyboxmo[2]; // current skybox mobjs: 0 = viewpoint, 1 = centerpoint
 extern mobj_t *skyboxviewpnts[16]; // array of MT_SKYBOX viewpoint mobjs
@@ -1116,5 +1120,9 @@ typedef struct
 void T_PlaneDisplace(planedisplace_t *pd);
 
 void P_CalcHeight(player_t *player);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

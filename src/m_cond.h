@@ -16,6 +16,10 @@
 #include "doomdef.h"
 #include "doomdata.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // --------
 // Typedefs
 // --------
@@ -203,9 +207,9 @@ typedef struct
 	boolean unlocked[MAXUNLOCKABLES];
 
 	// TIME ATTACK DATA
-	recorddata_t *mainrecords[NUMMAPS];
-	nightsdata_t *nightsrecords[NUMMAPS];
-	UINT8 mapvisited[NUMMAPS];
+	recorddata_t *mainrecords[MAXMAPS];
+	nightsdata_t *nightsrecords[MAXMAPS];
+	UINT8 mapvisited[MAXMAPS];
 
 	// # OF TIMES THE GAME HAS BEEN BEATEN
 	UINT32 timesBeaten;
@@ -274,5 +278,9 @@ INT32 M_UnlockableSkinNum(unlockable_t *unlock);
 INT32 M_EmblemSkinNum(emblem_t *emblem);
 
 #define M_Achieved(a, data) ((a) >= MAXCONDITIONSETS || data->achieved[a])
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

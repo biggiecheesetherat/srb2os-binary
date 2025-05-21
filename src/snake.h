@@ -14,10 +14,18 @@
 
 #include "d_event.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void Snake_Allocate(void **opaque);
 void Snake_Update(void *opaque);
 void Snake_Draw(void *opaque);
 void Snake_Free(void **opaque);
 boolean Snake_JoyGrabber(void *opaque, event_t *ev);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

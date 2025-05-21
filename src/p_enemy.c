@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -3744,7 +3744,7 @@ static void P_DoBossVictory(mobj_t *mo)
 	// scan the remaining thinkers to see if all bosses are dead
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mo2 = (mobj_t *)th;
@@ -3784,16 +3784,15 @@ static void P_DoBossVictory(mobj_t *mo)
 		}
 
 		if (mapheaderinfo[gamemap-1]->muspostbossname[0] &&
-			S_MusicExists(mapheaderinfo[gamemap-1]->muspostbossname, !midi_disabled, !digital_disabled))
+			S_MusicExists(mapheaderinfo[gamemap-1]->muspostbossname))
 		{
 			// Touching the egg trap button calls P_DoPlayerExit, which calls P_RestoreMusic.
 			// So just park ourselves in the mapmus variables.
 			// But don't change the mapmus variables if they were modified from their level header values (e.g., TUNES).
-			boolean changed = strnicmp(mapheaderinfo[gamemap-1]->musname, S_MusicName(), 7);
-			if (!strnicmp(mapheaderinfo[gamemap-1]->musname, mapmusname, 7))
+			boolean changed = strnicmp(mapheaderinfo[gamemap-1]->musname, S_MusicName(), MAX_MUSIC_NAME);
+			if (!strnicmp(mapheaderinfo[gamemap-1]->musname, mapmusname, MAX_MUSIC_NAME))
 			{
-				strncpy(mapmusname, mapheaderinfo[gamemap-1]->muspostbossname, 7);
-				mapmusname[6] = 0;
+				strlcpy(mapmusname, mapheaderinfo[gamemap-1]->muspostbossname, MAX_MUSIC_NAME+1);
 				mapmusflags = (mapheaderinfo[gamemap-1]->muspostbosstrack & MUSIC_TRACKMASK) | MUSIC_RELOADRESET;
 				mapmusposition = mapheaderinfo[gamemap-1]->muspostbosspos;
 			}
@@ -3922,7 +3921,7 @@ static void P_DoBoss5Death(mobj_t *mo)
 				pole->angle = mo->tracer->angle;
 				pole->momx = P_ReturnThrustX(pole, pole->angle, speed);
 				pole->momy = P_ReturnThrustY(pole, pole->angle, speed);
-				
+
 				P_SetTarget(&pole->tracer, P_SpawnMobj(
 					pole->x, pole->y,
 					pole->z - 256*FRACUNIT,
@@ -5582,7 +5581,7 @@ void A_MinusDigging(mobj_t *actor)
 
 		minus = actor;
 
-		P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_MinusCarry);
+		P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_MinusCarry, minus);
 	}
 	else
 	{
@@ -6449,7 +6448,7 @@ void A_RingExplode(mobj_t *actor)
 
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mo2 = (mobj_t *)th;
@@ -8332,7 +8331,7 @@ void A_Shockwave(mobj_t *actor)
 		ang += interval;
 		sprev = shock;
 	}
-	
+
 	S_StartSound(actor, shock->info->seesound);
 }
 
@@ -8756,7 +8755,7 @@ void A_FindTarget(mobj_t *actor)
 	// scan the thinkers
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mo2 = (mobj_t *)th;
@@ -8820,7 +8819,7 @@ void A_FindTracer(mobj_t *actor)
 	// scan the thinkers
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mo2 = (mobj_t *)th;
@@ -9498,7 +9497,7 @@ void A_RemoteAction(mobj_t *actor)
 		// scan the thinkers
 		for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 		{
-			if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+			if (th->removing)
 				continue;
 
 			mo2 = (mobj_t *)th;
@@ -9761,7 +9760,7 @@ void A_SetObjectTypeState(mobj_t *actor)
 
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mo2 = (mobj_t *)th;
@@ -10391,7 +10390,7 @@ void A_CheckThingCount(mobj_t *actor)
 
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mo2 = (mobj_t *)th;
@@ -13726,7 +13725,7 @@ void A_DustDevilThink(mobj_t *actor)
 
 	dustdevil = actor;
 
-	P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_DustDevilLaunch);
+	P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_DustDevilLaunch, dustdevil);
 
 	//Whirlwind sound effect.
 	if (leveltime % 70 == 0)
@@ -13842,7 +13841,7 @@ void A_TNTExplode(mobj_t *actor)
 
 	barrel = actor;
 
-	P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_TNTExplode);
+	P_DoBlockThingsIterate(xl, yl, xh, yh, PIT_TNTExplode, barrel);
 
 	// cause a quake -- P_StartQuake does not exist yet
 	epicenter.x = actor->x;
@@ -14395,7 +14394,7 @@ void A_LavafallLava(mobj_t *actor)
 	if (LUA_CallAction(A_LAVAFALLLAVA, actor))
 		return;
 
-	if ((40 - actor->fuse) % (2*(actor->scale >> FRACBITS)))
+	if ((40 - actor->fuse) % max(2*(actor->scale >> FRACBITS), 1)) // avoid crashes if actor->scale < FRACUNIT
 		return;
 
 	// Don't spawn lava unless a player is nearby.

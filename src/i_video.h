@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -16,8 +16,23 @@
 
 #include "doomtype.h"
 
-#ifdef __GNUG__
-#pragma interface
+#ifdef __cplusplus
+
+#include "hwr2/hardware_state.hpp"
+#include "rhi/rhi.hpp"
+
+namespace srb2::sys {
+
+extern rhi::Handle<rhi::Rhi> g_current_rhi;
+
+rhi::Rhi* get_rhi(rhi::Handle<rhi::Rhi> handle);
+
+rhi::Handle<rhi::GraphicsContext> main_graphics_context();
+hwr2::HardwareState* main_hardware_state();
+
+} // namespace srb2::sys
+
+extern "C" {
 #endif
 
 typedef enum
@@ -115,6 +130,10 @@ extern boolean allow_fullscreen;
 */
 void I_UpdateNoBlit(void);
 
+/** \brief Start a display update.
+*/
+void I_StartDisplayUpdate(void);
+
 /**	\brief Update video system with updating frame
 */
 void I_FinishUpdate(void);
@@ -148,5 +167,11 @@ void I_BeginRead(void);
 void I_EndRead(void);
 
 UINT32 I_GetRefreshRate(void);
+
+void I_CaptureVideoFrame(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -16,6 +16,10 @@
 #include "doomtype.h"
 #include "r_defs.h"
 #include "m_fixed.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //
 // P_MAPUTL
@@ -61,7 +65,7 @@ extern ffloor_t *openfloorrover, *openceilingrover;
 void P_LineOpening(line_t *plinedef, mobj_t *mobj);
 
 boolean P_BlockLinesIterator(INT32 x, INT32 y, boolean(*func)(line_t *));
-boolean P_BlockThingsIterator(INT32 x, INT32 y, boolean(*func)(mobj_t *));
+boolean P_BlockThingsIterator(INT32 x, INT32 y, boolean(*func)(mobj_t *), mobj_t *thing);
 
 void P_ClearBlockNodes(void);
 
@@ -94,7 +98,7 @@ typedef struct bthingit_s
 bthingit_t *P_NewBlockThingsIterator(int x1, int y1, int x2, int y2);
 mobj_t *P_BlockThingsIteratorNext(bthingit_t *it, boolean centeronly);
 void P_FreeBlockThingsIterator(bthingit_t *it);
-boolean P_DoBlockThingsIterate(int x1, int y1, int x2, int y2, boolean (*func)(mobj_t *));
+boolean P_DoBlockThingsIterate(int x1, int y1, int x2, int y2, boolean (*func)(mobj_t *), mobj_t *thing);
 
 #define PT_ADDLINES     1
 #define PT_ADDTHINGS    2
@@ -108,4 +112,9 @@ extern fixed_t tmbbox[4]; // p_map.c
 // bbox defined by the radius
 //boolean P_RadiusLinesCheck(fixed_t radius, fixed_t x, fixed_t y,
 //	boolean (*func)(line_t *));
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif // __P_MAPUTL__

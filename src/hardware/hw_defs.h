@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -14,6 +14,10 @@
 #define _HWR_DEFS_
 #include "../doomtype.h"
 #include "../r_defs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define ZCLIP_PLANE 4.0f // Used for the actual game drawing
 #define NZCLIP_PLANE 0.9f // Seems to be only used for the HUD and screen textures
@@ -337,5 +341,8 @@ enum hwdscreentexture
 
 typedef enum hwdscreentexture hwdscreentexture_t;
 
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif //_HWR_DEFS_

@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2012-2016 by John "JTE" Muniz.
-// Copyright (C) 2012-2023 by Sonic Team Junior.
+// Copyright (C) 2012-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -498,7 +498,25 @@ static int call_string_hooks(Hook_State *hook)
 
 static int call_mobj_type_hooks(Hook_State *hook, mobjtype_t mobj_type)
 {
-	return call_mapped(hook, &mobjHookIds[mobj_type][hook->hook_type]);
+	int numCalls = call_mapped(hook, &mobjHookIds[mobj_type][hook->hook_type]);
+
+	if (numCalls > 0 && mobj_type == MT_NULL && (
+		   hook->hook_type == MOBJ_HOOK(MobjThinker    )
+		|| hook->hook_type == MOBJ_HOOK(MobjCollide    )
+		|| hook->hook_type == MOBJ_HOOK(MobjLineCollide)
+		|| hook->hook_type == MOBJ_HOOK(MobjMoveCollide)
+		|| hook->hook_type == MOBJ_HOOK(MobjFuse       )
+		|| hook->hook_type == MOBJ_HOOK(MobjThinker    )
+		|| hook->hook_type == MOBJ_HOOK(BossThinker    )
+		|| hook->hook_type == MOBJ_HOOK(MobjMoveBlocked)
+		|| hook->hook_type == MOBJ_HOOK(FollowMobj     )
+	))
+		LUA_UsageWarning(L, va(
+			"%s hooks not attached to a specific mobj type are deprecated and will be removed.",
+			mobjHookNames[hook->hook_type])
+		);
+
+	return numCalls;
 }
 
 static void call_hud_hooks
@@ -751,7 +769,7 @@ static void hook_think_frame(int type)
 					PS_SetThinkFrameHookInfo(hook_index, time_taken, ar.short_src);
 				else if (type == 6)
 					PS_SetPostThinkFrameHookInfo(hook_index, time_taken, ar.short_src);
-				
+
 				hook_index++;
 			}
 		}
@@ -1128,16 +1146,16 @@ static void update_music_name(struct MusicChange *musicchange)
 	size_t length;
 	const char * new = lua_tolstring(gL, -6, &length);
 
-	if (length < 7)
+	if (length <= MAX_MUSIC_NAME)
 	{
 		strcpy(musicchange->newname, new);
 		lua_pushvalue(gL, -6);/* may as well keep it for next call */
 	}
 	else
 	{
-		memcpy(musicchange->newname, new, 6);
-		musicchange->newname[6] = '\0';
-		lua_pushlstring(gL, new, 6);
+		memcpy(musicchange->newname, new, MAX_MUSIC_NAME);
+		musicchange->newname[MAX_MUSIC_NAME] = '\0';
+		lua_pushlstring(gL, new, MAX_MUSIC_NAME);
 	}
 
 	lua_replace(gL, -7);

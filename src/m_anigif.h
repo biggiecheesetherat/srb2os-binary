@@ -17,6 +17,10 @@
 #include "command.h"
 #include "screen.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if NUMSCREENS > 2
 #define HAVE_ANIGIF
 #endif
@@ -24,9 +28,14 @@
 #ifdef HAVE_ANIGIF
 INT32 GIF_open(const char *filename);
 void GIF_frame(void);
+void GIF_frame_rgb24(INT32 width, INT32 height, const UINT8 *buffer);
 INT32 GIF_close(void);
 #endif
 
 extern consvar_t cv_gif_optimize, cv_gif_downscale, cv_gif_dynamicdelay, cv_gif_localcolortable;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

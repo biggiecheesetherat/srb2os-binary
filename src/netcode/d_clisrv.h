@@ -22,6 +22,10 @@
 #include "../d_player.h"
 #include "mserv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CLIENTBACKUPTICS 32
 
 #ifdef PACKETDROP
@@ -73,7 +77,7 @@ extern UINT32 realpingtable[MAXPLAYERS];
 extern UINT32 playerpingtable[MAXPLAYERS];
 extern tic_t servermaxping;
 
-extern consvar_t cv_netticbuffer, cv_resynchattempts, cv_blamecfail, cv_playbackspeed, cv_idletime, cv_dedicatedidletime;
+extern consvar_t cv_netticbuffer, cv_resynchattempts, cv_blamecfail, cv_playbackspeed, cv_idletime, cv_idleaction, cv_dedicatedidletime;
 extern consvar_t cv_httpsource;
 
 // Used in d_net, the only dependence
@@ -133,5 +137,9 @@ extern UINT8 (*adminpassmd5)[16];
 extern UINT32 adminpasscount;
 
 extern boolean hu_stopped;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

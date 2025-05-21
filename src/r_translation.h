@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2006 by Randy Heit.
-// Copyright (C) 2023 by Sonic Team Junior.
+// Copyright (C) 2023-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -16,6 +16,10 @@
 #include "doomdef.h"
 
 #include "r_draw.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum
 {
@@ -94,5 +98,9 @@ void R_ParseTrnslate(INT32 wadNum, UINT16 lumpnum);
 void R_LoadParsedTranslations(void);
 
 remaptable_t *R_GetBuiltInTranslation(SINT8 tc);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

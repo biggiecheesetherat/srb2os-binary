@@ -19,8 +19,8 @@
 
 #include "doomdef.h"
 
-#ifdef __GNUG__
-#pragma interface
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //
@@ -51,6 +51,8 @@ typedef struct thinker_s
 	// killough 11/98: count of how many other objects reference
 	// this one using pointers. Used for garbage collection.
 	INT32 references;
+
+	boolean removing;
 	boolean cachable;
 
 #ifdef PARANOIA
@@ -58,5 +60,9 @@ typedef struct thinker_s
 	tic_t debug_time;
 #endif
 } thinker_t;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

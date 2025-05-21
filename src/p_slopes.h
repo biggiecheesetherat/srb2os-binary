@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2009      by Stephen McGranahan.
-// Copyright (C) 2015-2023 by Sonic Team Junior.
+// Copyright (C) 2015-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -14,6 +14,10 @@
 #define P_SLOPES_H__
 
 #include "m_fixed.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern pslope_t *slopelist;
 extern UINT16 slopecount;
@@ -122,4 +126,9 @@ typedef struct
 
 void T_DynamicSlopeLine (dynlineplanethink_t* th);
 void T_DynamicSlopeVert (dynvertexplanethink_t* th);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif // #ifndef P_SLOPES_H__

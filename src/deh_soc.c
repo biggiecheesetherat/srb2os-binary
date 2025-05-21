@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -168,7 +168,7 @@ void clear_levels(void)
 
 	// This is potentially dangerous but if we're resetting these headers,
 	// we may as well try to save some memory, right?
-	for (i = 0; i < NUMMAPS; ++i)
+	for (i = 0; i < numgamemaps; ++i)
 	{
 		if (!mapheaderinfo[i] || i == (tutorialmap-1))
 			continue;
@@ -286,6 +286,7 @@ void readPlayer(MYFILE *f, INT32 num)
 				}
 				if (playertext)
 				{
+					// PLAYERTEXT is really weird, so this doesn't use deh_strlcpy.
 					strlcpy(description[num].notes, playertext, NOTE_SIZE);
 					strlcat(description[num].notes,
 						myhashfgets(playertext, NOTE_SIZE, f), NOTE_SIZE);
@@ -324,7 +325,8 @@ void readPlayer(MYFILE *f, INT32 num)
 			if (fastcmp(word, "PICNAME"))
 			{
 				SLOTFOUND
-				strncpy(description[num].picname, word2, sizeof(description[num].picname)-1);
+				deh_strlcpy(description[num].picname, word2, sizeof description[num].picname,
+					va("Character %d: picname", num));
 			}
 			else if (fastcmp(word, "DISPLAYNAME"))
 			{
@@ -345,7 +347,8 @@ void readPlayer(MYFILE *f, INT32 num)
 					cur = strchr(cur, '#');
 				}
 
-				strlcpy(description[num].displayname, stringvalue, sizeof description[num].displayname);
+				deh_strlcpy(description[num].displayname, stringvalue, sizeof description[num].displayname,
+					va("Character %d: displayname", num));
 			}
 			else if (fastcmp(word, "OPPOSITECOLOR") || fastcmp(word, "OPPOSITECOLOUR"))
 			{
@@ -355,7 +358,8 @@ void readPlayer(MYFILE *f, INT32 num)
 			else if (fastcmp(word, "NAMETAG") || fastcmp(word, "TAGNAME"))
 			{
 				SLOTFOUND
-				strncpy(description[num].nametag, word2, sizeof(description[num].nametag)-1);
+				deh_strlcpy(description[num].nametag, word2, sizeof description[num].nametag,
+					va("Character %d: nametag", num));
 			}
 			else if (fastcmp(word, "TAGTEXTCOLOR") || fastcmp(word, "TAGTEXTCOLOUR"))
 			{
@@ -387,7 +391,8 @@ void readPlayer(MYFILE *f, INT32 num)
 			{
 				// Send to free slot.
 				SLOTFOUND
-				strlcpy(description[num].skinname, word2, sizeof description[num].skinname);
+				deh_strlcpy(description[num].skinname, word2, sizeof description[num].skinname,
+					va("Character %d: skinname", num));
 				strlwr(description[num].skinname);
 			}
 			else if (!failure)
@@ -1164,6 +1169,7 @@ void readgametype(MYFILE *f, char *gtname)
 				}
 				if (descr)
 				{
+					// DESCRIPTION is really weird, so this doesn't use deh_strlcpy.
 					strlcpy(gtdescription, descr, sizeof (gtdescription));
 					strlcat(gtdescription,
 						myhashfgets(descr, sizeof (gtdescription), f),
@@ -1320,6 +1326,39 @@ void readgametype(MYFILE *f, char *gtname)
 	CONS_Printf("Added gametype %s\n", Gametype_Names[newgtidx]);
 }
 
+static INT32 ParseNextLevelName(const char *name)
+{
+	if      (fastcmp(name, "TITLE"))      return NEXTMAP_TITLE;
+	else if (fastcmp(name, "EVALUATION")) return NEXTMAP_EVALUATION;
+	else if (fastcmp(name, "CREDITS"))    return NEXTMAP_CREDITS;
+	else if (fastcmp(name, "ENDING"))     return NEXTMAP_ENDING;
+	else
+	{
+		// Support using the actual map name,
+		// i.e., Nextlevel = AB, Nextlevel = FZ, etc.
+
+		// Convert to map number
+		return G_GetMapNumber(name);
+	}
+}
+
+static INT32 ConvertLevelHeaderMapNum(INT32 mapnum)
+{
+	switch (mapnum)
+	{
+	case 1100:
+		return NEXTMAP_TITLE;
+	case 1101:
+		return NEXTMAP_EVALUATION;
+	case 1102:
+		return NEXTMAP_CREDITS;
+	case 1103:
+		return NEXTMAP_ENDING;
+	default:
+		return mapnum;
+	}
+}
+
 void readlevelheader(MYFILE *f, INT32 num)
 {
 	char *s = Z_Malloc(MAXLINELEN, PU_STATIC, NULL);
@@ -1370,7 +1409,7 @@ void readlevelheader(MYFILE *f, INT32 num)
 			{
 				deh_strlcpy(mapheaderinfo[num-1]->lvlttl, word2,
 					sizeof(mapheaderinfo[num-1]->lvlttl), va("Level header %d: levelname", num));
-				strlcpy(mapheaderinfo[num-1]->selectheading, word2, sizeof(mapheaderinfo[num-1]->selectheading)); // not deh_ so only complains once
+				strlcpy(mapheaderinfo[num-1]->selectheading, word2, sizeof(mapheaderinfo[num-1]->selectheading)); // not deh_strlcpy so only complains once
 				continue;
 			}
 			// CHEAP HACK: move this over here for lowercase subtitles
@@ -1413,10 +1452,10 @@ void readlevelheader(MYFILE *f, INT32 num)
 				// Newly allocated
 				modoption = &mapheaderinfo[num-1]->customopts[j];
 
-				strncpy(modoption->option, word,  31);
-				modoption->option[31] = '\0';
-				strncpy(modoption->value,  word2, 255);
-				modoption->value[255] = '\0';
+				deh_strlcpy(modoption->option, word, sizeof(modoption->option),
+					va("Level header %d: custom option %d key", num, j));
+				deh_strlcpy(modoption->value, word2, sizeof(modoption->value),
+					va("Level header %d: custom option %d value", num, j));
 				continue;
 			}
 
@@ -1542,33 +1581,17 @@ void readlevelheader(MYFILE *f, INT32 num)
 			}
 			else if (fastcmp(word, "NEXTLEVEL"))
 			{
-				if      (fastcmp(word2, "TITLE"))      i = 1100;
-				else if (fastcmp(word2, "EVALUATION")) i = 1101;
-				else if (fastcmp(word2, "CREDITS"))    i = 1102;
-				else if (fastcmp(word2, "ENDING"))     i = 1103;
-				else
-				// Support using the actual map name,
-				// i.e., Nextlevel = AB, Nextlevel = FZ, etc.
-
-				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z' && word2[2] == '\0')
-					i = M_MapNumber(word2[0], word2[1]);
+				i = ConvertLevelHeaderMapNum(i);
+				if (i == 0)
+					i = ParseNextLevelName(word2);
 
 				mapheaderinfo[num-1]->nextlevel = (INT16)i;
 			}
 			else if (fastcmp(word, "MARATHONNEXT"))
 			{
-				if      (fastcmp(word2, "TITLE"))      i = 1100;
-				else if (fastcmp(word2, "EVALUATION")) i = 1101;
-				else if (fastcmp(word2, "CREDITS"))    i = 1102;
-				else if (fastcmp(word2, "ENDING"))     i = 1103;
-				else
-				// Support using the actual map name,
-				// i.e., MarathonNext = AB, MarathonNext = FZ, etc.
-
-				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z' && word2[2] == '\0')
-					i = M_MapNumber(word2[0], word2[1]);
+				i = ConvertLevelHeaderMapNum(i);
+				if (i == 0)
+					i = ParseNextLevelName(word2);
 
 				mapheaderinfo[num-1]->marathonnext = (INT16)i;
 			}
@@ -1594,7 +1617,7 @@ void readlevelheader(MYFILE *f, INT32 num)
 			else if (fastcmp(word, "KEYWORDS"))
 			{
 				deh_strlcpy(mapheaderinfo[num-1]->keywords, word2,
-						sizeof(mapheaderinfo[num-1]->keywords), va("Level header %d: keywords", num));
+					sizeof(mapheaderinfo[num-1]->keywords), va("Level header %d: keywords", num));
 			}
 			else if (fastcmp(word, "MUSIC"))
 			{
@@ -1643,7 +1666,8 @@ void readlevelheader(MYFILE *f, INT32 num)
 			}
 			else if (fastcmp(word, "FORCECHARACTER"))
 			{
-				strlcpy(mapheaderinfo[num-1]->forcecharacter, word2, SKINNAMESIZE+1);
+				deh_strlcpy(mapheaderinfo[num-1]->forcecharacter, word2, sizeof mapheaderinfo[num-1]->forcecharacter,
+					va("Level header %d: forcecharacter", num));
 				strlwr(mapheaderinfo[num-1]->forcecharacter); // skin names are lowercase
 			}
 			else if (fastcmp(word, "WEATHER"))
@@ -1651,7 +1675,10 @@ void readlevelheader(MYFILE *f, INT32 num)
 			else if (fastcmp(word, "SKYNUM"))
 				mapheaderinfo[num-1]->skynum = (INT16)i;
 			else if (fastcmp(word, "INTERSCREEN"))
-				strncpy(mapheaderinfo[num-1]->interscreen, word2, sizeof(mapheaderinfo[num-1]->interscreen)-1);
+			{
+				deh_strlcpy(mapheaderinfo[num-1]->interscreen, word2, sizeof mapheaderinfo[num-1]->interscreen,
+					va("Level header %d: interscreen", num));
+			}
 			else if (fastcmp(word, "PRECUTSCENENUM"))
 				mapheaderinfo[num-1]->precutscenenum = (UINT8)i;
 			else if (fastcmp(word, "CUTSCENENUM"))
@@ -1953,14 +1980,17 @@ static void readcutscenescene(MYFILE *f, INT32 num, INT32 scenenum)
 				picid = (UINT8)atoi(word + 3);
 				if (picid > 8 || picid == 0)
 				{
-					deh_warning("CutSceneScene %d: unknown word '%s'", num, word);
+					deh_warning("Cutscene %d, scene %d: pic number %d out of range (1 - %d)",
+						num + 1, scenenum + 1, picid, 8);
 					continue;
 				}
 				--picid;
 
 				if (fastcmp(word+4, "NAME"))
 				{
-					strncpy(cutscenes[num]->scene[scenenum].picname[picid], word2, 8);
+					deh_strlcpy(cutscenes[num]->scene[scenenum].picname[picid], word2,
+						sizeof cutscenes[num]->scene[scenenum].picname[picid],
+						va("Cutscene %d, scene %d, pic %d: name", num + 1, scenenum + 1, picid + 1));
 				}
 				else if (fastcmp(word+4, "HIRES"))
 				{
@@ -1979,12 +2009,13 @@ static void readcutscenescene(MYFILE *f, INT32 num, INT32 scenenum)
 					cutscenes[num]->scene[scenenum].ycoord[picid] = usi;
 				}
 				else
-					deh_warning("CutSceneScene %d: unknown word '%s'", num, word);
+					deh_warning("Cutscene %d, scene %d: unknown word '%s'", num + 1, scenenum + 1, word);
 			}
 			else if (fastcmp(word, "MUSIC"))
 			{
-				strncpy(cutscenes[num]->scene[scenenum].musswitch, word2, 7);
-				cutscenes[num]->scene[scenenum].musswitch[6] = 0;
+				deh_strlcpy(cutscenes[num]->scene[scenenum].musswitch, word2,
+					sizeof cutscenes[num]->scene[scenenum].musswitch,
+					va("Cutscene %d, scene %d: music", num + 1, scenenum + 1));
 			}
 			else if (fastcmp(word, "MUSICTRACK"))
 			{
@@ -2019,7 +2050,7 @@ static void readcutscenescene(MYFILE *f, INT32 num, INT32 scenenum)
 				cutscenes[num]->scene[scenenum].fadecolor = (UINT8)i;
 			}
 			else
-				deh_warning("CutSceneScene %d: unknown word '%s'", num, word);
+				deh_warning("Cutscene %d, scene %d: unknown word '%s'", num + 1, scenenum + 1, word);
 		}
 	} while (!myfeof(f)); // finish when the line is empty
 
@@ -2077,11 +2108,10 @@ void readcutscene(MYFILE *f, INT32 num)
 					readcutscenescene(f, num, value - 1);
 				}
 				else
-					deh_warning("Scene number %d out of range (1 - 128)", value);
-
+					deh_warning("Cutscene %d: scene number %d out of range (1 - 128)", num + 1, value);
 			}
 			else
-				deh_warning("Cutscene %d: unknown word '%s', Scene <num> expected.", num, word);
+				deh_warning("Cutscene %d: unknown word '%s', Scene <num> expected.", num + 1, word);
 		}
 	} while (!myfeof(f)); // finish when the line is empty
 
@@ -2202,7 +2232,8 @@ static void readtextpromptpage(MYFILE *f, INT32 num, INT32 pagenum)
 
 					for (picid = 0; picid < MAX_PROMPT_PICS; picid++)
 					{
-						strncpy(textprompts[num]->page[pagenum].picname[picid], textprompts[num]->page[metapagenum].picname[picid], 8);
+						// Doesn't use deh_strlcpy because it's not copying input.
+						strlcpy(textprompts[num]->page[pagenum].picname[picid], textprompts[num]->page[metapagenum].picname[picid], sizeof textprompts[num]->page[pagenum].picname[picid]);
 						textprompts[num]->page[pagenum].pichires[picid] = textprompts[num]->page[metapagenum].pichires[picid];
 						textprompts[num]->page[pagenum].picduration[picid] = textprompts[num]->page[metapagenum].picduration[picid];
 						textprompts[num]->page[pagenum].xcoord[picid] = textprompts[num]->page[metapagenum].xcoord[picid];
@@ -2215,14 +2246,17 @@ static void readtextpromptpage(MYFILE *f, INT32 num, INT32 pagenum)
 				picid = (UINT8)atoi(word + 3);
 				if (picid > MAX_PROMPT_PICS || picid == 0)
 				{
-					deh_warning("textpromptscene %d: unknown word '%s'", num, word);
+					deh_warning("Text prompt %d, page %d: pic number %d out of range (1 - %d)",
+						num + 1, pagenum + 1, picid, MAX_PROMPT_PICS);
 					continue;
 				}
 				--picid;
 
 				if (fastcmp(word+4, "NAME"))
 				{
-					strncpy(textprompts[num]->page[pagenum].picname[picid], word2, 8);
+					deh_strlcpy(textprompts[num]->page[pagenum].picname[picid], word2,
+						sizeof textprompts[num]->page[pagenum].picname[picid],
+						va("Text prompt %d, page %d, pic %d: name", num + 1, pagenum + 1, picid + 1));
 				}
 				else if (fastcmp(word+4, "HIRES"))
 				{
@@ -2241,12 +2275,16 @@ static void readtextpromptpage(MYFILE *f, INT32 num, INT32 pagenum)
 					textprompts[num]->page[pagenum].ycoord[picid] = usi;
 				}
 				else
-					deh_warning("textpromptscene %d: unknown word '%s'", num, word);
+				{
+					deh_warning("Text prompt %d, page %d: unknown word '%s'",
+						num + 1, pagenum + 1, word);
+				}
 			}
 			else if (fastcmp(word, "MUSIC"))
 			{
-				strncpy(textprompts[num]->page[pagenum].musswitch, word2, 7);
-				textprompts[num]->page[pagenum].musswitch[6] = 0;
+				deh_strlcpy(textprompts[num]->page[pagenum].musswitch, word2,
+					sizeof textprompts[num]->page[pagenum].musswitch,
+					va("Text prompt %d, page %d: music", num + 1, pagenum + 1));
 			}
 			else if (fastcmp(word, "MUSICTRACK"))
 			{
@@ -2261,30 +2299,35 @@ static void readtextpromptpage(MYFILE *f, INT32 num, INT32 pagenum)
 			{
 				if (*word2 != '\0')
 				{
-					INT32 j;
+					size_t j;
 
 					// HACK: Add yellow control char now
 					// so the drawing function doesn't call it repeatedly
-					char name[34];
+					char name[32 + 2];
 					name[0] = '\x82'; // color yellow
-					name[1] = 0;
-					strncat(name, word2, 32);
-					name[33] = 0;
+
+					// So that we still get a warning.
+					deh_strlcpy(name + 1, word2, (sizeof(name)) - 1,
+						va("Text prompt %d, page %d: name", num + 1, pagenum + 1));
 
 					// Replace _ with ' '
-					for (j = 0; j < 32 && name[j]; j++)
+					for (j = 1; j < sizeof(name) && name[j]; j++)
 					{
 						if (name[j] == '_')
 							name[j] = ' ';
 					}
 
-					strncpy(textprompts[num]->page[pagenum].name, name, sizeof(textprompts[num]->page[pagenum].name));
+					strlcpy(textprompts[num]->page[pagenum].name, name, sizeof(textprompts[num]->page[pagenum].name));
 				}
 				else
 					*textprompts[num]->page[pagenum].name = '\0';
 			}
 			else if (fastcmp(word, "ICON"))
-				strncpy(textprompts[num]->page[pagenum].iconname, word2, 8);
+			{
+				deh_strlcpy(textprompts[num]->page[pagenum].iconname, word2,
+					sizeof textprompts[num]->page[pagenum].iconname,
+					va("Text prompt %d, page %d: icon", num + 1, pagenum + 1));
+			}
 			else if (fastcmp(word, "ICONALIGN"))
 				textprompts[num]->page[pagenum].rightside = (i || word2[0] == 'R');
 			else if (fastcmp(word, "ICONFLIP"))
@@ -2351,8 +2394,9 @@ static void readtextpromptpage(MYFILE *f, INT32 num, INT32 pagenum)
 				{
 					UINT8 metapagenum = usi - 1;
 
-					strncpy(textprompts[num]->page[pagenum].name, textprompts[num]->page[metapagenum].name, 32);
-					strncpy(textprompts[num]->page[pagenum].iconname, textprompts[num]->page[metapagenum].iconname, 8);
+					// Doesn't use deh_strlcpy because it's not copying input.
+					strlcpy(textprompts[num]->page[pagenum].name, textprompts[num]->page[metapagenum].name, sizeof textprompts[num]->page[pagenum].name);
+					strlcpy(textprompts[num]->page[pagenum].iconname, textprompts[num]->page[metapagenum].iconname, sizeof textprompts[num]->page[pagenum].iconname);
 					textprompts[num]->page[pagenum].rightside = textprompts[num]->page[metapagenum].rightside;
 					textprompts[num]->page[pagenum].iconflip = textprompts[num]->page[metapagenum].iconflip;
 					textprompts[num]->page[pagenum].lines = textprompts[num]->page[metapagenum].lines;
@@ -2367,17 +2411,25 @@ static void readtextpromptpage(MYFILE *f, INT32 num, INT32 pagenum)
 				}
 			}
 			else if (fastcmp(word, "TAG"))
-				strncpy(textprompts[num]->page[pagenum].tag, word2, 33);
+			{
+				deh_strlcpy(textprompts[num]->page[pagenum].tag, word2,
+					sizeof textprompts[num]->page[pagenum].tag,
+					va("Text prompt %d, page %d: tag", num + 1, pagenum + 1));
+			}
 			else if (fastcmp(word, "NEXTPROMPT"))
 				textprompts[num]->page[pagenum].nextprompt = usi;
 			else if (fastcmp(word, "NEXTPAGE"))
 				textprompts[num]->page[pagenum].nextpage = usi;
 			else if (fastcmp(word, "NEXTTAG"))
-				strncpy(textprompts[num]->page[pagenum].nexttag, word2, 33);
+			{
+				deh_strlcpy(textprompts[num]->page[pagenum].nexttag, word2,
+					sizeof textprompts[num]->page[pagenum].nexttag,
+					va("Text prompt %d, page %d: nexttag", num + 1, pagenum + 1));
+			}
 			else if (fastcmp(word, "TIMETONEXT"))
 				textprompts[num]->page[pagenum].timetonext = get_number(word2);
 			else
-				deh_warning("PromptPage %d: unknown word '%s'", num, word);
+				deh_warning("Text prompt %d, page %d: unknown word '%s'", num + 1, pagenum + 1, word);
 		}
 	} while (!myfeof(f)); // finish when the line is empty
 
@@ -2437,11 +2489,11 @@ void readtextprompt(MYFILE *f, INT32 num)
 					readtextpromptpage(f, num, value - 1);
 				}
 				else
-					deh_warning("Page number %d out of range (1 - %d)", value, MAX_PAGES);
+					deh_warning("Prompt %d: page number %d out of range (1 - %d)", num + 1, value, MAX_PAGES);
 
 			}
 			else
-				deh_warning("Prompt %d: unknown word '%s', Page <num> expected.", num, word);
+				deh_warning("Prompt %d: unknown word '%s', Page <num> expected.", num + 1, word);
 		}
 	} while (!myfeof(f)); // finish when the line is empty
 
@@ -2490,7 +2542,8 @@ void readmenu(MYFILE *f, INT32 num)
 
 			if (fastcmp(word, "BACKGROUNDNAME"))
 			{
-				strncpy(menupres[num].bgname, word2, 8);
+				deh_strlcpy(menupres[num].bgname, word2,
+					sizeof menupres[num].bgname, va("Menu %d: backgroundname", num));
 				titlechanged = true;
 			}
 			else if (fastcmp(word, "HIDEBACKGROUND"))
@@ -2533,7 +2586,8 @@ void readmenu(MYFILE *f, INT32 num)
 			}
 			else if (fastcmp(word, "TITLEPICSNAME"))
 			{
-				strncpy(menupres[num].ttname, word2, 9);
+				deh_strlcpy(menupres[num].ttname, word2,
+					sizeof menupres[num].ttname, va("Menu %d: titlepicsname", num));
 				titlechanged = true;
 			}
 			else if (fastcmp(word, "TITLEPICSX"))
@@ -2569,8 +2623,8 @@ void readmenu(MYFILE *f, INT32 num)
 			}
 			else if (fastcmp(word, "MUSIC"))
 			{
-				strncpy(menupres[num].musname, word2, 7);
-				menupres[num].musname[6] = 0;
+				deh_strlcpy(menupres[num].musname, word2,
+					sizeof menupres[num].musname, va("Menu %d: music", num));
 				titlechanged = true;
 			}
 			else if (fastcmp(word, "MUSICTRACK"))
@@ -2984,12 +3038,10 @@ void reademblemdata(MYFILE *f, INT32 num)
 				emblemlocations[num-1].tag = (INT16)value;
 			else if (fastcmp(word, "MAPNUM"))
 			{
-				// Support using the actual map name,
-				// i.e., Level AB, Level FZ, etc.
-
-				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
+					value = get_number(word2);
 
 				emblemlocations[num-1].level = (INT16)value;
 			}
@@ -3231,6 +3283,12 @@ void readunlockable(MYFILE *f, INT32 num)
 					// Convert to map number
 					if (word2[0] >= 'A' && word2[0] <= 'Z')
 						i = M_MapNumber(word2[0], word2[1]);
+					else if (unlockables[num].type == SECRET_WARP)
+					{
+						INT16 mapnum = G_GetMapNumber(word2);
+						if (mapnum)
+							i = mapnum;
+					}
 
 					unlockables[num].variable = (INT16)i;
 				}
@@ -3304,15 +3362,14 @@ static void readcondition(UINT8 set, UINT32 id, char *word2)
 		PARAMCHECK(1);
 		ty = UC_MAPVISITED + offset;
 
-		// Convert to map number if it appears to be one
-		if (params[1][0] >= 'A' && params[1][0] <= 'Z')
-			re = M_MapNumber(params[1][0], params[1][1]);
-		else
+		// Convert to map number
+		re = G_GetMapNumber(params[1]);
+		if (!re)
 			re = atoi(params[1]);
 
-		if (re <= 0 || re > NUMMAPS)
+		if (re <= 0 || re > numgamemaps)
 		{
-			deh_warning("Level number %d out of range (1 - %d)", re, NUMMAPS);
+			deh_warning("Level number %d out of range (1 - %d)", re, numgamemaps);
 			return;
 		}
 	}
@@ -3324,15 +3381,14 @@ static void readcondition(UINT8 set, UINT32 id, char *word2)
 		ty = UC_MAPSCORE + offset;
 		re = atoi(params[2]);
 
-		// Convert to map number if it appears to be one
-		if (params[1][0] >= 'A' && params[1][0] <= 'Z')
-			x1 = (INT16)M_MapNumber(params[1][0], params[1][1]);
-		else
+		// Convert to map number
+		x1 = G_GetMapNumber(params[1]);
+		if (!x1)
 			x1 = (INT16)atoi(params[1]);
 
-		if (x1 <= 0 || x1 > NUMMAPS)
+		if (x1 <= 0 || x1 > numgamemaps)
 		{
-			deh_warning("Level number %d out of range (1 - %d)", re, NUMMAPS);
+			deh_warning("Level number %d out of range (1 - %d)", re, numgamemaps);
 			return;
 		}
 	}
@@ -3359,15 +3415,14 @@ static void readcondition(UINT8 set, UINT32 id, char *word2)
 		else
 			re = atoi(params[i]);
 
-		// Convert to map number if it appears to be one
-		if (params[1][0] >= 'A' && params[1][0] <= 'Z')
-			x1 = (INT16)M_MapNumber(params[1][0], params[1][1]);
-		else
+		// Convert to map number
+		x1 = G_GetMapNumber(params[1]);
+		if (!x1)
 			x1 = (INT16)atoi(params[1]);
 
-		if (x1 <= 0 || x1 > NUMMAPS)
+		if (x1 <= 0 || x1 > numgamemaps)
 		{
-			deh_warning("Level number %d out of range (1 - %d)", re, NUMMAPS);
+			deh_warning("Level number %d out of range (1 - %d)", re, numgamemaps);
 			return;
 		}
 
@@ -3552,22 +3607,20 @@ void readmaincfg(MYFILE *f)
 			if (fastcmp(word, "EXECCFG"))
 			{
 				if (strchr(word2, '.'))
-					COM_BufAddText(va("exec %s\n", word2));
+					COM_ExecFile(word2, COM_LUA, false);
 				else
 				{
 					lumpnum_t lumpnum;
 					char newname[9];
 
-					strncpy(newname, word2, 8);
-
-					newname[8] = '\0';
+					deh_strlcpy(newname, word2, sizeof newname, va("Maincfg: execcfg"));
 
 					lumpnum = W_CheckNumForName(newname);
 
 					if (lumpnum == LUMPERROR || W_LumpLength(lumpnum) == 0)
 						CONS_Debug(DBG_SETUP, "SOC Error: script lump %s not found/not valid.\n", newname);
 					else
-						COM_BufInsertText(W_CacheLumpNum(lumpnum, PU_CACHE));
+						COM_BufInsertTextEx(W_CacheLumpNum(lumpnum, PU_CACHE), COM_LUA);
 				}
 			}
 
@@ -3577,9 +3630,9 @@ void readmaincfg(MYFILE *f)
 				// i.e., Level AB, Level FZ, etc.
 
 				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
-				else
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
 					value = get_number(word2);
 
 				spstage_start = spmarathon_start = (INT16)value;
@@ -3590,9 +3643,9 @@ void readmaincfg(MYFILE *f)
 				// i.e., Level AB, Level FZ, etc.
 
 				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
-				else
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
 					value = get_number(word2);
 
 				spmarathon_start = (INT16)value;
@@ -3603,9 +3656,9 @@ void readmaincfg(MYFILE *f)
 				// i.e., Level AB, Level FZ, etc.
 
 				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
-				else
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
 					value = get_number(word2);
 
 				sstage_start = (INT16)value;
@@ -3617,9 +3670,9 @@ void readmaincfg(MYFILE *f)
 				// i.e., Level AB, Level FZ, etc.
 
 				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
-				else
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
 					value = get_number(word2);
 
 				smpstage_start = (INT16)value;
@@ -3711,9 +3764,9 @@ void readmaincfg(MYFILE *f)
 				// i.e., Level AB, Level FZ, etc.
 
 				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
-				else
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
 					value = get_number(word2);
 
 				titlemap = (INT16)value;
@@ -3768,7 +3821,7 @@ void readmaincfg(MYFILE *f)
 			}
 			else if (fastcmp(word, "TITLEPICSNAME"))
 			{
-				strncpy(ttname, word2, sizeof(ttname)-1);
+				deh_strlcpy(ttname, word2, sizeof ttname, va("Maincfg: titlepicsname"));
 				titlechanged = true;
 			}
 			else if (fastcmp(word, "TITLEPICSX"))
@@ -3878,7 +3931,7 @@ void readmaincfg(MYFILE *f)
 			}
 			else if (fastcmp(word, "CUSTOMVERSION"))
 			{
-				strlcpy(customversionstring, word2, sizeof (customversionstring));
+				deh_strlcpy(customversionstring, word2, sizeof customversionstring, va("Maincfg: customversion"));
 				//titlechanged = true;
 			}
 			else if (fastcmp(word, "BOOTMAP"))
@@ -3887,12 +3940,13 @@ void readmaincfg(MYFILE *f)
 				// i.e., Level AB, Level FZ, etc.
 
 				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
-				else
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
 					value = get_number(word2);
 
 				bootmap = (INT16)value;
+				bootmapchanged = true;
 				//titlechanged = true;
 			}
 			else if (fastcmp(word, "STARTCHAR"))
@@ -3906,9 +3960,9 @@ void readmaincfg(MYFILE *f)
 				// i.e., Level AB, Level FZ, etc.
 
 				// Convert to map number
-				if (word2[0] >= 'A' && word2[0] <= 'Z')
-					value = M_MapNumber(word2[0], word2[1]);
-				else
+				if (G_IsValidMapName(word2))
+					value = G_GetMapNumber(word2);
+				if (!value)
 					value = get_number(word2);
 
 				tutorialmap = (INT16)value;

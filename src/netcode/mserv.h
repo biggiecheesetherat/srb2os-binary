@@ -16,6 +16,10 @@
 
 #include "../i_threads.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // lowered from 32 due to menu changes
 #define NUM_LIST_ROOMS 16
 
@@ -66,14 +70,10 @@ typedef struct
 
 extern consvar_t cv_masterserver, cv_servername;
 extern consvar_t cv_masterserver_update_rate;
+extern consvar_t cv_masterserver_room_id;
 extern consvar_t cv_masterserver_timeout;
 extern consvar_t cv_masterserver_debug;
 extern consvar_t cv_masterserver_token;
-
-// < 0 to not connect (usually -1) (offline mode)
-// == 0 to show all rooms, not a valid hosting room
-// anything else is whatever room the MS assigns to that number (online mode)
-extern INT16 ms_RoomId;
 
 #ifdef HAVE_THREADS
 extern int           ms_QueryId;
@@ -107,5 +107,9 @@ int  HMS_update (void);
 void HMS_list_servers (void);
 msg_server_t * HMS_fetch_servers (msg_server_t *list, int room, int id);
 int  HMS_compare_mod_version (char *buffer, size_t size_of_buffer);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

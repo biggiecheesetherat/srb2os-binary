@@ -15,9 +15,11 @@
 #define __P_TICK__
 
 #include "doomdef.h"
+#include "d_think.h"
+#include "p_mobj.h"
 
-#ifdef __GNUG__
-#pragma interface
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 extern tic_t leveltime;
@@ -41,6 +43,10 @@ mobj_t *P_SetTarget2(mobj_t **mo, mobj_t *target
 #define P_SetTarget(...) P_SetTarget2(__VA_ARGS__, __FILE__, __LINE__)
 #else
 #define P_SetTarget P_SetTarget2
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif

@@ -17,6 +17,10 @@
 #include "../d_ticcmd.h"
 #include "../doomdef.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 The 'packet version' is used to distinguish packet
 formats. This version is independent of VERSION and
@@ -26,7 +30,7 @@ packet versions.
 If you change the struct or the meaning of a field
 therein, increment this number.
 */
-#define PACKETVERSION 5
+#define PACKETVERSION 6
 
 // Network play related stuff.
 // There is a data struct that stores network
@@ -226,7 +230,7 @@ typedef struct
 	tic_t time;
 	tic_t leveltime;
 	char servername[MAXSERVERNAME];
-	char mapname[8];
+	char mapname[24];
 	char maptitle[33];
 	unsigned char mapmd5[16];
 	UINT8 actnum;
@@ -335,5 +339,9 @@ typedef struct
 #define KICK_MSG_CUSTOM_BAN  8
 #define KICK_MSG_IDLE        9
 #define KICK_MSG_KEEP_BODY   0x80
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

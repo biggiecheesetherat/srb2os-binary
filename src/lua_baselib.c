@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2012-2016 by John "JTE" Muniz.
-// Copyright (C) 2012-2024 by Sonic Team Junior.
+// Copyright (C) 2012-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -192,6 +192,7 @@ static const struct {
 	{META_VERTEX,       "vertex_t"},
 	{META_LINE,         "line_t"},
 	{META_SIDE,         "side_t"},
+	{META_SIDEOVERLAY,  "side_t.overlay"},
 	{META_SUBSECTOR,    "subsector_t"},
 	{META_SECTOR,       "sector_t"},
 	{META_FFLOOR,       "ffloor_t"},
@@ -1384,7 +1385,7 @@ static int lib_pPlayJingleMusic(lua_State *L)
 {
 	player_t *player = NULL;
 	const char *musnamearg = luaL_checkstring(L, 2);
-	char musname[7], *p = musname;
+	char musname[MAX_MUSIC_NAME+1], *p = musname;
 	UINT16 musflags = luaL_optinteger(L, 3, 0);
 	boolean looping = lua_opttrueboolean(L, 4);
 	jingletype_t jingletype = luaL_optinteger(L, 5, JT_OTHER);
@@ -1399,8 +1400,7 @@ static int lib_pPlayJingleMusic(lua_State *L)
 	if (jingletype >= NUMJINGLES)
 		return luaL_error(L, "jingletype %d out of range (0 - %d)", jingletype, NUMJINGLES-1);
 
-	musname[6] = '\0';
-	strncpy(musname, musnamearg, 6);
+	strlcpy(musname, musnamearg, MAX_MUSIC_NAME+1);
 
 	while (*p) {
 		*p = tolower(*p);
@@ -1718,12 +1718,11 @@ static int lib_pResetCamera(lua_State *L)
 static int lib_pSuperReady(lua_State *L)
 {
 	player_t *player = *((player_t **)luaL_checkudata(L, 1, META_PLAYER));
-	boolean transform = (boolean)lua_opttrueboolean(L, 2);
 	//HUDSAFE
 	INLEVEL
 	if (!player)
 		return LUA_ErrInvalid(L, "player_t");
-	lua_pushboolean(L, P_SuperReady(player, transform));
+	lua_pushboolean(L, P_SuperReady(player));
 	return 1;
 }
 
@@ -1976,7 +1975,7 @@ static int lib_pLineIsBlocking(lua_State *L)
 		return LUA_ErrInvalid(L, "mobj_t");
 	if (!line)
 		return LUA_ErrInvalid(L, "line_t");
-	
+
 	// P_LineOpening in P_LineIsBlocking sets these variables.
 	// We want to keep their old values after so that whatever
 	// map collision code uses them doesn't get messed up.
@@ -1989,9 +1988,9 @@ static int lib_pLineIsBlocking(lua_State *L)
 	pslope_t *oldopenbottomslope = openbottomslope;
 	ffloor_t *oldopenfloorrover = openfloorrover;
 	ffloor_t *oldopenceilingrover = openceilingrover;
-	
+
 	lua_pushboolean(L, P_LineIsBlocking(mo, line));
-	
+
 	opentop = oldopentop;
 	openbottom = oldopenbottom;
 	openrange = oldopenrange;
@@ -2001,7 +2000,7 @@ static int lib_pLineIsBlocking(lua_State *L)
 	openbottomslope = oldopenbottomslope;
 	openfloorrover = oldopenfloorrover;
 	openceilingrover = oldopenceilingrover;
-	
+
 	return 1;
 }
 
@@ -3140,7 +3139,10 @@ static int lib_rCheckTextureNumForName(lua_State *L)
 {
 	const char *name = luaL_checkstring(L, 1);
 	//HUDSAFE
-	lua_pushinteger(L, R_CheckTextureNumForName(name));
+	INT32 num = R_CheckTextureNumForName(name, TEXTURETYPE_TEXTURE);
+	if (num == -1)
+		num = R_CheckTextureNumForName(name, TEXTURETYPE_FLAT);
+	lua_pushinteger(L, num);
 	return 1;
 }
 
@@ -3154,17 +3156,25 @@ static int lib_rTextureNumForName(lua_State *L)
 
 static int lib_rCheckTextureNameForNum(lua_State *L)
 {
+	char s[9];
 	INT32 num = (INT32)luaL_checkinteger(L, 1);
 	//HUDSAFE
-	lua_pushstring(L, R_CheckTextureNameForNum(num));
+
+	M_Memcpy(s, R_CheckTextureNameForNum(num), 8);
+	s[8] = '\0';
+	lua_pushstring(L, s);
 	return 1;
 }
 
 static int lib_rTextureNameForNum(lua_State *L)
 {
+	char s[9];
 	INT32 num = (INT32)luaL_checkinteger(L, 1);
 	//HUDSAFE
-	lua_pushstring(L, R_TextureNameForNum(num));
+
+	M_Memcpy(s, R_TextureNameForNum(num), 8);
+	s[8] = '\0';
+	lua_pushstring(L, s);
 	return 1;
 }
 
@@ -3618,11 +3628,9 @@ static int lib_sMusicName(lua_State *L)
 
 static int lib_sMusicExists(lua_State *L)
 {
-	boolean checkMIDI = lua_opttrueboolean(L, 2);
-	boolean checkDigi = lua_opttrueboolean(L, 3);
 	const char *music_name = luaL_checkstring(L, 1);
 	NOHUD
-	lua_pushboolean(L, S_MusicExists(music_name, checkMIDI, checkDigi));
+	lua_pushboolean(L, S_MusicExists(music_name));
 	return 1;
 }
 
@@ -3851,7 +3859,7 @@ static int lib_gAddPlayer(lua_State *L)
 	player_t *newplayer;
 	SINT8 skinnum = 0, bot;
 
-	for (i = 0; i < MAXPLAYERS; i++)
+	for (i = 1; i < MAXPLAYERS; i++)
 	{
 		if (!playeringame[i])
 			break;
@@ -3961,10 +3969,53 @@ static int lib_gSetUsedCheats(lua_State *L)
 	return 0;
 }
 
+static int GetMapNameOrNumber(lua_State *L, int idx)
+{
+	if (lua_type(L, idx) == LUA_TSTRING)
+	{
+		const char *mapname = luaL_checkstring(L, idx);
+		INT16 mapnum = G_GetMapNumber(mapname);
+		if (mapnum == 0)
+		{
+			return luaL_error(L,
+					"%s is not a valid game map.",
+					mapname
+			);
+		}
+		return mapnum;
+	}
+	else
+		return luaL_checkinteger(L, idx);
+}
+
+static int GetNextMapNameOrNumber(lua_State *L, int idx)
+{
+	if (lua_type(L, idx) == LUA_TSTRING)
+	{
+		const char *mapname = luaL_checkstring(L, idx);
+		INT16 mapnum = G_GetMapNumberForNextMap(mapname);
+		if (mapnum == 0)
+		{
+			return luaL_error(L,
+					"%s is not a valid game map.",
+					mapname
+			);
+		}
+		return mapnum;
+	}
+	else
+		return luaL_checkinteger(L, idx);
+}
+
 static int Lcheckmapnumber (lua_State *L, int idx, const char *fun)
 {
 	if (ISINLEVEL)
-		return luaL_optinteger(L, idx, gamemap);
+	{
+		if (!lua_isnoneornil(L, idx))
+			return GetMapNameOrNumber(L, idx);
+		else
+			return gamemap;
+	}
 	else
 	{
 		if (lua_isnoneornil(L, idx))
@@ -3975,14 +4026,21 @@ static int Lcheckmapnumber (lua_State *L, int idx, const char *fun)
 			);
 		}
 		else
-			return luaL_checkinteger(L, idx);
+			return GetMapNameOrNumber(L, idx);
 	}
 }
 
 static int lib_gBuildMapName(lua_State *L)
 {
 	INT32 map = Lcheckmapnumber(L, 1, "G_BuildMapName");
-	//HUDSAFE
+	if (map < 1 || map > numgamemaps)
+	{
+		return luaL_error(L,
+				"map number %d out of range (1 - %d)",
+				map,
+				numgamemaps
+		);
+	}
 	lua_pushstring(L, G_BuildMapName(map));
 	return 1;
 }
@@ -3991,12 +4049,12 @@ static int lib_gBuildMapTitle(lua_State *L)
 {
 	INT32 map = Lcheckmapnumber(L, 1, "G_BuildMapTitle");
 	char *name;
-	if (map < 1 || map > NUMMAPS)
+	if (map < 1 || map > numgamemaps)
 	{
 		return luaL_error(L,
 				"map number %d out of range (1 - %d)",
 				map,
-				NUMMAPS
+				numgamemaps
 		);
 	}
 	name = G_BuildMapTitle(map);
@@ -4116,6 +4174,36 @@ static int lib_gFindMapByNameOrCode(lua_State *L)
 		return 1;
 }
 
+static int lib_gGetMapThumbnail(lua_State *L)
+{
+	INT32 map = Lcheckmapnumber(L, 1, "G_GetMapThumbnail");
+	if (map < 1 || map > numgamemaps)
+	{
+		return luaL_error(L,
+				"map number %d out of range (1 - %d)",
+				map,
+				numgamemaps
+		);
+	}
+	lua_pushstring(L, G_GetMapThumbnail(map));
+	return 1;
+}
+
+static int lib_gGetMapThumbnailWide(lua_State *L)
+{
+	INT32 map = Lcheckmapnumber(L, 1, "G_GetMapThumbnailWide");
+	if (map < 1 || map > numgamemaps)
+	{
+		return luaL_error(L,
+				"map number %d out of range (1 - %d)",
+				map,
+				numgamemaps
+		);
+	}
+	lua_pushstring(L, G_GetMapThumbnailWide(map));
+	return 1;
+}
+
 static int lib_gDoReborn(lua_State *L)
 {
 	INT32 playernum = luaL_checkinteger(L, 1);
@@ -4149,7 +4237,19 @@ static int lib_gSetCustomExitVars(lua_State *L)
 
 	if (n >= 1)
 	{
-		nextmapoverride = (INT16)luaL_optinteger(L, 1, 0);
+		if (!lua_isnoneornil(L, 1))
+		{
+			INT16 mapnum = GetNextMapNameOrNumber(L, 1);
+			if (mapnum < 1 || (mapnum > numgamemaps && !G_IsGameEndMap(mapnum)))
+			{
+				return luaL_error(L,
+						"map number %d out of range (1 - %d)",
+						mapnum,
+						numgamemaps
+				);
+			}
+			nextmapoverride = mapnum;
+		}
 		skipstats = (INT16)luaL_optinteger(L, 2, 0);
 		nextgametype = (INT16)luaL_optinteger(L, 3, -1);
 	}
@@ -4177,9 +4277,22 @@ static int lib_gExitLevel(lua_State *L)
 
 static int lib_gIsSpecialStage(lua_State *L)
 {
-	INT32 mapnum = luaL_optinteger(L, 1, gamemap);
-	//HUDSAFE
+	INT32 mapnum;
 	INLEVEL
+	if (!lua_isnoneornil(L, 1))
+	{
+		mapnum = GetMapNameOrNumber(L, 1);
+		if (mapnum < 1 || mapnum > numgamemaps)
+		{
+			return luaL_error(L,
+					"map number %d out of range (1 - %d)",
+					mapnum,
+					numgamemaps
+			);
+		}
+	}
+	else
+		mapnum = gamemap;
 	lua_pushboolean(L, G_IsSpecialStage(mapnum));
 	return 1;
 }
@@ -4592,6 +4705,8 @@ static luaL_Reg lib[] = {
 	{"G_BuildMapTitle",lib_gBuildMapTitle},
 	{"G_FindMap",lib_gFindMap},
 	{"G_FindMapByNameOrCode",lib_gFindMapByNameOrCode},
+	{"G_GetMapThumbnail",lib_gGetMapThumbnail},
+	{"G_GetMapThumbnailWide",lib_gGetMapThumbnailWide},
 	{"G_DoReborn",lib_gDoReborn},
 	{"G_SetCustomExitVars",lib_gSetCustomExitVars},
 	{"G_EnoughPlayersFinished",lib_gEnoughPlayersFinished},

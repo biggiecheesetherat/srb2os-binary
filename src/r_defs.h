@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -30,6 +30,10 @@
 #endif
 
 #include "taglist.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //
 // ClipWallSegment
@@ -60,6 +64,8 @@ typedef UINT8 lighttable_t;
 #define CMF_FADEFULLBRIGHTSPRITES  1
 #define CMF_FOG 4
 
+#define TEXTURE_255_IS_TRANSPARENT
+
 // ExtraColormap type. Use for extra_colormaps from now on.
 typedef struct extracolormap_s
 {
@@ -74,8 +80,11 @@ typedef struct extracolormap_s
 	lighttable_t *colormap;
 
 #ifdef HWRENDER
-	// The id of the hardware lighttable. Zero means it does not exist yet.
-	UINT32 gl_lighttable_id;
+	struct {
+		UINT32 id; // The id of the hardware lighttable. Zero means it does not exist yet.
+		RGBA_t *data; // The texture data of the hardware lighttable.
+		boolean needs_update; // If the colormap changed recently or not.
+	} gl_lighttable;
 #endif
 
 #ifdef EXTRACOLORMAPLUMPS
@@ -240,9 +249,8 @@ typedef struct sectorportal_s
 		struct sector_s *sector;
 		struct mobj_s *mobj;
 	};
-	struct {
-		fixed_t x, y;
-	} origin;
+	struct sector_s *target;
+	boolean ceiling;
 } sectorportal_t;
 
 typedef struct ffloor_s
@@ -574,6 +582,21 @@ typedef enum
 
 #define NO_SIDEDEF 0xFFFFFFFF
 
+enum
+{
+	EDGE_TEXTURE_TOP_UPPER,
+	EDGE_TEXTURE_TOP_LOWER,
+	EDGE_TEXTURE_BOTTOM_UPPER,
+	EDGE_TEXTURE_BOTTOM_LOWER,
+
+	NUM_WALL_OVERLAYS
+};
+
+#define IS_TOP_EDGE_TEXTURE(i) ((i) == EDGE_TEXTURE_TOP_UPPER || (i) == EDGE_TEXTURE_TOP_LOWER)
+#define IS_BOTTOM_EDGE_TEXTURE(i) (!IS_TOP_EDGE_TEXTURE(i))
+#define IS_UPPER_EDGE_TEXTURE(i) ((i) == EDGE_TEXTURE_TOP_UPPER || (i) == EDGE_TEXTURE_BOTTOM_UPPER)
+#define IS_LOWER_EDGE_TEXTURE(i) (!IS_UPPER_EDGE_TEXTURE(i))
+
 typedef struct line_s
 {
 	// Vertices, from v1 to v2.
@@ -583,8 +606,7 @@ typedef struct line_s
 	fixed_t dx, dy; // Precalculated v2 - v1 for side checking.
 	angle_t angle; // Precalculated angle between dx and dy
 
-	// Animation related.
-	INT16 flags;
+	UINT32 flags;
 	INT16 special;
 	taglist_t tags;
 	INT32 args[NUMLINEARGS];
@@ -616,7 +638,35 @@ typedef struct line_s
 	struct pslope_s *midtexslope;
 } line_t;
 
+// Don't make available to Lua or I will find where you live
+typedef enum
+{
+	SIDEFLAG_CLIP_MIDTEX     = 1 << 0, // Like the line counterpart, but only for this side.
+	SIDEFLAG_WRAP_MIDTEX     = 1 << 1, // Like the line counterpart, but only for this side.
+
+	SIDEFLAG_HASEDGETEXTURES = 1 << 2 // Side has an edge texture applied (so that the renderer can quickly skip all relevant code)
+} sideflags_t;
+
+enum
+{
+	SIDEOVERLAYFLAG_NOSKEW = 1<<0,
+	SIDEOVERLAYFLAG_NOCLIP = 1<<1,
+	SIDEOVERLAYFLAG_WRAP   = 1<<2
+};
+
 typedef struct
+{
+	INT32 texture;
+	fixed_t offsetx, offsety;
+	fixed_t scalex, scaley;
+	INT16 repeatcnt;
+	UINT8 blendmode;
+	fixed_t alpha;
+	UINT8 flags;
+	struct side_s *side;
+} side_overlay_t;
+
+typedef struct side_s
 {
 	// add this to the calculated texture column
 	fixed_t textureoffset;
@@ -624,16 +674,28 @@ typedef struct
 	// add this to the calculated texture top
 	fixed_t rowoffset;
 
-	// per-texture offsets for UDMF
+	// per-texture offsets
 	fixed_t offsetx_top, offsetx_mid, offsetx_bottom;
 	fixed_t offsety_top, offsety_mid, offsety_bottom;
 
+	// per-texture scale
 	fixed_t scalex_top, scalex_mid, scalex_bottom;
 	fixed_t scaley_top, scaley_mid, scaley_bottom;
+
+	// per-wall lighting for UDMF
+	// TODO: implement per-texture lighting
+	INT16 light, light_top, light_mid, light_bottom;
+	boolean lightabsolute, lightabsolute_top, lightabsolute_mid, lightabsolute_bottom;
+
+	// Rendering-related flags
+	UINT16 flags;
 
 	// Texture indices.
 	// We do not maintain names here.
 	INT32 toptexture, bottomtexture, midtexture;
+
+	// Upper and lower overlays for top and bottom textures
+	side_overlay_t overlays[NUM_WALL_OVERLAYS];
 
 	// Linedef the sidedef belongs to
 	line_t *line;
@@ -988,5 +1050,9 @@ typedef struct
 	size_t numframes;
 	spriteframe_t *spriteframes;
 } spritedef_t;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2009      by Stephen McGranahan.
-// Copyright (C) 2015-2023 by Sonic Team Junior.
+// Copyright (C) 2015-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -182,7 +182,7 @@ void T_DynamicSlopeLine (dynlineplanethink_t* th)
 	pslope_t* slope = th->slope;
 	line_t* srcline = th->sourceline;
 
-	fixed_t zdelta;
+	fixed_t zdelta, oldoz = slope->o.z;
 
 	switch(th->type) {
 	case DP_FRONTFLOOR:
@@ -209,7 +209,7 @@ void T_DynamicSlopeLine (dynlineplanethink_t* th)
 		return;
 	}
 
-	if (slope->zdelta != FixedDiv(zdelta, th->extent)) {
+	if (slope->zdelta != FixedDiv(zdelta, th->extent) || oldoz != slope->o.z) {
 		slope->zdelta = FixedDiv(zdelta, th->extent);
 		slope->zangle = R_PointToAngle2(0, 0, th->extent, -zdelta);
 		slope->moved = true;
@@ -1015,18 +1015,15 @@ void P_SlopeLaunch(mobj_t *mo)
 		&& (mo->standingslope->normal.x != 0
 		||  mo->standingslope->normal.y != 0))
 	{
-		// Double the pre-rotation Z, then halve the post-rotation Z. This reduces the
-		// vertical launch given from slopes while increasing the horizontal launch
-		// given. Good for SRB2's gravity and horizontal speeds.
 		vector3_t slopemom;
 		slopemom.x = mo->momx;
 		slopemom.y = mo->momy;
-		slopemom.z = mo->momz*2;
+		slopemom.z = mo->momz;
 		P_QuantizeMomentumToSlope(&slopemom, mo->standingslope);
 
 		mo->momx = slopemom.x;
 		mo->momy = slopemom.y;
-		mo->momz = slopemom.z/2;
+		mo->momz = slopemom.z;
 
 	    if (mo->player)
 		    mo->player->powers[pw_justlaunched] = 1;
@@ -1046,15 +1043,37 @@ fixed_t P_GetWallTransferMomZ(mobj_t *mo, pslope_t *slope)
 {
 	vector3_t slopemom, axis;
 	angle_t ang;
+	angle_t advanceAng = ANG15;
+	const boolean upwards = (slope->zangle < ANGLE_180);
 
 	if (slope->flags & SL_NOPHYSICS)
 		return 0;
 
 	// If there's physics, time for launching.
 	// Doesn't kill the vertical momentum as much as P_SlopeLaunch does.
-	ang = slope->zangle + ANG15*((slope->zangle > 0) ? 1 : -1);
-	if (ang > ANGLE_90 && ang < ANGLE_180)
-		ang = ((slope->zangle > 0) ? ANGLE_90 : InvAngle(ANGLE_90)); // hard cap of directly upwards
+	ang = slope->zangle;
+
+	// for the time being, let's pretend the slope inclines upwards only
+	if (!upwards)
+	{
+		ang += ANGLE_180;
+	}
+
+	// angles past 90 degrees need to shrink to get closer to 90 degrees
+	if (ang > ANGLE_90)
+	{
+		advanceAng = InvAngle(advanceAng);
+	}
+
+	// now we set the actual final angle
+	if ((ang > ANGLE_90) != (ang + advanceAng > ANGLE_90)) // does advancing the angle push it past directly upwards?
+	{
+		ang = (upwards ? ANGLE_90 : InvAngle(ANGLE_90)); // hard cap of directly upwards
+	}
+	else
+	{
+		ang = slope->zangle + advanceAng;
+	}
 
 	slopemom.x = mo->momx;
 	slopemom.y = mo->momy;

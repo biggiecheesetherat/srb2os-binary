@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -16,6 +16,10 @@
 #define __D_NETCMD__
 
 #include "../command.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // console vars
 extern consvar_t cv_playername;
@@ -215,5 +219,9 @@ void D_ClearPassword(void);
 
 // used for the player setup menu
 UINT8 CanChangeSkin(INT32 playernum);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

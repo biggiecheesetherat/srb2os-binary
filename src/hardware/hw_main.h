@@ -1,7 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -21,6 +21,10 @@
 #include "../r_defs.h"
 
 #include "../m_perfstats.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // Startup & Shutdown the hardware mode renderer
 void HWR_Startup(void);
@@ -127,5 +131,9 @@ extern boolean gl_maploaded;
 extern boolean gl_maptexturesloaded;
 extern boolean gl_sessioncommandsadded;
 extern boolean gl_shadersavailable;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

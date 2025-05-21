@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -20,10 +20,20 @@
 
 #include "d_event.h" // Screenshot responder
 #include "command.h"
+#include "w_wad.h"
+
+#ifdef __cplusplus
+
+#include <tcb/span.hpp>
+
+void M_DoScreenShot(uint32_t width, uint32_t height, tcb::span<const std::byte> data);
+void M_SaveFrame(uint32_t width, uint32_t height, tcb::span<const std::byte> data);
+
+extern "C" {
+#endif
 
 typedef enum {
 	MM_OFF = 0,
-	MM_APNG,
 	MM_GIF,
 	MM_SCREENSHOT
 } moviemode_t;
@@ -32,15 +42,17 @@ extern moviemode_t moviemode;
 extern consvar_t cv_screenshot_option, cv_screenshot_folder, cv_screenshot_colorprofile;
 extern consvar_t cv_moviemode, cv_movie_folder, cv_movie_option;
 extern consvar_t cv_zlib_memory, cv_zlib_level, cv_zlib_strategy, cv_zlib_window_bits;
-extern consvar_t cv_zlib_memorya, cv_zlib_levela, cv_zlib_strategya, cv_zlib_window_bitsa;
-extern consvar_t cv_apng_delay, cv_apng_downscale;
 
 void M_StartMovie(void);
-void M_SaveFrame(void);
+void M_LegacySaveFrame(void);
 void M_StopMovie(void);
 
 // the file where game vars and settings are saved
 #define CONFIGFILENAME "config.cfg"
+
+#ifdef DEVELOP
+#define DEVCONFIGFILENAME "dev.cfg"
+#endif
 
 INT32 M_MapNumber(char first, char second);
 
@@ -65,7 +77,9 @@ boolean M_SavePNG(const char *filename, void *data, int width, int height, const
 
 extern boolean takescreenshot;
 void M_ScreenShot(void);
-void M_DoScreenShot(void);
+#ifdef HWRENDER
+void M_DoLegacyGLScreenShot(void);
+#endif
 boolean M_ScreenshotResponder(event_t *ev);
 
 void Command_SaveConfig_f(void);
@@ -109,6 +123,10 @@ const char * M_Ftrim (double);
 // Returns true if the string is empty.
 boolean M_IsStringEmpty(const char *s);
 
+const char *M_GetFilenameFromPath(const char *path);
+const char *M_GetExtensionFromFilename(const char *filename);
+const char *M_CheckFilenameExtension(const char *filename, const char *ext);
+
 // Converts a string containing a whole number into an int. Returns false if the conversion failed.
 boolean M_StringToNumber(const char *input, int *out);
 
@@ -121,7 +139,15 @@ FUNCMATH UINT8 M_CountBits(UINT32 num, UINT8 size);
 // Rounds off floating numbers and checks for 0 - 255 bounds
 int M_RoundUp(double number);
 
-#include "w_wad.h"
+// Hashes some message using FNV-1a
+UINT32 FNV1a_Hash(const char *message, size_t size);
+UINT32 FNV1a_HashString(const char *message);
+UINT32 FNV1a_HashLowercaseString(const char *message);
+
 extern char configfile[MAX_WADPATH];
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -546,6 +546,7 @@ static void AbortConnection(void)
 {
 	Snake_Free(&snake);
 
+	CURLAbortFile();
 	D_QuitNetGame();
 	CL_Reset();
 	D_StartTitle();
@@ -1062,10 +1063,6 @@ static boolean CL_ServerConnectionTicker(const char *tmpsave, tic_t *oldtic, tic
 				}
 			}
 
-			// Rusty TODO: multithread
-			if (filedownload.http_running)
-				CURLGetFile();
-
 			if (waitmore)
 				break; // exit the case
 
@@ -1198,8 +1195,13 @@ static boolean CL_ServerConnectionTicker(const char *tmpsave, tic_t *oldtic, tic
 			I_unlock_mutex(m_menu_mutex);
 #endif
 			I_UpdateNoVsync(); // page flip or blit buffer
-			if (moviemode)
-				M_SaveFrame();
+#ifdef HWRENDER
+			if (moviemode && rendermode == render_opengl)
+				M_LegacySaveFrame();
+			else
+#endif
+			if (moviemode && rendermode != render_none)
+				I_CaptureVideoFrame();
 			S_UpdateSounds();
 			S_UpdateClosedCaptions();
 		}

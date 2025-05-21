@@ -2,8 +2,8 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 2005-2009 by Andrey "entryway" Budko.
-// Copyright (C) 2018-2023 by Jaime "Lactozilla" Passos.
-// Copyright (C) 2019-2023 by Sonic Team Junior.
+// Copyright (C) 2018-2024 by Lactozilla.
+// Copyright (C) 2019-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -1754,13 +1754,13 @@ void R_ParseSPRTINFOLump(UINT16 wadNum, UINT16 lumpNum)
 //
 // Load and read every SPRTINFO lump from the specified file.
 //
-void R_LoadSpriteInfoLumps(UINT16 wadnum, UINT16 numlumps)
+void R_LoadSpriteInfoLumps(UINT16 wadnum)
 {
 	lumpinfo_t *lumpinfo = wadfiles[wadnum]->lumpinfo;
 	UINT16 i;
 	char *name;
 
-	for (i = 0; i < numlumps; i++, lumpinfo++)
+	for (i = 0; i < wadfiles[wadnum]->numlumps; i++, lumpinfo++)
 	{
 		name = lumpinfo->name;
 		// Load SPRTINFO and SPR_ lumps as SpriteInfo

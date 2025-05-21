@@ -22,6 +22,14 @@
 
 #ifdef __APPLE_CC__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int MacShowAlert(const char *title, const char *message, const char *button1, const char *button2, const char *button3);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

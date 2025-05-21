@@ -15,6 +15,10 @@
 
 #include "../doomdef.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MAX_REASONLENGTH 30
 
 void Ban_Add(const char *reason);
@@ -29,5 +33,9 @@ void Command_Kick(void);
 void Command_connect(void);
 void Command_GetPlayerNum(void);
 void Command_Nodes(void);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

@@ -1,6 +1,6 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2013-2023 by Sonic Team Junior.
+// Copyright (C) 2013-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -13,6 +13,10 @@
 #define __M_TOKENIZER__
 
 #include "doomdef.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct Tokenizer
 {
@@ -27,6 +31,7 @@ typedef struct Tokenizer
 	UINT8 inComment; // 0 = not in comment, 1 = // Single-line, 2 = /* Multi-line */
 	UINT8 inString; // 0 = not in string, 1 = in string, 2 = just left string
 	int line;
+	boolean isString;
 	const char *(*get)(struct Tokenizer*, UINT32);
 } tokenizer_t;
 
@@ -37,5 +42,10 @@ const char *Tokenizer_Read(tokenizer_t *tokenizer, UINT32 i);
 const char *Tokenizer_SRB2Read(tokenizer_t *tokenizer, UINT32 i);
 UINT32 Tokenizer_GetEndPos(tokenizer_t *tokenizer);
 void Tokenizer_SetEndPos(tokenizer_t *tokenizer, UINT32 newPos);
+boolean Tokenizer_JustReadString(tokenizer_t *tokenizer);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

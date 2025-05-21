@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -17,46 +17,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-// Sound system select
-// This should actually be in the makefile,
-// but I can't stand that gibberish. D:
-#define SOUND_DUMMY   0
-#define SOUND_SDL     1
-#define SOUND_MIXER   2
-#define SOUND_FMOD    3
-
-#ifndef SOUND
-#ifdef HAVE_SDL
-
-// Use Mixer interface?
-#ifdef HAVE_MIXER
-    #define SOUND SOUND_MIXER
-    #ifdef HW3SOUND
-    #undef HW3SOUND
-    #endif
-#endif
-
-// Use generic SDL interface.
-#ifndef SOUND
-#define SOUND SOUND_SDL
-#endif
-
-#else // No SDL.
-
-// Use FMOD?
-#ifdef HAVE_FMOD
-    #define SOUND SOUND_FMOD
-    #ifdef HW3SOUND
-    #undef HW3SOUND
-    #endif
-#else
-    // No more interfaces. :(
-    #define SOUND SOUND_DUMMY
-#endif
-
-#endif
 #endif
 
 #ifdef _WINDOWS
@@ -108,6 +68,10 @@ extern "C" {
 #include <io.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 FILE *fopenfile(const char*, const char*);
 
 //#define NOMD5
@@ -146,7 +110,11 @@ extern char logfilename[1024];
 /* A mod name to further distinguish versions. */
 #define SRB2APPLICATION "SRB2"
 
-//#define DEVELOP // Disable this for release builds to remove excessive cheat commands and enable MD5 checking and stuff, all in one go. :3
+#ifndef DEVELOP
+// Disable this for release builds to remove excessive cheat commands and enable MD5 checking and stuff, all in one go.
+#define DEVELOP
+#endif
+
 #ifdef DEVELOP
 #define VERSIONSTRING "Development EXE"
 #define VERSIONSTRING_RC "Development EXE" "\0"
@@ -172,7 +140,7 @@ extern char logfilename[1024];
 
 // Does this version require an added patch file?
 // Comment or uncomment this as necessary.
-#define USE_PATCH_DTA
+//#define USE_PATCH_DTA
 
 // Enforce a limit of loaded WAD files.
 //#define ENFORCE_WAD_LIMIT
@@ -256,6 +224,19 @@ extern char logfilename[1024];
 // and the structure of some networking packets and commands.
 #define MAXSKINS 255
 #define MAXCHARACTERSLOTS (MAXSKINS * 3) // Should be higher than MAXSKINS.
+
+#define MAXMAPS 16386
+
+#define MAX_MAP_NAME_SIZE 256 // This is an arbitrary limit to prevent exceedingly long map names.
+
+#define NEXTMAP_TITLE (MAXMAPS)
+#define NEXTMAP_EVALUATION (MAXMAPS+2)
+#define NEXTMAP_CREDITS (MAXMAPS+3)
+#define NEXTMAP_ENDING (MAXMAPS+4)
+
+#define NUM_NEXTMAPS 4
+
+#define NUMBASEMAPS 1035 // MAP01 to MAPZZ
 
 #define COLORRAMPSIZE 16
 #define MAXCOLORNAME 32
@@ -471,6 +452,8 @@ extern skincolor_t skincolors[MAXSKINCOLORS];
 
 #define MUSICRATE 1000 // sound timing is calculated by milliseconds
 
+#define MAX_MUSIC_NAME 64
+
 #define RING_DIST 512*FRACUNIT // how close you need to be to a ring to attract it
 
 #define PUSHACCEL (2*FRACUNIT) // Acceleration for MF2_SLIDEPUSH items.
@@ -563,6 +546,8 @@ const char *M_TokenizerRead(UINT32 i);
 const char *M_TokenizerReadZDoom(UINT32 i);
 UINT32 M_TokenizerGetEndPos(void);
 void M_TokenizerSetEndPos(UINT32 newPos);
+boolean M_TokenizerJustReadString(void);
+
 char *sizeu1(size_t num);
 char *sizeu2(size_t num);
 char *sizeu3(size_t num);

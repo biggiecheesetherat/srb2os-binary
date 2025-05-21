@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2023 by Sonic Team Junior.
+// Copyright (C) 1999-2024 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -78,7 +78,7 @@ static void G_DoStartContinue(void);
 static void G_DoContinued(void);
 static void G_DoWorldDone(void);
 
-char   mapmusname[7]; // Music name
+char   mapmusname[MAX_MUSIC_NAME+1]; // Music name
 UINT16 mapmusflags; // Track and reset bit
 UINT32 mapmusposition; // Position to jump to
 
@@ -105,6 +105,7 @@ UINT8 paused;
 UINT8 modeattacking = ATTACKING_NONE;
 boolean disableSpeedAdjust = false;
 boolean imcontinuing = false;
+boolean replacedcurrentmap = false;
 boolean runemeraldmanager = false;
 UINT16 emeraldspawndelay = 60*TICRATE;
 
@@ -172,7 +173,13 @@ mapthing_t *bflagpoint;
 struct quake quake;
 
 // Map Header Information
-mapheader_t* mapheaderinfo[NUMMAPS] = {NULL};
+mapheader_t* mapheaderinfo[MAXMAPS] = {NULL};
+
+gamemap_t gamemaps[MAXMAPS];
+UINT16 numgamemaps = 0;
+
+static mapname_t nextmapnames[NUM_NEXTMAPS];
+static INT16 nextmapids[NUM_NEXTMAPS] = { NEXTMAP_TITLE, NEXTMAP_EVALUATION, NEXTMAP_CREDITS, NEXTMAP_ENDING };
 
 static boolean exitgame = false;
 static boolean retrying = false;
@@ -255,8 +262,6 @@ typedef struct joystickvector2_s
 boolean precache = true; // if true, load all graphics at start
 
 INT16 prevmap, nextmap;
-
-static UINT8 *savebuffer;
 
 // Analog Control
 static void UserAnalog_OnChange(void);
@@ -403,29 +408,27 @@ consvar_t cv_cam_lockonboss[2] = {
 	CVAR_INIT ("cam2_lockaimassist", "Full", CV_SAVE|CV_ALLOWLUA, lockedassist_cons_t, NULL),
 };
 
-consvar_t cv_moveaxis   = CVAR_INIT ("joyaxis_move",       "Y-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_sideaxis   = CVAR_INIT ("joyaxis_side",       "X-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_lookaxis   = CVAR_INIT ("joyaxis_look",       "X-Rudder-", CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_turnaxis   = CVAR_INIT ("joyaxis_turn",       "Z-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_jumpaxis   = CVAR_INIT ("joyaxis_jump",       "None",      CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_spinaxis   = CVAR_INIT ("joyaxis_spin",       "None",      CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_shieldaxis = CVAR_INIT ("joyaxis_shield",     "None",      CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_fireaxis   = CVAR_INIT ("joyaxis_fire",       "Z-Rudder",  CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_firenaxis  = CVAR_INIT ("joyaxis_firenormal", "Z-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_deadzone        = CVAR_INIT ("joy_deadzone",    "0.125", CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
-consvar_t cv_digitaldeadzone = CVAR_INIT ("joy_digdeadzone", "0.25",  CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
+consvar_t cv_moveaxis = CVAR_INIT ("joyaxis_move", "Y-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_sideaxis = CVAR_INIT ("joyaxis_side", "X-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_lookaxis = CVAR_INIT ("joyaxis_look", "X-Rudder-", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_turnaxis = CVAR_INIT ("joyaxis_turn", "Z-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_jumpaxis = CVAR_INIT ("joyaxis_jump", "None", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_spinaxis = CVAR_INIT ("joyaxis_spin", "None", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_fireaxis = CVAR_INIT ("joyaxis_fire", "Z-Rudder", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_firenaxis = CVAR_INIT ("joyaxis_firenormal", "Z-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_deadzone = CVAR_INIT ("joy_deadzone", "0.125", CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
+consvar_t cv_digitaldeadzone = CVAR_INIT ("joy_digdeadzone", "0.25", CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
 
-consvar_t cv_moveaxis2   = CVAR_INIT ("joyaxis2_move",       "Y-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_sideaxis2   = CVAR_INIT ("joyaxis2_side",       "X-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_lookaxis2   = CVAR_INIT ("joyaxis2_look",       "X-Rudder-", CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_turnaxis2   = CVAR_INIT ("joyaxis2_turn",       "Z-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_jumpaxis2   = CVAR_INIT ("joyaxis2_jump",       "None",      CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_spinaxis2   = CVAR_INIT ("joyaxis2_spin",       "None",      CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_shieldaxis2 = CVAR_INIT ("joyaxis2_shield",     "None",      CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_fireaxis2   = CVAR_INIT ("joyaxis2_fire",       "Z-Rudder",  CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_firenaxis2  = CVAR_INIT ("joyaxis2_firenormal", "Z-Axis",    CV_SAVE, joyaxis_cons_t, NULL);
-consvar_t cv_deadzone2        = CVAR_INIT ("joy_deadzone2",    "0.125", CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
-consvar_t cv_digitaldeadzone2 = CVAR_INIT ("joy_digdeadzone2", "0.25",  CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
+consvar_t cv_moveaxis2 = CVAR_INIT ("joyaxis2_move", "Y-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_sideaxis2 = CVAR_INIT ("joyaxis2_side", "X-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_lookaxis2 = CVAR_INIT ("joyaxis2_look", "X-Rudder-", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_turnaxis2 = CVAR_INIT ("joyaxis2_turn", "Z-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_jumpaxis2 = CVAR_INIT ("joyaxis2_jump", "None", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_spinaxis2 = CVAR_INIT ("joyaxis2_spin", "None", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_fireaxis2 = CVAR_INIT ("joyaxis2_fire", "Z-Rudder", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_firenaxis2 = CVAR_INIT ("joyaxis2_firenormal", "Z-Axis", CV_SAVE, joyaxis_cons_t, NULL);
+consvar_t cv_deadzone2 = CVAR_INIT ("joy_deadzone2", "0.125", CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
+consvar_t cv_digitaldeadzone2 = CVAR_INIT ("joy_digdeadzone2", "0.25", CV_FLOAT|CV_SAVE, zerotoone_cons_t, NULL);
 
 player_t *seenplayer; // player we're aiming at right now
 
@@ -465,7 +468,7 @@ void G_AllocNightsRecordData(INT16 i, gamedata_t *data)
 void G_ClearRecords(gamedata_t *data)
 {
 	INT16 i;
-	for (i = 0; i < NUMMAPS; ++i)
+	for (i = 0; i < numgamemaps; ++i)
 	{
 		if (data->mainrecords[i])
 		{
@@ -573,7 +576,8 @@ static void G_SetMainRecords(gamedata_t *data, player_t *player)
 
 	if (modeattacking)
 	{
-		const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen("MAPXX")+1;
+		const char *mapname = G_BuildMapName(gamemap);
+		const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen(mapname)+1;
 		char *gpath;
 		char lastdemo[256], bestdemo[256];
 
@@ -589,7 +593,7 @@ static void G_SetMainRecords(gamedata_t *data, player_t *player)
 		if ((gpath = malloc(glen)) == NULL)
 			I_Error("Out of memory for replay filepath\n");
 
-		sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, G_BuildMapName(gamemap));
+		sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, mapname);
 		snprintf(lastdemo, 255, "%s-%s-last.lmp", gpath, skins[cv_chooseskin.value-1]->name);
 
 		if (FIL_FileExists(lastdemo))
@@ -711,7 +715,8 @@ static void G_SetNightsRecords(gamedata_t *data, player_t *player)
 
 	if (modeattacking)
 	{
-		const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen("MAPXX")+1;
+		const char *mapname = G_BuildMapName(gamemap);
+		const size_t glen = strlen(srb2home)+1+strlen("replay")+1+strlen(timeattackfolder)+1+strlen(mapname)+1;
 		char *gpath;
 		char lastdemo[256], bestdemo[256];
 
@@ -727,7 +732,7 @@ static void G_SetNightsRecords(gamedata_t *data, player_t *player)
 		if ((gpath = malloc(glen)) == NULL)
 			I_Error("Out of memory for replay filepath\n");
 
-		sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, G_BuildMapName(gamemap));
+		sprintf(gpath,"%s"PATHSEP"replay"PATHSEP"%s"PATHSEP"%s", srb2home, timeattackfolder, mapname);
 		snprintf(lastdemo, 255, "%s-%s-last.lmp", gpath, skins[cv_chooseskin.value-1]->name);
 
 		if (FIL_FileExists(lastdemo))
@@ -805,6 +810,20 @@ void G_SetUsedCheats(boolean silent)
 		Command_ExitGame_f();
 }
 
+/** Gets a game map name from a map number.
+  *
+  * \param map Map number.
+  * \return The desired map name.
+  * \sa M_MapNumber
+  */
+const char *G_BuildMapName(INT32 map)
+{
+	if (map > 0 && map <= numgamemaps)
+		return gamemaps[map - 1].name.chars;
+
+	return "UNKNOWN";
+}
+
 /** Builds an original game map name from a map number.
   * The complexity is due to MAPA0-MAPZZ.
   *
@@ -812,12 +831,12 @@ void G_SetUsedCheats(boolean silent)
   * \return Pointer to a static buffer containing the desired map name.
   * \sa M_MapNumber
   */
-const char *G_BuildMapName(INT32 map)
+const char *G_BuildClassicMapName(INT32 map)
 {
 	static char mapname[10] = "MAPXX"; // internal map name (wad resource name)
 
 	I_Assert(map > 0);
-	I_Assert(map <= NUMMAPS);
+	I_Assert(map <= NUMBASEMAPS);
 
 	if (map < 100)
 		sprintf(&mapname[3], "%.2d", map);
@@ -832,6 +851,219 @@ const char *G_BuildMapName(INT32 map)
 	}
 
 	return mapname;
+}
+
+static UINT32 G_HashMapNameString(const char *name)
+{
+	return FNV1a_HashLowercaseString(name);
+}
+
+static void G_MakeMapName(mapname_t *name, const char *string)
+{
+	name->length = strlen(string);
+	name->hash = G_HashMapNameString(string);
+	name->chars = Z_StrDup(string);
+	strupr(name->chars);
+}
+
+void G_InitMaps(void)
+{
+	for (UINT16 i = 0; i < NUMBASEMAPS; i++)
+	{
+		const char *name = G_BuildClassicMapName(i + 1);
+		G_AddMap(name, LUMPERROR);
+	}
+
+	G_MakeMapName(&nextmapnames[0], "SCENE_TITLE");
+	G_MakeMapName(&nextmapnames[1], "SCENE_EVALUATION");
+	G_MakeMapName(&nextmapnames[2], "SCENE_CREDITS");
+	G_MakeMapName(&nextmapnames[3], "SCENE_ENDING");
+}
+
+static UINT16 MapIDForHashedString(const char *name, size_t name_length, UINT32 name_hash)
+{
+	// Special case
+	if (name_length == 2 && name[0] >= 'A' && name[0] <= 'Z')
+		return M_MapNumber(name[0], name[1]);
+
+	for (UINT16 i = 0; i < numgamemaps; i++)
+	{
+		if (gamemaps[i].name.length == name_length
+		&& gamemaps[i].name.hash == name_hash
+		&& stricmp(name, gamemaps[i].name.chars) == 0)
+			return i + 1;
+	}
+
+	return 0;
+}
+
+UINT16 G_GetMapNumber(const char *name)
+{
+	size_t name_length = strlen(name);
+
+	return MapIDForHashedString(name, name_length, G_HashMapNameString(name));
+}
+
+UINT16 G_GetMapNumberForNextMap(const char *name)
+{
+	size_t name_length = strlen(name);
+	UINT32 name_hash = G_HashMapNameString(name);
+
+	for (UINT16 i = 0; i < NUM_NEXTMAPS; i++)
+	{
+		if (nextmapnames[i].length == name_length
+		&& nextmapnames[i].hash == name_hash
+		&& stricmp(name, nextmapnames[i].chars) == 0)
+			return nextmapids[i];
+	}
+
+	return MapIDForHashedString(name, name_length, name_hash);
+}
+
+UINT16 G_AddMap(const char *name, UINT32 lumpnum)
+{
+	// Too many maps loaded
+	if (numgamemaps == MAXMAPS)
+		return 0;
+
+	UINT16 mapnum = G_GetMapNumber(name);
+	if (mapnum != 0)
+	{
+		// Update that map's lumpnum
+		gamemaps[mapnum - 1].lumpnum = lumpnum;
+		return mapnum;
+	}
+
+	G_MakeMapName(&gamemaps[numgamemaps].name, name);
+	gamemaps[numgamemaps].lumpnum = lumpnum;
+
+	numgamemaps++;
+
+	CONS_Debug(DBG_SETUP, "Added map %d (%s)\n", numgamemaps, name);
+
+	return numgamemaps;
+}
+
+lumpnum_t G_GetMapLumpnum(const char *name)
+{
+	UINT16 mapnum = G_GetMapNumber(name);
+	if (mapnum == 0)
+		return LUMPERROR;
+
+	return gamemaps[mapnum - 1].lumpnum;
+}
+
+boolean G_MapFileExists(const char *name)
+{
+	UINT16 mapnum = G_GetMapNumber(name);
+	if (mapnum == 0)
+		return false;
+
+	return gamemaps[mapnum - 1].lumpnum != LUMPERROR;
+}
+
+static boolean IsValidMapNameStartChar(const char chr)
+{
+	return isalpha(chr) || chr == '_' || chr == '$';
+}
+
+boolean G_IsValidMapName(const char *name)
+{
+	// Can't be empty, and must begin with a letter, an underscore, or a dollar sign
+	if (name[0] == '\0' || !IsValidMapNameStartChar(name[0]))
+		return false;
+
+	size_t length = strlen(name);
+
+	// Middle and end of name must be a letter, a digit, an underscore, or a dollar sign
+	for (size_t i = 1; i < length; i++)
+	{
+		if (!(IsValidMapNameStartChar(name[i]) || isdigit(name[i])))
+			return false;
+	}
+
+	return true;
+}
+
+static char *BuildCombinedMapString(INT16 map, const char *newfmt, const char *oldfmt)
+{
+	const char *mapname = gamemaps[map].name.chars;
+	const char *fmt = (map < NUMBASEMAPS) ? oldfmt : newfmt;
+
+	size_t len = strlen(mapname) + strlen(fmt) + 1;
+
+	char *text = Z_Malloc(len, PU_STATIC, NULL);
+
+	snprintf(text, len, fmt, mapname);
+
+	return text;
+}
+
+const char *G_GetMapThumbnail(INT16 map)
+{
+	map--;
+
+	if (map < 0 || map >= numgamemaps)
+		return "";
+
+	// This is done lazily -- it's not created until it's needed.
+	if (gamemaps[map].thumbnail == NULL)
+		gamemaps[map].thumbnail = BuildCombinedMapString(map, "%s_PIC", "%sP");
+
+	return gamemaps[map].thumbnail;
+}
+
+const char *G_GetMapThumbnailWide(INT16 map)
+{
+	map--;
+
+	if (map < 0 || map >= numgamemaps)
+		return "";
+
+	if (gamemaps[map].thumbnail_wide == NULL)
+		gamemaps[map].thumbnail_wide = BuildCombinedMapString(map, "%s_WIDEPIC", "%sW");
+
+	return gamemaps[map].thumbnail_wide;
+}
+
+const char *G_GetDefaultMapMusic(INT16 map)
+{
+	map--;
+
+	if (map < 0 || map >= numgamemaps)
+		return "";
+
+	if (gamemaps[map].music == NULL)
+		gamemaps[map].music = BuildCombinedMapString(map, "%s", "%sM");
+
+	return gamemaps[map].music;
+}
+
+const char *G_GetMapMetalSonicReplay(INT16 map)
+{
+	map--;
+
+	if (map < 0 || map >= numgamemaps)
+		return "";
+
+	if (gamemaps[map].metal_replay == NULL)
+		gamemaps[map].metal_replay = BuildCombinedMapString(map, "%s_METALREPLAY", "%sMS");
+
+	return gamemaps[map].metal_replay;
+}
+
+boolean G_IsGameEndMap(INT16 mapnum)
+{
+	switch (mapnum)
+	{
+		case NEXTMAP_TITLE:
+		case NEXTMAP_EVALUATION:
+		case NEXTMAP_CREDITS:
+		case NEXTMAP_ENDING:
+			return true;
+		default:
+			return false;
+	}
 }
 
 /** Clips the console player's mouse aiming to the current view.
@@ -895,9 +1127,6 @@ INT32 JoyAxis(joyaxis_e axissel)
 			break;
 		case JA_SPIN:
 			axisval = cv_spinaxis.value;
-			break;
-		case JA_SHIELD:
-			axisval = cv_shieldaxis.value;
 			break;
 		case JA_FIRE:
 			axisval = cv_fireaxis.value;
@@ -971,9 +1200,6 @@ INT32 Joy2Axis(joyaxis_e axissel)
 			break;
 		case JA_SPIN:
 			axisval = cv_spinaxis2.value;
-			break;
-		case JA_SHIELD:
-			axisval = cv_shieldaxis2.value;
 			break;
 		case JA_FIRE:
 			axisval = cv_fireaxis2.value;
@@ -1342,10 +1568,10 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 	if (PLAYERINPUTDOWN(ssplayer, GC_WEAPONPREV))
 		cmd->buttons |= BT_WEAPONPREV; // Previous Weapon
 
-#if NUM_WEAPONS > 7
-"Add extra inputs to g_input.h/gamecontrols_e, and fix conflicts in d_ticcmd.h/ticcmd_t/buttons"
+#if NUM_WEAPONS > 10
+"Add extra inputs to g_input.h/gamecontrols_e"
 #endif
-	//use the three avaliable bits to determine the weapon.
+	//use the four avaliable bits to determine the weapon.
 	cmd->buttons &= ~BT_WEAPONMASK;
 	for (i = 0; i < NUM_WEAPONS; ++i)
 		if (PLAYERINPUTDOWN(ssplayer, GC_WEPSLOT1 + i))
@@ -1364,14 +1590,8 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 	if (PLAYERINPUTDOWN(ssplayer, GC_FIRENORMAL) || (usejoystick && axis > 0))
 		cmd->buttons |= BT_FIRENORMAL;
 
-	// Toss flag button
 	if (PLAYERINPUTDOWN(ssplayer, GC_TOSSFLAG))
 		cmd->buttons |= BT_TOSSFLAG;
-
-	// Shield button
-	axis = PlayerJoyAxis(ssplayer, JA_SHIELD);
-	if (PLAYERINPUTDOWN(ssplayer, GC_SHIELD) || (usejoystick && axis > 0))
-		cmd->buttons |= BT_SHIELD;
 
 	// Lua scriptable buttons
 	if (PLAYERINPUTDOWN(ssplayer, GC_CUSTOM1))
@@ -1386,7 +1606,7 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 	if (PLAYERINPUTDOWN(ssplayer, GC_SPIN) || (usejoystick && axis > 0))
 		cmd->buttons |= BT_SPIN;
 
-	if (gamestate != GS_LEVEL) // not in a level, don't build anything else
+	if (gamestate == GS_INTRO) // prevent crash in intro
 	{
 		cmd->angleturn = ticcmd_oldangleturn[forplayer];
 		cmd->aiming = G_ClipAimingPitch(myaiming);
@@ -1724,7 +1944,7 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 	// At this point, cmd doesn't contain the final angle yet,
 	// So we need to temporarily transform it so Lua scripters
 	// don't need to handle it differently than in other hooks.
-	if (addedtogame)
+	if (addedtogame && gamestate == GS_LEVEL)
 	{
 		INT16 extra = ticcmd_oldangleturn[forplayer] - player->oldrelangleturn;
 		INT16 origangle = cmd->angleturn;
@@ -1872,7 +2092,7 @@ void G_DoLoadLevel(boolean resetplayer)
 	// cleanup
 	if (titlemapinaction == TITLEMAP_LOADING)
 	{
-		if (W_CheckNumForName(G_BuildMapName(gamemap)) == LUMPERROR)
+		if (!G_MapFileExists(G_BuildMapName(gamemap)))
 		{
 			titlemap = 0; // let's not infinite recursion ok
 			Command_ExitGame_f();
@@ -1936,6 +2156,8 @@ void G_DoLoadLevel(boolean resetplayer)
 //
 void G_StartTitleCard(void)
 {
+	ST_stopTitleCard();
+
 	// The title card has been disabled for this map.
 	// Oh well.
 	if (!G_IsTitleCardAvailable())
@@ -1979,10 +2201,13 @@ void G_PreLevelTitleCard(void)
 		I_FinishUpdate(); // page flip or blit buffer
 		NetKeepAlive(); // Prevent timeouts
 
-		if (moviemode)
-			M_SaveFrame();
-		if (takescreenshot) // Only take screenshots after drawing.
-			M_DoScreenShot();
+#ifdef HWRENDER
+		if (moviemode && rendermode == render_opengl)
+			M_LegacySaveFrame();
+		else
+#endif
+		if (moviemode && rendermode != render_none)
+			I_CaptureVideoFrame();
 	}
 	if (!cv_showhud.value)
 		wipestyleflags = WSF_CROSSFADE;
@@ -2624,6 +2849,7 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	boolean spectator;
 	boolean outofcoop;
 	boolean removing;
+	boolean muted;
 	INT16 bot;
 	SINT8 pity;
 	INT16 rings;
@@ -2641,6 +2867,7 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	spectator = players[player].spectator;
 	outofcoop = players[player].outofcoop;
 	removing = players[player].removing;
+	muted = players[player].muted;
 	pflags = (players[player].pflags & (PF_FLIPCAM|PF_ANALOGMODE|PF_DIRECTIONCHAR|PF_AUTOBRAKE|PF_TAGIT|PF_GAMETYPEOVER));
 	playerangleturn = players[player].angleturn;
 	oldrelangleturn = players[player].oldrelangleturn;
@@ -2718,6 +2945,7 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	p->spectator = spectator;
 	p->outofcoop = outofcoop;
 	p->removing = removing;
+	p->muted = muted;
 	p->angleturn = playerangleturn;
 	p->oldrelangleturn = oldrelangleturn;
 
@@ -2774,7 +3002,6 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	p->pflags |= PF_SPINDOWN;
 	p->pflags |= PF_ATTACKDOWN;
 	p->pflags |= PF_JUMPDOWN;
-	p->pflags |= PF_SHIELDDOWN;
 
 	p->playerstate = PST_LIVE;
 	p->panim = PA_IDLE; // standing animation
@@ -2789,8 +3016,7 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	{
 		if (mapmusflags & MUSIC_RELOADRESET)
 		{
-			strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
-			mapmusname[6] = 0;
+			strlcpy(mapmusname, mapheaderinfo[gamemap-1]->musname, MAX_MUSIC_NAME+1);
 			mapmusflags = (mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK);
 			mapmusposition = mapheaderinfo[gamemap-1]->muspos;
 		}
@@ -3069,7 +3295,7 @@ void G_ChangePlayerReferences(mobj_t *oldmo, mobj_t *newmo)
 	// scan all thinkers
 	for (th = thlist[THINK_MOBJ].next; th != &thlist[THINK_MOBJ]; th = th->next)
 	{
-		if (th->function.acp1 == (actionf_p1)P_RemoveThinkerDelayed)
+		if (th->removing)
 			continue;
 
 		mo2 = (mobj_t *)th;
@@ -3352,7 +3578,7 @@ void G_AddPlayer(INT32 playernum)
 
 	p->playerstate = PST_REBORN;
 
-	p->height = mobjinfo[MT_PLAYER].height;
+	p->height = skins[p->skin]->height;
 
 	if (G_GametypeUsesLives() || ((netgame || multiplayer) && (gametyperules & GTR_FRIENDLY)))
 		p->lives = cv_startinglives.value;
@@ -3866,12 +4092,12 @@ UINT32 G_TOLFlag(INT32 pgametype)
   */
 static INT16 RandMap(UINT32 tolflags, INT16 pprevmap)
 {
-	INT16 *okmaps = Z_Malloc(NUMMAPS * sizeof(INT16), PU_STATIC, NULL);
+	INT16 *okmaps = Z_Malloc(numgamemaps * sizeof(INT16), PU_STATIC, NULL);
 	INT32 numokmaps = 0;
 	INT16 ix;
 
 	// Find all the maps that are ok and and put them in an array.
-	for (ix = 0; ix < NUMMAPS; ix++)
+	for (ix = 0; ix < numgamemaps; ix++)
 		if (mapheaderinfo[ix] && (mapheaderinfo[ix]->typeoflevel & tolflags) == tolflags
 		 && ix != pprevmap // Don't pick the same map.
 		 && (!M_MapLocked(ix+1, serverGamedata)) // Don't pick locked maps.
@@ -3993,7 +4219,7 @@ static void G_HandleSaveLevel(void)
 	G_UpdateAllVisited();
 
 	// do this before running the intermission or custom cutscene, mostly for the sake of marathon mode but it also massively reduces redundant file save events in f_finale.c
-	if (nextmap >= 1100-1)
+	if (nextmap >= NEXTMAP_TITLE-1)
 	{
 		if (!gamecomplete)
 			gamecomplete = 2; // special temporary mode to prevent using SP level select in pause menu until the intermission is over without restricting it in every intermission
@@ -4039,7 +4265,7 @@ INT16 G_GetNextMap(boolean ignoretokens, boolean silent)
 	{
 		newmapnum = (INT16)(mapheaderinfo[gamemap-1]->nextlevel-1);
 		if (marathonmode && newmapnum == spmarathon_start-1)
-			newmapnum = 1100-1; // No infinite loop for you
+			newmapnum = NEXTMAP_TITLE-1; // No infinite loop for you
 	}
 
 	INT16 gametype_to_use;
@@ -4055,13 +4281,11 @@ INT16 G_GetNextMap(boolean ignoretokens, boolean silent)
 	// for instance).
 	if (!spec || nextmapoverride)
 	{
-		if (newmapnum >= 0 && newmapnum < NUMMAPS)
+		if (newmapnum >= 0 && newmapnum < numgamemaps)
 		{
 			INT16 cm = newmapnum;
 			UINT32 tolflag = G_TOLFlag(gametype_to_use);
-			UINT8 visitedmap[(NUMMAPS+7)/8];
-
-			memset(visitedmap, 0, sizeof (visitedmap));
+			UINT8 *visitedmap = Z_Calloc(((numgamemaps+7)/8) * sizeof(UINT8), PU_STATIC, NULL);
 
 			while (!mapheaderinfo[cm] || !(mapheaderinfo[cm]->typeoflevel & tolflag))
 			{
@@ -4073,12 +4297,12 @@ INT16 G_GetNextMap(boolean ignoretokens, boolean silent)
 				else
 					cm = (INT16)(mapheaderinfo[cm]->nextlevel-1);
 
-				if (cm >= NUMMAPS || cm < 0) // out of range (either 1100ish or error)
+				if (cm >= numgamemaps || cm < 0) // out of range (either NEXTMAP_* or error)
 				{
 					cm = newmapnum; //Start the loop again so that the error checking below is executed.
 
 					//Make sure the map actually exists before you try to go to it!
-					if ((W_CheckNumForName(G_BuildMapName(cm + 1)) == LUMPERROR))
+					if (!G_MapFileExists(G_BuildMapName(cm + 1)))
 					{
 						if (!silent)
 							CONS_Alert(CONS_ERROR, M_GetText("Next map given (MAP %d) doesn't exist! Reverting to MAP01.\n"), cm+1);
@@ -4097,14 +4321,17 @@ INT16 G_GetNextMap(boolean ignoretokens, boolean silent)
 					break;
 				}
 			}
+
+			Z_Free(visitedmap);
+
 			newmapnum = cm;
 		}
 
 		// wrap around in race
-		if (newmapnum >= 1100-1 && newmapnum <= 1102-1 && !(gametyperules & GTR_CAMPAIGN))
+		if (G_IsGameEndMap(newmapnum+1) && !(gametyperules & GTR_CAMPAIGN))
 			newmapnum = (INT16)(spstage_start-1);
 
-		if (newmapnum < 0 || (newmapnum >= NUMMAPS && newmapnum < 1100-1) || newmapnum > 1103-1)
+		if (newmapnum < 0 || (newmapnum >= numgamemaps && !G_IsGameEndMap(newmapnum+1)))
 			I_Error("Followed map %d to invalid map %d\n", prevmap + 1, newmapnum + 1);
 
 		if (!spec)
@@ -4177,6 +4404,7 @@ static void G_DoCompleted(void)
 
 	//Get and set prevmap/nextmap
 	prevmap = (INT16)(gamemap-1);
+
 	nextmap = G_GetNextMap(false, false);
 
 	automapactive = false;
@@ -4184,7 +4412,7 @@ static void G_DoCompleted(void)
 	// We are committed to this map now.
 	// We may as well allocate its header if it doesn't exist
 	// (That is, if it's a real map)
-	if (nextmap < NUMMAPS && !mapheaderinfo[nextmap])
+	if (nextmap < numgamemaps && !mapheaderinfo[nextmap])
 		P_AllocMapHeader(nextmap);
 
 	Y_DetermineIntermissionType();
@@ -4230,7 +4458,7 @@ void G_AfterIntermission(void)
 	}
 	else
 	{
-		if (nextmap < 1100-1)
+		if (!G_IsGameEndMap(nextmap+1))
 			G_NextLevel();
 		else
 			G_EndGame();
@@ -4350,24 +4578,21 @@ void G_EndGame(void)
 	// Only do evaluation and credits in coop games.
 	if (gametyperules & GTR_CUTSCENES)
 	{
-		if (nextmap == 1103-1) // end game with ending
+		switch (nextmap+1)
 		{
+		case NEXTMAP_ENDING:
 			F_StartEnding();
 			return;
-		}
-		if (nextmap == 1102-1) // end game with credits
-		{
+		case NEXTMAP_CREDITS:
 			F_StartCredits();
 			return;
-		}
-		if (nextmap == 1101-1) // end game with evaluation
-		{
+		case NEXTMAP_EVALUATION:
 			F_StartGameEvaluation();
 			return;
 		}
 	}
 
-	// 1100 or competitive multiplayer, so go back to title screen.
+	// NEXTMAP_TITLE or competitive multiplayer, so go back to title screen.
 	D_StartTitle();
 }
 
@@ -4391,24 +4616,72 @@ void G_LoadGameSettings(void)
 
 #define GAMEDATA_ID 0x86E4A27C // Change every major version, as usual
 #define COMPAT_GAMEDATA_ID 0xFCAFE211 // TODO: 2.3: Delete
+#define EXTRA_DATA_MARKER 0x71B9F853 // TODO: 2.3: Refactor all related code, then delete this
+
+static boolean ReadMapVisited(save_t *save_p, gamedata_t *data, UINT16 i)
+{
+	if ((data->mapvisited[i] = P_ReadUINT8(save_p)) > MV_MAX)
+		return false;
+
+	return true;
+}
+
+static boolean ReadMainRecords(save_t *save_p, gamedata_t *data, UINT16 i)
+{
+	UINT32 recscore = P_ReadUINT32(save_p);
+	tic_t rectime  = (tic_t)P_ReadUINT32(save_p);
+	UINT16 recrings = P_ReadUINT16(save_p);
+	P_ReadUINT8(save_p); // compat
+
+	if (recrings > 10000 || recscore > MAXSCORE)
+		return false;
+
+	if (recscore || rectime || recrings)
+	{
+		G_AllocMainRecordData((INT16)i, data);
+		data->mainrecords[i]->score = recscore;
+		data->mainrecords[i]->time = rectime;
+		data->mainrecords[i]->rings = recrings;
+	}
+
+	return true;
+}
+
+static boolean ReadNightsRecords(save_t *save_p, gamedata_t *data, UINT16 i)
+{
+	UINT8 recmares;
+
+	if ((recmares = P_ReadUINT8(save_p)) == 0)
+		return true;
+
+	G_AllocNightsRecordData((INT16)i, data);
+
+	for (INT32 curmare = 0; curmare < (recmares+1); ++curmare)
+	{
+		data->nightsrecords[i]->score[curmare] = P_ReadUINT32(save_p);
+		data->nightsrecords[i]->grade[curmare] = P_ReadUINT8(save_p);
+		data->nightsrecords[i]->time[curmare] = (tic_t)P_ReadUINT32(save_p);
+
+		if (data->nightsrecords[i]->grade[curmare] > GRADE_S)
+		{
+			return false;
+		}
+	}
+
+	data->nightsrecords[i]->nummares = recmares;
+
+	return true;
+}
 
 // G_LoadGameData
 // Loads the main data file, which stores information such as emblems found, etc.
 void G_LoadGameData(gamedata_t *data)
 {
-	size_t length;
+	save_t savebuffer;
 	INT32 i, j;
 
 	UINT32 versionID;
 	UINT8 rtemp;
-
-	//For records
-	UINT32 recscore;
-	tic_t  rectime;
-	UINT16 recrings;
-
-	UINT8 recmares;
-	INT32 curmare;
 
 	// Stop saving, until we successfully load it again.
 	data->loaded = false;
@@ -4438,18 +4711,18 @@ void G_LoadGameData(gamedata_t *data)
 		return;
 	}
 
-	length = FIL_ReadFile(va(pandf, srb2home, gamedatafilename), &savebuffer);
-	if (!length)
+	savebuffer.size = FIL_ReadFile(va(pandf, srb2home, gamedatafilename), &savebuffer.buf);
+	if (!savebuffer.size)
 	{
 		// No gamedata. We can save a new one.
 		data->loaded = true;
 		return;
 	}
 
-	save_p = savebuffer;
+	savebuffer.pos = 0;
 
 	// Version check
-	versionID = READUINT32(save_p);
+	versionID = P_ReadUINT32(&savebuffer);
 	if (versionID != GAMEDATA_ID
 #ifdef COMPAT_GAMEDATA_ID // backwards compat behavior
 		&& versionID != COMPAT_GAMEDATA_ID
@@ -4460,8 +4733,7 @@ void G_LoadGameData(gamedata_t *data)
 		if (strcmp(srb2home,"."))
 			gdfolder = srb2home;
 
-		Z_Free(savebuffer);
-		save_p = NULL;
+		Z_Free(savebuffer.buf);
 		I_Error("Game data is from another version of SRB2.\nDelete %s(maybe in %s) and try again.", gamedatafilename, gdfolder);
 	}
 
@@ -4473,14 +4745,14 @@ void G_LoadGameData(gamedata_t *data)
 	}
 #endif
 
-	data->totalplaytime = READUINT32(save_p);
+	data->totalplaytime = P_ReadUINT32(&savebuffer);
 
 #ifdef COMPAT_GAMEDATA_ID
 	if (versionID == COMPAT_GAMEDATA_ID)
 	{
 		// We'll temporarily use the old condition when loading an older file.
 		// The proper mod-specific hash will get saved in afterwards.
-		boolean modded = READUINT8(save_p);
+		boolean modded = P_ReadUINT8(&savebuffer);
 
 		if (modded && !savemoddata)
 		{
@@ -4500,13 +4772,13 @@ void G_LoadGameData(gamedata_t *data)
 		strcpy(currentfilename, gamedatafilename);
 		STRBUFCPY(backupfilename, strcat(currentfilename, bak));
 
-		FIL_WriteFile(va(pandf, srb2home, backupfilename), savebuffer, length);
+		FIL_WriteFile(va(pandf, srb2home, backupfilename), &savebuffer.buf, savebuffer.size);
 	}
 	else
 #endif
 	{
 		// Quick & dirty hash for what mod this save file is for.
-		UINT32 modID = READUINT32(save_p);
+		UINT32 modID = P_ReadUINT32(&savebuffer);
 		UINT32 expectedID = quickncasehash(timeattackfolder, sizeof timeattackfolder);
 
 		if (modID != expectedID)
@@ -4517,90 +4789,102 @@ void G_LoadGameData(gamedata_t *data)
 	}
 
 	// TODO put another cipher on these things? meh, I don't care...
-	for (i = 0; i < NUMMAPS; i++)
-		if ((data->mapvisited[i] = READUINT8(save_p)) > MV_MAX)
+	// Read map visited flags
+	for (i = 0; i < NUMBASEMAPS; i++)
+	{
+		if (!ReadMapVisited(&savebuffer, data, i))
 			goto datacorrupt;
+	}
 
 	// To save space, use one bit per collected/achieved/unlocked flag
 	for (i = 0; i < max_emblems;)
 	{
-		rtemp = READUINT8(save_p);
+		rtemp = P_ReadUINT8(&savebuffer);
 		for (j = 0; j < 8 && j+i < max_emblems; ++j)
 			data->collected[j+i] = ((rtemp >> j) & 1);
 		i += j;
 	}
 	for (i = 0; i < max_extraemblems;)
 	{
-		rtemp = READUINT8(save_p);
+		rtemp = P_ReadUINT8(&savebuffer);
 		for (j = 0; j < 8 && j+i < max_extraemblems; ++j)
 			data->extraCollected[j+i] = ((rtemp >> j) & 1);
 		i += j;
 	}
 	for (i = 0; i < max_unlockables;)
 	{
-		rtemp = READUINT8(save_p);
+		rtemp = P_ReadUINT8(&savebuffer);
 		for (j = 0; j < 8 && j+i < max_unlockables; ++j)
 			data->unlocked[j+i] = ((rtemp >> j) & 1);
 		i += j;
 	}
 	for (i = 0; i < max_conditionsets;)
 	{
-		rtemp = READUINT8(save_p);
+		rtemp = P_ReadUINT8(&savebuffer);
 		for (j = 0; j < 8 && j+i < max_conditionsets; ++j)
 			data->achieved[j+i] = ((rtemp >> j) & 1);
 		i += j;
 	}
 
-	data->timesBeaten = READUINT32(save_p);
-	data->timesBeatenWithEmeralds = READUINT32(save_p);
-	data->timesBeatenUltimate = READUINT32(save_p);
+	data->timesBeaten = P_ReadUINT32(&savebuffer);
+	data->timesBeatenWithEmeralds = P_ReadUINT32(&savebuffer);
+	data->timesBeatenUltimate = P_ReadUINT32(&savebuffer);
 
 	// Main records
-	for (i = 0; i < NUMMAPS; ++i)
+	for (i = 0; i < NUMBASEMAPS; ++i)
 	{
-		recscore = READUINT32(save_p);
-		rectime  = (tic_t)READUINT32(save_p);
-		recrings = READUINT16(save_p);
-		save_p++; // compat
-
-		if (recrings > 10000 || recscore > MAXSCORE)
+		if (!ReadMainRecords(&savebuffer, data, i))
 			goto datacorrupt;
-
-		if (recscore || rectime || recrings)
-		{
-			G_AllocMainRecordData((INT16)i, data);
-			data->mainrecords[i]->score = recscore;
-			data->mainrecords[i]->time = rectime;
-			data->mainrecords[i]->rings = recrings;
-		}
 	}
 
 	// Nights records
-	for (i = 0; i < NUMMAPS; ++i)
+	for (i = 0; i < NUMBASEMAPS; ++i)
 	{
-		if ((recmares = READUINT8(save_p)) == 0)
-			continue;
-
-		G_AllocNightsRecordData((INT16)i, data);
-
-		for (curmare = 0; curmare < (recmares+1); ++curmare)
-		{
-			data->nightsrecords[i]->score[curmare] = READUINT32(save_p);
-			data->nightsrecords[i]->grade[curmare] = READUINT8(save_p);
-			data->nightsrecords[i]->time[curmare] = (tic_t)READUINT32(save_p);
-
-			if (data->nightsrecords[i]->grade[curmare] > GRADE_S)
-			{
-				goto datacorrupt;
-			}
-		}
-
-		data->nightsrecords[i]->nummares = recmares;
+		if (!ReadNightsRecords(&savebuffer, data, i))
+			goto datacorrupt;
 	}
 
+#ifdef EXTRA_DATA_MARKER
+	// Read extra data
+	if (savebuffer.pos < savebuffer.size && (savebuffer.size - savebuffer.pos) >= 4)
+	{
+		UINT32 marker = P_ReadUINT32(&savebuffer);
+		if (marker != EXTRA_DATA_MARKER)
+			goto datacorrupt;
+
+		UINT8 extraID = P_ReadUINT8(&savebuffer);
+		if (extraID != 0x00)
+			goto datacorrupt;
+
+		UINT16 nummaps = P_ReadUINT16(&savebuffer);
+		if (nummaps >= MAXMAPS)
+			goto datacorrupt;
+
+		// Read map visited flags
+		for (i = NUMBASEMAPS; i < nummaps; i++)
+		{
+			if (!ReadMapVisited(&savebuffer, data, i))
+				goto datacorrupt;
+		}
+
+		// Main records
+		for (i = NUMBASEMAPS; i < nummaps; i++)
+		{
+			if (!ReadMainRecords(&savebuffer, data, i))
+				goto datacorrupt;
+		}
+
+		// Nights records
+		for (i = NUMBASEMAPS; i < nummaps; i++)
+		{
+			if (!ReadNightsRecords(&savebuffer, data, i))
+				goto datacorrupt;
+		}
+	}
+#endif
+
 	// done
-	Z_Free(savebuffer);
-	save_p = NULL;
+	Z_Free(savebuffer.buf);
 
 	// Don't consider loaded until it's a success!
 	// It used to do this much earlier, but this would cause the gamedata to
@@ -4621,10 +4905,44 @@ void G_LoadGameData(gamedata_t *data)
 		if (strcmp(srb2home,"."))
 			gdfolder = srb2home;
 
-		Z_Free(savebuffer);
-		save_p = NULL;
+		Z_Free(savebuffer.buf);
 
 		I_Error("Corrupt game data file.\nDelete %s(maybe in %s) and try again.", gamedatafilename, gdfolder);
+	}
+}
+
+static void WriteMainRecords(save_t *save_p, gamedata_t *data, UINT16 i)
+{
+	if (data->mainrecords[i])
+	{
+		P_WriteUINT32(save_p, data->mainrecords[i]->score);
+		P_WriteUINT32(save_p, data->mainrecords[i]->time);
+		P_WriteUINT16(save_p, data->mainrecords[i]->rings);
+	}
+	else
+	{
+		P_WriteUINT32(save_p, 0);
+		P_WriteUINT32(save_p, 0);
+		P_WriteUINT16(save_p, 0);
+	}
+	P_WriteUINT8(save_p, 0); // compat
+}
+
+static void WriteNightsRecords(save_t *save_p, gamedata_t *data, UINT16 i)
+{
+	if (!data->nightsrecords[i] || !data->nightsrecords[i]->nummares)
+	{
+		P_WriteUINT8(save_p, 0);
+		return;
+	}
+
+	P_WriteUINT8(save_p, data->nightsrecords[i]->nummares);
+
+	for (INT32 curmare = 0; curmare < (data->nightsrecords[i]->nummares + 1); ++curmare)
+	{
+		P_WriteUINT32(save_p, data->nightsrecords[i]->score[curmare]);
+		P_WriteUINT8(save_p, data->nightsrecords[i]->grade[curmare]);
+		P_WriteUINT32(save_p, data->nightsrecords[i]->time[curmare]);
 	}
 }
 
@@ -4632,13 +4950,10 @@ void G_LoadGameData(gamedata_t *data)
 // Saves the main data file, which stores information such as emblems found, etc.
 void G_SaveGameData(gamedata_t *data)
 {
-	UINT8 *data_p;
+	save_t savebuffer;
 
-	size_t length;
 	INT32 i, j;
 	UINT8 btemp;
-
-	INT32 curmare;
 
 	if (!data)
 		return; // data struct not valid
@@ -4646,30 +4961,31 @@ void G_SaveGameData(gamedata_t *data)
 	if (!data->loaded)
 		return; // If never loaded (-nodata), don't save
 
-	data_p = savebuffer = (UINT8 *)malloc(GAMEDATASIZE);
-	if (!data_p)
+	savebuffer.size = GAMEDATASIZE;
+	savebuffer.buf = (UINT8 *)malloc(savebuffer.size);
+	if (!savebuffer.buf)
 	{
 		CONS_Alert(CONS_ERROR, M_GetText("No more free memory for saving game data\n"));
 		return;
 	}
+	savebuffer.pos = 0;
 
 	if (usedCheats)
 	{
-		free(savebuffer);
-		savebuffer = NULL;
+		free(savebuffer.buf);
 		return;
 	}
 
 	// Version test
-	WRITEUINT32(data_p, GAMEDATA_ID);
+	P_WriteUINT32(&savebuffer, GAMEDATA_ID);
 
-	WRITEUINT32(data_p, data->totalplaytime);
+	P_WriteUINT32(&savebuffer, data->totalplaytime);
 
-	WRITEUINT32(data_p, quickncasehash(timeattackfolder, sizeof timeattackfolder));
+	P_WriteUINT32(&savebuffer, quickncasehash(timeattackfolder, sizeof timeattackfolder));
 
 	// TODO put another cipher on these things? meh, I don't care...
-	for (i = 0; i < NUMMAPS; i++)
-		WRITEUINT8(data_p, (data->mapvisited[i] & MV_MAX));
+	for (i = 0; i < NUMBASEMAPS; i++)
+		P_WriteUINT8(&savebuffer, (data->mapvisited[i] & MV_MAX));
 
 	// To save space, use one bit per collected/achieved/unlocked flag
 	for (i = 0; i < MAXEMBLEMS;)
@@ -4677,7 +4993,7 @@ void G_SaveGameData(gamedata_t *data)
 		btemp = 0;
 		for (j = 0; j < 8 && j+i < MAXEMBLEMS; ++j)
 			btemp |= (data->collected[j+i] << j);
-		WRITEUINT8(data_p, btemp);
+		P_WriteUINT8(&savebuffer, btemp);
 		i += j;
 	}
 	for (i = 0; i < MAXEXTRAEMBLEMS;)
@@ -4685,7 +5001,7 @@ void G_SaveGameData(gamedata_t *data)
 		btemp = 0;
 		for (j = 0; j < 8 && j+i < MAXEXTRAEMBLEMS; ++j)
 			btemp |= (data->extraCollected[j+i] << j);
-		WRITEUINT8(data_p, btemp);
+		P_WriteUINT8(&savebuffer, btemp);
 		i += j;
 	}
 	for (i = 0; i < MAXUNLOCKABLES;)
@@ -4693,7 +5009,7 @@ void G_SaveGameData(gamedata_t *data)
 		btemp = 0;
 		for (j = 0; j < 8 && j+i < MAXUNLOCKABLES; ++j)
 			btemp |= (data->unlocked[j+i] << j);
-		WRITEUINT8(data_p, btemp);
+		P_WriteUINT8(&savebuffer, btemp);
 		i += j;
 	}
 	for (i = 0; i < MAXCONDITIONSETS;)
@@ -4701,56 +5017,47 @@ void G_SaveGameData(gamedata_t *data)
 		btemp = 0;
 		for (j = 0; j < 8 && j+i < MAXCONDITIONSETS; ++j)
 			btemp |= (data->achieved[j+i] << j);
-		WRITEUINT8(data_p, btemp);
+		P_WriteUINT8(&savebuffer, btemp);
 		i += j;
 	}
 
-	WRITEUINT32(data_p, data->timesBeaten);
-	WRITEUINT32(data_p, data->timesBeatenWithEmeralds);
-	WRITEUINT32(data_p, data->timesBeatenUltimate);
+	P_WriteUINT32(&savebuffer, data->timesBeaten);
+	P_WriteUINT32(&savebuffer, data->timesBeatenWithEmeralds);
+	P_WriteUINT32(&savebuffer, data->timesBeatenUltimate);
 
 	// Main records
-	for (i = 0; i < NUMMAPS; i++)
-	{
-		if (data->mainrecords[i])
-		{
-			WRITEUINT32(data_p, data->mainrecords[i]->score);
-			WRITEUINT32(data_p, data->mainrecords[i]->time);
-			WRITEUINT16(data_p, data->mainrecords[i]->rings);
-		}
-		else
-		{
-			WRITEUINT32(data_p, 0);
-			WRITEUINT32(data_p, 0);
-			WRITEUINT16(data_p, 0);
-		}
-		WRITEUINT8(data_p, 0); // compat
-	}
+	for (i = 0; i < NUMBASEMAPS; i++)
+		WriteMainRecords(&savebuffer, data, i);
 
 	// NiGHTS records
-	for (i = 0; i < NUMMAPS; i++)
+	for (i = 0; i < NUMBASEMAPS; i++)
+		WriteNightsRecords(&savebuffer, data, i);
+
+#ifdef EXTRA_DATA_MARKER
+	if (numgamemaps > NUMBASEMAPS)
 	{
-		if (!data->nightsrecords[i] || !data->nightsrecords[i]->nummares)
-		{
-			WRITEUINT8(data_p, 0);
-			continue;
-		}
+		// Write extra data
+		P_WriteUINT32(&savebuffer, EXTRA_DATA_MARKER);
+		P_WriteUINT8(&savebuffer, 0x00);
 
-		WRITEUINT8(data_p, data->nightsrecords[i]->nummares);
+		P_WriteUINT16(&savebuffer, numgamemaps);
 
-		for (curmare = 0; curmare < (data->nightsrecords[i]->nummares + 1); ++curmare)
-		{
-			WRITEUINT32(data_p, data->nightsrecords[i]->score[curmare]);
-			WRITEUINT8(data_p, data->nightsrecords[i]->grade[curmare]);
-			WRITEUINT32(data_p, data->nightsrecords[i]->time[curmare]);
-		}
+		// Write map visited flags
+		for (i = NUMBASEMAPS; i < numgamemaps; i++)
+			P_WriteUINT8(&savebuffer, (data->mapvisited[i] & MV_MAX));
+
+		// Main records
+		for (i = NUMBASEMAPS; i < numgamemaps; i++)
+			WriteMainRecords(&savebuffer, data, i);
+
+		// NiGHTS records
+		for (i = NUMBASEMAPS; i < numgamemaps; i++)
+			WriteNightsRecords(&savebuffer, data, i);
 	}
+#endif
 
-	length = data_p - savebuffer;
-
-	FIL_WriteFile(va(pandf, srb2home, gamedatafilename), savebuffer, length);
-	free(savebuffer);
-	savebuffer = NULL;
+	FIL_WriteFile(va(pandf, srb2home, gamedatafilename), savebuffer.buf, savebuffer.pos);
+	free(savebuffer.buf);
 }
 
 #define VERSIONSIZE 16
@@ -4761,7 +5068,7 @@ void G_SaveGameData(gamedata_t *data)
 //
 void G_LoadGame(UINT32 slot, INT16 mapoverride)
 {
-	size_t length;
+	save_t savebuffer;
 	char vcheck[VERSIONSIZE];
 	char savename[255];
 
@@ -4778,18 +5085,18 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 	else
 		sprintf(savename, savegamename, slot);
 
-	length = FIL_ReadFile(savename, &savebuffer);
-	if (!length)
+	savebuffer.size = FIL_ReadFile(savename, &savebuffer.buf);
+	if (!savebuffer.size)
 	{
 		CONS_Printf(M_GetText("Couldn't read file %s\n"), savename);
 		return;
 	}
 
-	save_p = savebuffer;
+	savebuffer.pos = 0;
 
 	memset(vcheck, 0, sizeof (vcheck));
 	sprintf(vcheck, (marathonmode ? "back-up %d" : "version %d"), VERSION);
-	if (strcmp((const char *)save_p, (const char *)vcheck))
+	if (strcmp((const char *)&savebuffer.buf[savebuffer.pos], (const char *)vcheck))
 	{
 #ifdef SAVEGAME_OTHERVERSIONS
 		M_StartMessage(M_GetText("Save game from different version.\nYou can load this savegame, but\nsaving afterwards will be disabled.\n\nDo you want to continue anyway?\n\n(Press 'Y' to confirm)\n"),
@@ -4799,15 +5106,14 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 		M_ClearMenus(true); // so ESC backs out to title
 		M_StartMessage(M_GetText("Save game from different version\n\nPress ESC\n"), NULL, MM_NOTHING);
 		Command_ExitGame_f();
-		Z_Free(savebuffer);
-		save_p = savebuffer = NULL;
+		Z_Free(savebuffer.buf);
 
 		// no cheating!
 		memset(&savedata, 0, sizeof(savedata));
 #endif
 		return; // bad version
 	}
-	save_p += VERSIONSIZE;
+	savebuffer.pos += VERSIONSIZE;
 
 //	if (demoplayback) // reset game engine
 //		G_StopDemo();
@@ -4816,13 +5122,12 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 //	automapactive = false;
 
 	// dearchive all the modifications
-	if (!P_LoadGame(mapoverride))
+	if (!P_LoadGame(&savebuffer, mapoverride))
 	{
 		M_ClearMenus(true); // so ESC backs out to title
 		M_StartMessage(M_GetText("Savegame file corrupted\n\nPress ESC\n"), NULL, MM_NOTHING);
 		Command_ExitGame_f();
-		Z_Free(savebuffer);
-		save_p = savebuffer = NULL;
+		Z_Free(savebuffer.buf);
 
 		// no cheating!
 		memset(&savedata, 0, sizeof(savedata));
@@ -4830,13 +5135,12 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 	}
 	if (marathonmode)
 	{
-		marathontime = READUINT32(save_p);
-		marathonmode |= READUINT8(save_p);
+		marathontime = P_ReadUINT32(&savebuffer);
+		marathonmode |= P_ReadUINT8(&savebuffer);
 	}
 
 	// done
-	Z_Free(savebuffer);
-	save_p = savebuffer = NULL;
+	Z_Free(savebuffer.buf);
 
 	displayplayer = consoleplayer;
 	multiplayer = splitscreen = false;
@@ -4854,6 +5158,7 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 //
 void G_SaveGame(UINT32 slot, INT16 mapnum)
 {
+	save_t savebuffer;
 	boolean saved;
 	char savename[256] = "";
 	const char *backup;
@@ -4867,33 +5172,32 @@ void G_SaveGame(UINT32 slot, INT16 mapnum)
 	gameaction = ga_nothing;
 	{
 		char name[VERSIONSIZE];
-		size_t length;
 
-		save_p = savebuffer = (UINT8 *)malloc(SAVEGAMESIZE);
-		if (!save_p)
+		savebuffer.size = SAVEGAMESIZE;
+		savebuffer.buf = (UINT8 *)malloc(savebuffer.size);
+		if (!savebuffer.buf)
 		{
 			CONS_Alert(CONS_ERROR, M_GetText("No more free memory for saving game data\n"));
 			return;
 		}
+		savebuffer.pos = 0;
 
 		memset(name, 0, sizeof (name));
 		sprintf(name, (marathonmode ? "back-up %d" : "version %d"), VERSION);
-		WRITEMEM(save_p, name, VERSIONSIZE);
+		P_WriteMem(&savebuffer, name, VERSIONSIZE);
 
-		P_SaveGame(mapnum);
+		P_SaveGame(&savebuffer, mapnum);
 		if (marathonmode)
 		{
 			UINT32 writetime = marathontime;
 			if (!(marathonmode & MA_INGAME))
 				writetime += TICRATE*5; // live event backup penalty because we don't know how long it takes to get to the next map
-			WRITEUINT32(save_p, writetime);
-			WRITEUINT8(save_p, (marathonmode & ~MA_INIT));
+			P_WriteUINT32(&savebuffer, writetime);
+			P_WriteUINT8(&savebuffer, (marathonmode & ~MA_INIT));
 		}
 
-		length = save_p - savebuffer;
-		saved = FIL_WriteFile(backup, savebuffer, length);
-		free(savebuffer);
-		save_p = savebuffer = NULL;
+		saved = FIL_WriteFile(backup, savebuffer.buf, savebuffer.pos);
+		free(savebuffer.buf);
 	}
 
 	gameaction = ga_nothing;
@@ -4905,11 +5209,10 @@ void G_SaveGame(UINT32 slot, INT16 mapnum)
 }
 
 #define BADSAVE goto cleanup;
-#define CHECKPOS if (save_p >= end_p) BADSAVE
 void G_SaveGameOver(UINT32 slot, boolean modifylives)
 {
+	save_t savebuffer;
 	boolean saved = false;
-	size_t length;
 	char vcheck[VERSIONSIZE];
 	char savename[255];
 	const char *backup;
@@ -4920,42 +5223,38 @@ void G_SaveGameOver(UINT32 slot, boolean modifylives)
 		sprintf(savename, savegamename, slot);
 	backup = va("%s",savename);
 
-	length = FIL_ReadFile(savename, &savebuffer);
-	if (!length)
+	savebuffer.size = FIL_ReadFile(savename, &savebuffer.buf);
+	if (!savebuffer.size)
 	{
 		CONS_Printf(M_GetText("Couldn't read file %s\n"), savename);
 		return;
 	}
 
+	savebuffer.pos = 0;
+
 	{
 		char temp[sizeof(timeattackfolder)];
-		UINT8 *end_p = savebuffer + length;
 		UINT8 *lives_p;
 		SINT8 pllives;
 #ifdef NEWSKINSAVES
 		INT16 backwardsCompat = 0;
 #endif
 
-		save_p = savebuffer;
 		// Version check
 		memset(vcheck, 0, sizeof (vcheck));
 		sprintf(vcheck, (marathonmode ? "back-up %d" : "version %d"), VERSION);
-		if (strcmp((const char *)save_p, (const char *)vcheck)) BADSAVE
-		save_p += VERSIONSIZE;
+		if (strcmp((const char *)&savebuffer.buf[savebuffer.pos], (const char *)vcheck)) BADSAVE
+		savebuffer.pos += VERSIONSIZE;
 
 		// P_UnArchiveMisc()
-		(void)READINT16(save_p);
-		CHECKPOS
-		(void)READUINT16(save_p); // emeralds
-		CHECKPOS
-		READSTRINGN(save_p, temp, sizeof(temp)); // mod it belongs to
+		(void)P_ReadINT16(&savebuffer);
+		(void)P_ReadUINT16(&savebuffer); // emeralds
+		P_ReadStringN(&savebuffer, temp, sizeof(temp)); // mod it belongs to
 		if (strcmp(temp, timeattackfolder)) BADSAVE
 
 		// P_UnArchivePlayer()
-		CHECKPOS
 #ifdef NEWSKINSAVES
-		backwardsCompat = READUINT16(save_p);
-		CHECKPOS
+		backwardsCompat = P_ReadUINT16(&savebuffer);
 
 		if (backwardsCompat == NEWSKINSAVES) // New save, read skin names
 #endif
@@ -4963,47 +5262,37 @@ void G_SaveGameOver(UINT32 slot, boolean modifylives)
 			char ourSkinName[SKINNAMESIZE+1];
 			char botSkinName[SKINNAMESIZE+1];
 
-			READSTRINGN(save_p, ourSkinName, SKINNAMESIZE);
-			CHECKPOS
+			P_ReadStringN(&savebuffer, ourSkinName, SKINNAMESIZE);
 
-			READSTRINGN(save_p, botSkinName, SKINNAMESIZE);
-			CHECKPOS
+			P_ReadStringN(&savebuffer, botSkinName, SKINNAMESIZE);
 		}
 
-		WRITEUINT8(save_p, numgameovers);
-		CHECKPOS
+		P_WriteUINT8(&savebuffer, numgameovers);
 
-		lives_p = save_p;
-		pllives = READSINT8(save_p); // lives
-		CHECKPOS
+		lives_p = &savebuffer.buf[savebuffer.pos];
+		pllives = P_ReadSINT8(&savebuffer); // lives
 		if (modifylives && pllives < startinglivesbalance[numgameovers])
 		{
-			pllives = startinglivesbalance[numgameovers];
-			WRITESINT8(lives_p, pllives);
+			*lives_p = startinglivesbalance[numgameovers];
 		}
 
-		(void)READINT32(save_p); // Score
-		CHECKPOS
-		(void)READINT32(save_p); // continues
+		(void)P_ReadINT32(&savebuffer); // Score
+		(void)P_ReadINT32(&savebuffer); // continues
 
 		// File end marker check
-		CHECKPOS
-		switch (READUINT8(save_p))
+		switch (P_ReadUINT8(&savebuffer))
 		{
 			case 0xb7:
 				{
 					UINT8 i, banksinuse;
-					CHECKPOS
-					banksinuse = READUINT8(save_p);
-					CHECKPOS
+					banksinuse = P_ReadUINT8(&savebuffer);
 					if (banksinuse > NUM_LUABANKS)
 						BADSAVE
 					for (i = 0; i < banksinuse; i++)
 					{
-						(void)READINT32(save_p);
-						CHECKPOS
+						(void)P_ReadINT32(&savebuffer);
 					}
-					if (READUINT8(save_p) != 0x1d)
+					if (P_ReadUINT8(&savebuffer) != 0x1d)
 						BADSAVE
 				}
 			case 0x1d:
@@ -5013,7 +5302,7 @@ void G_SaveGameOver(UINT32 slot, boolean modifylives)
 		}
 
 		// done
-		saved = FIL_WriteFile(backup, savebuffer, length);
+		saved = FIL_WriteFile(backup, savebuffer.buf, savebuffer.size);
 	}
 
 cleanup:
@@ -5021,11 +5310,9 @@ cleanup:
 		CONS_Printf(M_GetText("Game saved.\n"));
 	else if (!saved)
 		CONS_Alert(CONS_ERROR, M_GetText("Error while writing to %s for save slot %u, base: %s\n"), backup, slot, (marathonmode ? liveeventbackup : savegamename));
-	Z_Free(savebuffer);
-	save_p = savebuffer = NULL;
+	Z_Free(savebuffer.buf);
 
 }
-#undef CHECKPOS
 #undef BADSAVE
 
 //
@@ -5059,7 +5346,7 @@ void G_DeferedInitNew(boolean pultmode, const char *mapname, INT32 character, bo
 	SetPlayerSkinByNum(consoleplayer, character);
 
 	if (mapname)
-		D_MapChange(M_MapNumber(mapname[3], mapname[4]), gametype, pultmode, true, 1, false, FLS);
+		D_MapChange(G_GetMapNumber(mapname), gametype, pultmode, true, 1, false, FLS);
 }
 
 //
@@ -5140,17 +5427,17 @@ void G_InitNew(UINT8 pultmode, const char *mapname, boolean resetplayer, boolean
 	// (Looks a bit silly, but it works.)
 	boolean reset_skin = netgame && mapheaderinfo[gamemap-1] && mapheaderinfo[gamemap-1]->forcecharacter[0] != '\0';
 
+	gamemap = (INT16)G_GetMapNumber(mapname); // get xx out of MAPxx
+
 	// internal game map
 	// well this check is useless because it is done before (d_netcmd.c::command_map_f)
 	// but in case of for demos....
-	if (W_CheckNumForName(mapname) == LUMPERROR)
+	if (gamemap == 0)
 	{
 		I_Error("Internal game map '%s' not found\n", mapname);
 		Command_ExitGame_f();
 		return;
 	}
-
-	gamemap = (INT16)M_MapNumber(mapname[3], mapname[4]); // get xx out of MAPxx
 
 	// gamemap changed; we assume that its map header is always valid,
 	// so make it so
@@ -5201,7 +5488,6 @@ void G_InitNew(UINT8 pultmode, const char *mapname, boolean resetplayer, boolean
 		CONS_Printf("\"\n");
 	}
 }
-
 
 char *G_BuildMapTitle(INT32 mapnum)
 {
@@ -5299,7 +5585,7 @@ INT32 G_FindMap(const char *mapname, char **foundmapnamep,
 	mapnamelen = strlen(mapname);
 
 	/* Count available maps; how ugly. */
-	for (i = 0, freqc = 0; i < NUMMAPS; ++i)
+	for (i = 0, freqc = 0; i < numgamemaps; ++i)
 	{
 		if (mapheaderinfo[i])
 			freqc++;
@@ -5310,7 +5596,7 @@ INT32 G_FindMap(const char *mapname, char **foundmapnamep,
 	wanttable = !!( freqp );
 
 	freqc = 0;
-	for (i = 0, mapnum = 1; i < NUMMAPS; ++i, ++mapnum)
+	for (i = 0, mapnum = 1; i < numgamemaps; ++i, ++mapnum)
 		if (mapheaderinfo[i])
 	{
 		if (!( realmapname = G_BuildMapTitle(mapnum) ))
@@ -5437,7 +5723,7 @@ INT32 G_FindMapByNameOrCode(const char *mapname, char **realmapnamep)
 		{
 			usemapcode = true;
 			newmapnum = mapheaderinfo[gamemap-1]->nextlevel;
-			if (newmapnum < 1 || newmapnum > NUMMAPS)
+			if (newmapnum < 1 || newmapnum > numgamemaps)
 			{
 				CONS_Alert(CONS_ERROR, M_GetText("NextLevel (%d) is not a valid map.\n"), newmapnum);
 				return 0;
@@ -5454,6 +5740,11 @@ INT32 G_FindMapByNameOrCode(const char *mapname, char **realmapnamep)
 		if (( newmapnum = M_MapNumber(mapname[3], mapname[4]) ))
 			usemapcode = true;
 	}
+	else
+	{
+		if (( newmapnum = G_GetMapNumber(mapname) ))
+			usemapcode = true;
+	}
 
 	if (!usemapcode)
 	{
@@ -5461,7 +5752,7 @@ INT32 G_FindMapByNameOrCode(const char *mapname, char **realmapnamep)
 		newmapnum = strtol(mapname, &p, 10);
 		if (*p == '\0')/* we got it */
 		{
-			if (newmapnum < 1 || newmapnum > NUMMAPS)
+			if (newmapnum < 1 || newmapnum > numgamemaps)
 			{
 				CONS_Alert(CONS_ERROR, M_GetText("Invalid map number %d.\n"), newmapnum);
 				return 0;
@@ -5477,7 +5768,7 @@ INT32 G_FindMapByNameOrCode(const char *mapname, char **realmapnamep)
 	if (usemapcode)
 	{
 		/* we can't check mapheaderinfo for this hahahaha */
-		if (W_CheckNumForName(G_BuildMapName(newmapnum)) == LUMPERROR)
+		if (!G_MapFileExists(G_BuildMapName(newmapnum)))
 			return 0;
 
 		if (realmapnamep)

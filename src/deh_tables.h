@@ -24,8 +24,8 @@ extern "C" {
 
 // Free slot names
 // The crazy word-reading stuff uses these.
-extern char *FREE_STATES[NUMSTATEFREESLOTS];
-extern char *FREE_MOBJS[NUMMOBJFREESLOTS];
+extern char *FREE_STATES[NUMSTATES];
+extern char *FREE_MOBJS[NUMMOBJTYPES];
 extern char *FREE_SKINCOLORS[NUMCOLORFREESLOTS];
 extern bitarray_t used_spr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Sprite freeslots in use
 extern bitarray_t used_skinspr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Which sprite freeslots are being used by skins
@@ -41,7 +41,7 @@ extern bitarray_t used_skinspr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Which spr
 
 struct flickytypes_s {
 	const char *name;
-	const mobjtype_t type;
+	const char *type;
 };
 
 #define MAXFLICKIES 64
@@ -63,8 +63,6 @@ struct int_const_s {
 extern const char NIGHTSGRADE_LIST[];
 extern struct flickytypes_s FLICKYTYPES[];
 extern actionpointer_t actionpointers[]; // Array mapping action names to action functions.
-extern const char *const STATE_LIST[];
-extern const char *const MOBJTYPE_LIST[];
 extern const char *const MOBJFLAG_LIST[];
 extern const char *const MOBJFLAG2_LIST[]; // \tMF2_(\S+).*// (.+) --> \t"\1", // \2
 extern const char *const MOBJEFLAG_LIST[];

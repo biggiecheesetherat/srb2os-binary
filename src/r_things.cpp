@@ -153,12 +153,10 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 	if (maxframe ==(size_t)-1 || frame > maxframe)
 		maxframe = frame;
 
-#ifdef ROTSPRITE
 	for (r = 0; r < 16; r++)
 	{
 		sprtemp[frame].rotated[r] = NULL;
 	}
-#endif
 
 	if (rotation == 0)
 	{
@@ -744,22 +742,18 @@ static vissprite_t *visspritechunks[MAXVISSPRITES >> VISSPRITECHUNKBITS] = {NULL
 void R_InitSprites(void)
 {
 	size_t i;
-#ifdef ROTSPRITE
 	INT32 angle;
 	float fa;
-#endif
 
 	for (i = 0; i < MAXVIDWIDTH; i++)
 		negonearray[i] = -1;
 
-#ifdef ROTSPRITE
 	for (angle = 1; angle < ROTANGLES; angle++)
 	{
 		fa = ANG2RAD(FixedAngle((ROTANGDIFF * angle)<<FRACBITS));
 		rollcosang[angle] = FLOAT_TO_FIXED(cos(-fa));
 		rollsinang[angle] = FLOAT_TO_FIXED(sin(-fa));
 	}
-#endif
 
 	//
 	// count the number of sprite names, and allocate sprites table
@@ -1729,9 +1723,7 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	spritedef_t *sprdef;
 	spriteframe_t *sprframe;
-#ifdef ROTSPRITE
 	spriteinfo_t *sprinfo;
-#endif
 	size_t lump;
 
 	size_t frame, rot;
@@ -1776,11 +1768,9 @@ static void R_ProjectSprite(mobj_t *thing)
 	fixed_t spr_width, spr_height;
 	fixed_t spr_offset, spr_topoffset;
 
-#ifdef ROTSPRITE
 	patch_t *rotsprite = NULL;
 	INT32 rollangle = 0;
 	angle_t spriterotangle = 0;
-#endif
 
 	// uncapped/interpolation
 	interpmobjstate_t interp = {0};
@@ -1839,9 +1829,7 @@ static void R_ProjectSprite(mobj_t *thing)
 	//Fab : 02-08-98: 'skin' override spritedef currently used for skin
 	// Lactozilla: No longer needed. Skins now use sprites[] and spriteinfo[]
 	sprdef = &sprites[thing->sprite];
-#ifdef ROTSPRITE
 	sprinfo = &spriteinfo[thing->sprite];
-#endif
 
 	if (frame >= sprdef->numframes)
 	{
@@ -1864,9 +1852,7 @@ static void R_ProjectSprite(mobj_t *thing)
 		}
 
 		sprdef = &sprites[states[S_UNKNOWN].sprite];
-#ifdef ROTSPRITE
 		sprinfo = &spriteinfo[states[S_UNKNOWN].sprite];
-#endif
 		frame = states[S_UNKNOWN].frame&FF_FRAMEMASK;
 	}
 
@@ -1928,7 +1914,6 @@ static void R_ProjectSprite(mobj_t *thing)
 	//     than lumpid for sprites-in-pwad : the graphics are patched
 	patch = static_cast<patch_t*>(W_CachePatchNum(sprframe->lumppat[rot], PU_SPRITE));
 
-#ifdef ROTSPRITE
 	spriterotangle = R_SpriteRotationAngle(&interp);
 
 	if (spriterotangle != 0
@@ -1961,7 +1946,6 @@ static void R_ProjectSprite(mobj_t *thing)
 			flip = 0;
 		}
 	}
-#endif
 
 	flip = !flip != !hflip;
 

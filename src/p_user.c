@@ -7407,7 +7407,7 @@ static void P_NiGHTSMovement(player_t *player)
 		else
 			player->mo->momz = 0;
 
-#if 0//def ROTSPRITE
+#if 0
 		if (!(player->charflags & SF_NONIGHTSROTATION) && player->mo->momz)
 		{
 			if (player->mo->state != &states[S_PLAY_NIGHTS_DRILL])

@@ -140,6 +140,7 @@ static const struct {
 } base_file_list[] =
 {
 	{ "srb2.pk3", "srb2/", ASSET_HASH_SRB2_PK3, false },
+	{ "zones.pk3", "zones/", ASSET_HASH_ZONES_PK3, false },
 	{ "shaders.pk3", "shaders/", ASSET_HASH_SHADERS_PK3, false },
 	{ "characters.pk3", "characters/", ASSET_HASH_CHARACTERS_PK3, false },
 	{ "music.pk3", "music/", ASSET_HASH_MUSIC_PK3, true }
@@ -1599,7 +1600,7 @@ void D_SRB2Main(void)
 	// Make backups of some SOCcable tables.
 	P_BackupTables();
 
-	mainwads = 3; // doesn't include music.pk3
+	mainwads = 4; // doesn't include music.pk3 and DO NOT FORGET TO UPDATE THIS IF NEW BASE ASSETS ARE ADDED OR REMOVED
 #ifdef USE_PATCH_DTA
 	mainwads++;
 #endif

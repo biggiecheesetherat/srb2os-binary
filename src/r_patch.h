@@ -40,7 +40,6 @@ void *Patch_AllocateHardwarePatch(patch_t *patch);
 void *Patch_CreateGL(patch_t *patch);
 #endif
 
-#ifdef ROTSPRITE
 void Patch_Rotate(patch_t *patch, INT32 angle, INT32 xpivot, INT32 ypivot, boolean flip);
 patch_t *Patch_GetRotated(patch_t *patch, INT32 angle, boolean flip);
 patch_t *Patch_GetRotatedSprite(
@@ -51,7 +50,6 @@ patch_t *Patch_GetRotatedSprite(
 angle_t R_ModelRotationAngle(interpmobjstate_t *interp);
 angle_t R_SpriteRotationAngle(interpmobjstate_t *interp);
 INT32 R_GetRollAngle(angle_t rollangle);
-#endif
 
 #ifdef __cplusplus
 } // extern "C"

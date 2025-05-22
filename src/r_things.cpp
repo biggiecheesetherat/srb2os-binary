@@ -260,51 +260,6 @@ static void R_InstallSpriteLump(UINT16 wad,            // graphics patch
 		sprtemp[frame].flip &= ~(1<<rotation);
 }
 
-static boolean IsNumericFrameName(const char *name, size_t len)
-{
-	const char *underscore = strchr(name, '_');
-
-	// Found but past the part of the name we are parsing
-	if ((size_t)(underscore - name) >= len)
-		underscore = NULL;
-
-	size_t framelen = underscore ? (size_t)(underscore - name) : len;
-	if (framelen < 1 || framelen > 4)
-		return false;
-
-	char framepart[4 + 1]; // Max 9999
-	strlcpy(framepart, name, framelen + 1);
-
-	for (size_t i = 0; i < framelen; i++)
-		if (!isdigit(framepart[i]))
-			return false;
-
-	return true;
-}
-
-boolean R_IsNumericFrameName(const char *name)
-{
-	const char *plus = strchr(name, '+');
-
-	size_t namelen = strlen(name);
-
-	if (plus)
-	{
-		size_t len1 = plus - name;
-
-		if (!IsNumericFrameName(name, len1))
-			return false;
-		if (!IsNumericFrameName(plus + 1, namelen - len1 - 1))
-			return false;
-	}
-	else if (!IsNumericFrameName(name, namelen))
-	{
-		return false;
-	}
-
-	return true;
-}
-
 static boolean GetFramesAndRotationsFromShortLumpName(
 	const char *name,
 	INT32 *ret_frame,

@@ -1112,7 +1112,7 @@ static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *
 
 	animation_t *subanim = P_FindOrCreateSubAnimation(animation, player_anim_names[subanimation_id]);
 
-	if (R_AddSingleSpriteDef(lumpname, &spritedef, wadnum, startlump, endlump, true) && spritedef.numframes > 0)
+	if (R_AddSingleSpriteDef(spritename, &spritedef, wadnum, startlump, endlump, true) && spritedef.numframes > 0)
 	{
 		if (def->spritenum[subanimation_id] == SPR_NULL)
 		{

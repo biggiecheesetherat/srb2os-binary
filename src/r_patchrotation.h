@@ -16,7 +16,6 @@
 extern "C" {
 #endif
 
-#ifdef ROTSPRITE
 rotsprite_t *RotatedPatch_Create(INT32 numangles);
 void RotatedPatch_DoRotation(rotsprite_t *rotsprite, patch_t *patch, INT32 angle, INT32 xpivot, INT32 ypivot, boolean flip);
 
@@ -25,6 +24,4 @@ extern fixed_t rollsinang[ROTANGLES];
 
 #ifdef __cplusplus
 } // extern "C"
-#endif
-
 #endif

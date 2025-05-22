@@ -14811,3 +14811,27 @@ void A_ChangeHeight(mobj_t *actor)
 	}
 	P_SetThingPosition(actor);
 }
+
+// Function: A_StarpostSphere
+//
+// Description: Spawns and sets up a starpost sphere
+//
+// var1 = unused
+// var2 = unused
+//
+void A_StarpostSphere(mobj_t *actor)
+{
+	if (LUA_CallAction(A_STARPOSTSPHERE, actor))
+		return;
+
+	// If the sphere does not exist yet, spawn it and set up values
+	if (P_MobjWasRemoved(actor->target))
+	{
+		mobj_t *sphere = P_SpawnMobjFromMobj(actor, 0, 0, mobjinfo[MT_STARPOST_SPHERE].painchance, MT_STARPOST_SPHERE);
+		sphere->extravalue1 = 21;
+		sphere->extravalue2 = 0;
+		actor->extravalue1 = 1;
+		P_SetTarget(&actor->target, sphere);
+		P_SetTarget(&sphere->target, actor);
+	}
+}

@@ -131,6 +131,9 @@ void S_StartSound(const void *origin, sfxenum_t sound_id);
 // Will start a sound at a given volume.
 void S_StartSoundAtVolume(const void *origin, sfxenum_t sound_id, INT32 volume);
 
+// Start a sound if the onscreen players can see the origin
+void S_StartSoundIfVisible(const void *origin, sfxenum_t sound_id);
+
 // Stop sound for thing at <origin>
 void S_StopSound(void *origin);
 

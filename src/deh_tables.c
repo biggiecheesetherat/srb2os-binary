@@ -341,6 +341,7 @@ actionpointer_t actionpointers[] =
 	{{A_DragonWing},             "A_DRAGONWING"},
 	{{A_DragonSegment},          "A_DRAGONSEGMENT"},
 	{{A_ChangeHeight},           "A_CHANGEHEIGHT"},
+	{{A_StarpostSphere},         "A_STARPOSTSPHERE"},
 	{{NULL},                     "NONE"},
 
 	// This NULL entry must be the last in the list

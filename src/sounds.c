@@ -225,6 +225,7 @@ sfxinfo_t S_sfx[NUMSFX] =
   {"iceb",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, "Ice crack"},
   {"shattr",  true,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, "Shattering"},
   {"antiri",  true, 255, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, "Depletion"},
+  {"chunk",  false,  64,  0,                 -1, NULL, 0, -1, -1, LUMPERROR, "Chunk"},
 
   // Menu, interface
   {"chchng", false, 120, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, "Score"},
@@ -427,7 +428,7 @@ sfxinfo_t S_sfx[NUMSFX] =
   {"s256",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"s257",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"s258",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
-  {"s259",   false,  96, SF_X4AWAYSOUND,     -1, NULL, 0, -1, -1, LUMPERROR, ""},
+  {"s259",   false,  96, SF_X4AWAYSOUND,     -1, NULL, 0, -1, -1, LUMPERROR, "Bang"},
   {"s25a",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"s25b",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"s25c",   false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
@@ -675,7 +676,7 @@ sfxinfo_t S_sfx[NUMSFX] =
   {"cdfm10", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"cdfm11", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"cdfm12", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
-  {"cdfm13", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
+  {"cdfm13", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, "Swivel"},
   {"cdfm14", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"cdfm15", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},
   {"cdfm16", false,  64, 0,                  -1, NULL, 0, -1, -1, LUMPERROR, ""},

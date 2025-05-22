@@ -277,6 +277,7 @@ typedef enum
 	sfx_iceb,
 	sfx_shattr,
 	sfx_antiri,
+	sfx_chunk,
 
 	// Menu, interface
 	sfx_chchng,

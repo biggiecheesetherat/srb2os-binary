@@ -7872,6 +7872,153 @@ static void P_MobjSceneryThink(mobj_t *mobj)
 		mobj->old_scale = mobj->target->old_scale;
 	}
 	break;
+	case MT_STARPOST_SPHERE:
+		{
+#define STARPOST_START 1
+#define STARPOST_DAMPEN 2
+#define STARPOST_LINGER 3
+			mobj_t *sphere = mobj;
+			mobj_t *starpost = mobj->target;
+			mobj_t *arrow = starpost->tracer;
+			angle_t rotSpeed = (starpost->extravalue2 ? starpost->extravalue2 : starpost->info->speed);
+			angle_t tilt;
+			fixed_t radius, hDistance, zDistance, x, y, z;
+
+			sphere->angle += rotSpeed;
+			sphere->extravalue2 = max(0, sphere->extravalue2 + sphere->extravalue1);
+
+			// Has just begun spinning.
+			if (starpost->extravalue1 == STARPOST_START)
+			{
+				sphere->extravalue1--;
+
+				if (sphere->extravalue2 < 130 && sphere->extravalue1 < 0)
+				{
+					P_SetMobjState(sphere, sphere->state->nextstate);
+					starpost->extravalue1 = STARPOST_DAMPEN;
+				}
+			}
+
+			// Dampening movement upwards to the top of the pole.
+			else if (starpost->extravalue1 == STARPOST_DAMPEN)
+			{
+				sphere->extravalue1 = min(sphere->extravalue1 + 1, -1);
+
+				if (sphere->extravalue2 == 0)
+				{
+					sphere->extravalue1 = 0;
+					starpost->extravalue1 = STARPOST_LINGER;
+				}
+			}
+
+			// Lingering spins.
+			else if (starpost->extravalue1 == STARPOST_LINGER)
+			{
+				if (sphere->state->tics == -1) // wait until the sphere has hit the last state
+				{
+					P_RemoveMobj(sphere);
+					P_SetTarget(&starpost->target, NULL);
+					P_SetMobjState(starpost, starpost->info->seestate);
+					return; // we're done!
+				}
+			}
+
+			// Move the ball.
+			tilt = FixedAngle(sphere->extravalue2 * FRACUNIT / 2) + ANGLE_90;
+			radius = FixedMul(sphere->info->speed, starpost->scale);
+			hDistance = P_ReturnThrustX(sphere, tilt, radius);
+			zDistance = P_ReturnThrustY(sphere, tilt, radius) - radius + FixedMul(sphere->info->painchance, starpost->scale);
+
+			x = starpost->x + P_ReturnThrustX(sphere, sphere->angle, hDistance);
+			y = starpost->y + P_ReturnThrustY(sphere, sphere->angle, hDistance);
+			if (starpost->eflags & MFE_VERTICALFLIP)
+				z = starpost->z + starpost->height - sphere->height - zDistance;
+			else
+				z = starpost->z + zDistance;
+			P_MoveOrigin(sphere, x, y, z);
+
+			// smack the arrow, if applicable
+			if (!P_MobjWasRemoved(arrow)
+				&& arrow->z < sphere->z + sphere->height
+				&& sphere->z < arrow->z + arrow->height
+				&& arrow->movedir == 0)
+			{
+				angle_t angDiff = arrow->angle - (sphere->angle + ANGLE_180);
+				if (angDiff < ANGLE_90 + rotSpeed && P_ReturnThrustX(sphere, angDiff, radius) < sphere->radius)
+				{
+					arrow->movedir = rotSpeed + ANG10;
+					if (rotSpeed > ANG60) // arbitrary
+					{
+						S_StartSoundIfVisible(arrow, arrow->info->deathsound);
+						S_StartSoundIfVisible(arrow, arrow->info->seesound);
+					}
+					else
+						S_StartSoundIfVisible(arrow, arrow->info->painsound);
+				}
+			}
+
+#undef STARPOST_START
+#undef STARPOST_DAMPEN
+#undef STARPOST_LINGER
+		}
+		break;
+	case MT_STARPOST_ARROW:
+		if (P_MobjWasRemoved(mobj->target))
+		{
+			P_RemoveMobj(mobj);
+			return;
+		}
+		else
+		{
+			mobj_t *starpost = mobj->target;
+			fixed_t radius = FixedMul(mobj->info->speed, starpost->scale);
+			fixed_t x, y, z;
+
+			// angle
+			if (mobj->movedir != 0)
+			{
+				const angle_t THRESHOLD = ANG15;
+
+				mobj->movedir = max(mobj->movedir - ANG1, THRESHOLD);
+				mobj->angle += mobj->movedir;
+
+				if (mobj->movedir > THRESHOLD)
+				{
+					mobj->extravalue1 += mobj->movedir;
+					if (((angle_t)mobj->extravalue1) > ANGLE_270)
+					{
+						mobj->extravalue1 = 0;
+						S_StartSoundIfVisible(mobj, mobj->info->activesound);
+					}
+				}
+				else if ((starpost->angle - mobj->angle) <= THRESHOLD)
+				{
+					mobj->movedir = 0;
+					S_StartSoundIfVisible(mobj, mobj->info->attacksound);
+				}
+			}
+			else
+				mobj->angle = starpost->angle;
+
+			// match scale
+			if (mobj->scale != starpost->scale)
+				P_SetScale(mobj, starpost->scale, true);
+
+			// match gravity
+			mobj->flags2 = (mobj->flags2 & ~MF2_OBJECTFLIP) | (starpost->flags2 & MF2_OBJECTFLIP);
+			mobj->eflags = (mobj->eflags & ~MFE_VERTICALFLIP) | (starpost->eflags & MFE_VERTICALFLIP);
+
+			// match position
+			x = starpost->x + P_ReturnThrustX(starpost, mobj->angle, radius);
+			y = starpost->y + P_ReturnThrustY(starpost, mobj->angle, radius);
+			if (starpost->eflags & MFE_VERTICALFLIP)
+				z = starpost->z + starpost->height - mobj->height - FixedMul(mobjinfo[mobj->type].painchance, starpost->scale);
+			else
+				z = starpost->z + FixedMul(mobjinfo[mobj->type].painchance, starpost->scale);
+
+			P_MoveOrigin(mobj, x, y, z);
+		}
+		break;
 	case MT_TUTORIALFLOWER:
 		mobj->angle += FixedAngle(3*FRACUNIT);
 	break;
@@ -13236,6 +13383,15 @@ static boolean P_SetupSpawnedMapThing(mapthing_t *mthing, mobj_t *mobj, boolean 
 		}
 		break;
 	case MT_STARPOST:
+		// spawning the arrow here for a few reasons:
+		// 1: spawning it during P_SpawnMobj would add its thinker before the starpost's,
+		//    meaning its thinker won't catch any updates made to the starpost in the same tic
+		// 2: it makes sense that only starposts spawned using the map should be guiding the player
+		mobj_t* mo2 = P_SpawnMobjFromMobj(mobj, 0, 0, 0, MT_STARPOST_ARROW);
+		P_SetTarget(&mobj->tracer, mo2);
+		P_SetTarget(&mo2->target, mobj);
+		mo2->angle = mobj->angle;
+
 		mobj->health = mthing->args[0] + 1;
 		if (!P_MapAlreadyHasStarPost(mobj))
 			numstarposts++;

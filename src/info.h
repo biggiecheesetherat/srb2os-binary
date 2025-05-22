@@ -299,6 +299,7 @@ enum actionnum
 	A_DRAGONWING,
 	A_DRAGONSEGMENT,
 	A_CHANGEHEIGHT,
+	A_STARPOSTSPHERE,
 	NUMACTIONS
 };
 
@@ -574,6 +575,7 @@ void A_DragonbomberSpawn(struct mobj_s *actor);
 void A_DragonWing(struct mobj_s *actor);
 void A_DragonSegment(struct mobj_s *actor);
 void A_ChangeHeight(struct mobj_s *actor);
+void A_StarpostSphere(struct mobj_s *actor);
 
 extern int actionsoverridden[NUMACTIONS][MAX_ACTION_RECURSION];
 
@@ -711,6 +713,8 @@ typedef enum sprite
 	SPR_WSPK, // Wall spike
 	SPR_WSPB, // Wall spike base
 	SPR_STPT, // Starpost
+	SPR_STPS, // Starpost sphere
+	SPR_STPA, // Starpost arrow
 	SPR_BMNE, // Big floating mine
 	SPR_PUMI, // Rollout Rock
 
@@ -1400,6 +1404,8 @@ enum
 	MT_WALLSPIKE,
 	MT_WALLSPIKEBASE,
 	MT_STARPOST,
+	MT_STARPOST_SPHERE,
+	MT_STARPOST_ARROW,
 	MT_BIGMINE,
 	MT_BLASTEXECUTOR,
 	MT_CANNONLAUNCHER,

@@ -11648,7 +11648,7 @@ void P_DoMetalJetFume(player_t *player, mobj_t *fume)
 	}
 
 	// Rotate on skid animation if follow item is MT_METALJETFUME, or if MF2_AMBUSH is set
-	if (player->mo->sprite2 == SPR2_SKID)
+	if (player->mo->animator.subanimation == SPR2_SKID)
 	{
 		if ((ismetaljetfume && (player->charflags & SF_JETFUME)) || (fume->flags2 & MF2_AMBUSH))
 			angle += ANGLE_90;

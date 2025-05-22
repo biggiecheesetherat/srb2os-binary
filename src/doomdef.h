@@ -68,10 +68,6 @@ extern "C" {
 #include <io.h>
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 FILE *fopenfile(const char*, const char*);
 
 //#define NOMD5

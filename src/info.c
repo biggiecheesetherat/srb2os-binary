@@ -623,97 +623,6 @@ char spr2names[NUMPLAYERSPRITES][MAXSPRITENAME + 1] =
 };
 playersprite_t free_spr2 = SPR2_FIRSTFREESLOT;
 
-<<<<<<< HEAD
-=======
-playersprite_t spr2defaults[NUMPLAYERSPRITES] = {
-	0, // SPR2_STND,
-	0, // SPR2_WAIT,
-	0, // SPR2_WALK,
-	SPR2_WALK, // SPR2_SKID,
-	SPR2_WALK, // SPR2_RUN ,
-	SPR2_FRUN, // SPR2_DASH,
-	0, // SPR2_PAIN,
-	SPR2_PAIN, // SPR2_STUN,
-	SPR2_PAIN, // SPR2_DEAD,
-	SPR2_DEAD, // SPR2_DRWN,
-	0, // SPR2_ROLL,
-	SPR2_SPNG, // SPR2_GASP,
-	0, // SPR2_JUMP, (conditional, will never be referenced)
-	SPR2_FALL, // SPR2_SPNG,
-	SPR2_WALK, // SPR2_FALL,
-	0, // SPR2_EDGE,
-	SPR2_FALL, // SPR2_RIDE,
-
-	SPR2_ROLL, // SPR2_SPIN,
-
-	SPR2_SPNG, // SPR2_FLY ,
-	SPR2_FLY , // SPR2_SWIM,
-	0, // SPR2_TIRE, (conditional, will never be referenced)
-
-	SPR2_FLY , // SPR2_GLID,
-	SPR2_ROLL, // SPR2_LAND,
-	SPR2_CLMB, // SPR2_CLNG,
-	SPR2_ROLL, // SPR2_CLMB,
-
-	SPR2_WALK, // SPR2_FLT ,
-	SPR2_RUN , // SPR2_FRUN,
-
-	SPR2_FALL, // SPR2_BNCE,
-
-	0, // SPR2_FIRE,
-
-	SPR2_ROLL, // SPR2_TWIN,
-
-	SPR2_TWIN, // SPR2_MLEE,
-	0, // SPR2_MLEL,
-
-	0, // SPR2_TRNS,
-
-	SPR2_STND, // SPR2_NSTD,
-	SPR2_FALL, // SPR2_NFLT,
-	0, // SPR2_NFLY, (will never be referenced unless skin 0 lacks this)
-	SPR2_NFLY, // SPR2_NDRL,
-	SPR2_STUN, // SPR2_NSTN,
-	SPR2_NSTN, // SPR2_NPUL,
-	SPR2_ROLL, // SPR2_NATK,
-
-	0, // SPR2_TAL0, (this will look mighty stupid but oh well)
-	SPR2_TAL0, // SPR2_TAL1,
-	SPR2_TAL1, // SPR2_TAL2,
-	SPR2_TAL2, // SPR2_TAL3,
-	SPR2_TAL1, // SPR2_TAL4,
-	SPR2_TAL4, // SPR2_TAL5,
-	SPR2_TAL0, // SPR2_TAL6,
-	SPR2_TAL3, // SPR2_TAL7,
-	SPR2_TAL7, // SPR2_TAL8,
-	SPR2_TAL0, // SPR2_TAL9,
-	SPR2_TAL9, // SPR2_TALA,
-	SPR2_TAL0, // SPR2_TALB,
-	SPR2_TAL6, // SPR2_TALC,
-
-	0, // SPR2_MSC0,
-	0, // SPR2_MSC1,
-	0, // SPR2_MSC2,
-	0, // SPR2_MSC3,
-	0, // SPR2_MSC4,
-	0, // SPR2_MSC5,
-	0, // SPR2_MSC6,
-	0, // SPR2_MSC7,
-	0, // SPR2_MSC8,
-	0, // SPR2_MSC9,
-
-	SPR2_WAIT, // SPR2_CNT1,
-	SPR2_FALL, // SPR2_CNT2,
-	SPR2_SPNG, // SPR2_CNT3,
-	SPR2_CNT1, // SPR2_CNT4,
-
-	0, // SPR2_SIGN,
-	0, // SPR2_LIFE,
-
-	0, // SPR2_XTRA (should never be referenced)
-};
-
->>>>>>> origin/master
 // Doesn't work with g++, needs actionf_p1 (don't modify this comment)
 state_t states[NUMSTATES] =
 {
@@ -740,43 +649,23 @@ state_t states[NUMSTATES] =
 	{SPR_THOK, FF_TRANS50, 8, {NULL}, 0, 0, S_NULL, 0}, // S_THOK
 
 	// Player
-<<<<<<< HEAD
 	{SPR_PLAY, 0, 105, {NULL}, 0,  7, S_PLAY_WAIT,   SPR2_STND}, // S_PLAY_STND
-	{SPR_PLAY, 0,  -1, {NULL}, 0, 16, S_NULL,        SPR2_WAIT}, // S_PLAY_WAIT
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_WALK}, // S_PLAY_WALK
-	{SPR_PLAY, 0,  35, {NULL}, 0,  0, S_PLAY_WALK,   SPR2_SKID}, // S_PLAY_SKID
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_RUN},  // S_PLAY_RUN
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_DASH}, // S_PLAY_DASH
+	{SPR_PLAY, 0,  16, {NULL}, 0,  0, S_PLAY_WAIT,   SPR2_WAIT}, // S_PLAY_WAIT
+	{SPR_PLAY, 0,   4, {NULL}, 0,  0, S_PLAY_WALK,   SPR2_WALK}, // S_PLAY_WALK
+	{SPR_PLAY, 0,   1, {NULL}, 0,  0, S_PLAY_WALK,   SPR2_SKID}, // S_PLAY_SKID
+	{SPR_PLAY, 0,   2, {NULL}, 0,  0, S_PLAY_RUN,    SPR2_RUN},  // S_PLAY_RUN
+	{SPR_PLAY, 0,   2, {NULL}, 0,  0, S_PLAY_DASH,   SPR2_DASH}, // S_PLAY_DASH
 	{SPR_PLAY, 0, 350, {NULL}, 0,  4, S_PLAY_FALL,   SPR2_PAIN}, // S_PLAY_PAIN
 	{SPR_PLAY, 0, 350, {NULL}, 0,  4, S_PLAY_FALL,   SPR2_STUN}, // S_PLAY_STUN
 	{SPR_PLAY, 0,  -1, {NULL}, 0,  4, S_NULL,        SPR2_DEAD}, // S_PLAY_DEAD
 	{SPR_PLAY, 0,  -1, {NULL}, 0,  4, S_NULL,        SPR2_DRWN}, // S_PLAY_DRWN
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_ROLL}, // S_PLAY_ROLL
+	{SPR_PLAY, 0,   1, {NULL}, 0,  0, S_PLAY_ROLL,   SPR2_ROLL}, // S_PLAY_ROLL
 	{SPR_PLAY, 0,  14, {NULL}, 0,  4, S_PLAY_WALK,   SPR2_GASP}, // S_PLAY_GASP
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_JUMP}, // S_PLAY_JUMP
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_SPNG}, // S_PLAY_SPRING
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_FALL}, // S_PLAY_FALL
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_EDGE}, // S_PLAY_EDGE
-	{SPR_PLAY, 0,  -1, {NULL}, 0,  0, S_NULL,        SPR2_RIDE}, // S_PLAY_RIDE
-=======
-	{SPR_PLAY, SPR2_STND|FF_ANIMATE,    105, {NULL}, 0,  7, S_PLAY_WAIT, 0}, // S_PLAY_STND
-	{SPR_PLAY, SPR2_WAIT,                16, {NULL}, 0,  0, S_PLAY_WAIT, 0}, // S_PLAY_WAIT
-	{SPR_PLAY, SPR2_WALK,                 4, {NULL}, 0,  0, S_PLAY_WALK, 0}, // S_PLAY_WALK
-	{SPR_PLAY, SPR2_SKID,                 1, {NULL}, 0,  0, S_PLAY_WALK, 0}, // S_PLAY_SKID
-	{SPR_PLAY, SPR2_RUN ,                 2, {NULL}, 0,  0, S_PLAY_RUN, 0},  // S_PLAY_RUN
-	{SPR_PLAY, SPR2_DASH,                 2, {NULL}, 0,  0, S_PLAY_DASH, 0}, // S_PLAY_DASH
-	{SPR_PLAY, SPR2_PAIN|FF_ANIMATE,    350, {NULL}, 0,  4, S_PLAY_FALL, 0}, // S_PLAY_PAIN
-	{SPR_PLAY, SPR2_STUN|FF_ANIMATE,    350, {NULL}, 0,  4, S_PLAY_FALL, 0}, // S_PLAY_STUN
-	{SPR_PLAY, SPR2_DEAD|FF_ANIMATE,     -1, {NULL}, 0,  4, S_NULL, 0},      // S_PLAY_DEAD
-	{SPR_PLAY, SPR2_DRWN|FF_ANIMATE,     -1, {NULL}, 0,  4, S_NULL, 0},      // S_PLAY_DRWN
-	{SPR_PLAY, SPR2_ROLL,                 1, {NULL}, 0,  0, S_PLAY_ROLL, 0}, // S_PLAY_ROLL
-	{SPR_PLAY, SPR2_GASP|FF_ANIMATE,     14, {NULL}, 0,  4, S_PLAY_WALK, 0}, // S_PLAY_GASP
-	{SPR_PLAY, SPR2_JUMP,                 1, {NULL}, 0,  0, S_PLAY_JUMP, 0}, // S_PLAY_JUMP
-	{SPR_PLAY, SPR2_SPNG,                 2, {NULL}, 0,  0, S_PLAY_SPRING, 0}, // S_PLAY_SPRING
-	{SPR_PLAY, SPR2_FALL,                 2, {NULL}, 0,  0, S_PLAY_FALL, 0}, // S_PLAY_FALL
-	{SPR_PLAY, SPR2_EDGE,                12, {NULL}, 0,  0, S_PLAY_EDGE, 0}, // S_PLAY_EDGE
-	{SPR_PLAY, SPR2_RIDE,                 4, {NULL}, 0,  0, S_PLAY_RIDE, 0}, // S_PLAY_RIDE
->>>>>>> origin/master
+	{SPR_PLAY, 0,   1, {NULL}, 0,  0, S_PLAY_JUMP,   SPR2_JUMP}, // S_PLAY_JUMP
+	{SPR_PLAY, 0,   2, {NULL}, 0,  0, S_PLAY_SPRING, SPR2_SPNG}, // S_PLAY_SPRING
+	{SPR_PLAY, 0,   2, {NULL}, 0,  0, S_PLAY_FALL,   SPR2_FALL}, // S_PLAY_FALL
+	{SPR_PLAY, 0,  12, {NULL}, 0,  0, S_PLAY_EDGE,   SPR2_EDGE}, // S_PLAY_EDGE
+	{SPR_PLAY, 0,   4, {NULL}, 0,  0, S_PLAY_RIDE,   SPR2_RIDE}, // S_PLAY_RIDE
 
 	// CA2_SPINDASH
 	{SPR_PLAY, 0, -1, {NULL}, 0,  0, S_NULL, SPR2_SPIN}, // S_PLAY_SPINDASH

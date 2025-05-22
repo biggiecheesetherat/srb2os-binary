@@ -241,65 +241,6 @@ static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
 	}
 }
 
-UINT8 P_SetupSkinAnimation(mobj_t *mobj, state_t *st)
-{
-	UINT16 animation, subanimation;
-	UINT8 spriteset;
-	UINT8 starting_frame;
-	spritenum_t sprite;
-
-	skin_t *skin = (skin_t *)mobj->skin;
-	if (skin == NULL)
-		return NUMSKINSPRITESETS;
-
-	spriteset = P_GetMobjSkinSpriteset(mobj, st);
-	subanimation = P_GetSkinSubanimation(skin, st->anim_entry, spriteset, mobj->player, &spriteset);
-	animation = P_GetSkinAnimation(skin, spriteset);
-
-	if (animation == 0)
-	{
-		CONS_Alert(CONS_ERROR, "Missing animation for skin \"%s\" spriteset \"%s\"", skin->name, P_GetPlayerSpritesetName(spriteset));
-		return NUMSKINSPRITESETS;
-	}
-
-	sprite = P_GetSkinSpriteID(skin, subanimation, spriteset);
-	if (sprite != SPR_NULL)
-		mobj->sprite = sprite;
-
-	starting_frame = st->frame & FF_FRAMEMASK;
-
-	if ((st->frame & FF_SPR2MIDSTART) && P_RandomChance(FRACUNIT / 2))
-	{
-		starting_frame += P_GetSubanimationFrameCount(animation, subanimation) / 2;
-	}
-
-	if (!P_SetMobjAnimation(mobj, animation, subanimation, starting_frame))
-		return NUMSKINSPRITESETS;
-
-	if (mobj->player && P_PlayerFullbright(mobj->player))
-		mobj->frame |= FF_FULLBRIGHT;
-
-	return spriteset;
-}
-
-static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
-{
-	UINT8 spriteset;
-
-	skin_t *skin = (skin_t *)mobj->skin;
-	if (skin == NULL)
-		return;
-
-	spriteset = P_SetupSkinAnimation(mobj, st);
-
-	if (spriteset == SKINSPRITES_SUPER && st == &states[S_PLAY_STND])
-	{
-		spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, SPR2_WAIT);
-		if (!sprdef || sprdef->numframes == 0)
-			mobj->tics = -1; // If no super wait, don't wait at all
-	}
-}
-
 //
 // P_SetPlayerMobjState
 // Returns true if the mobj is still present.

@@ -759,7 +759,7 @@ void G_GhostTicker(void)
 		{
 			if (g->version < 0x0013)
 			{
-				P_SetMobjAnimation(g->mo, P_GetSkinAnimation(g->mo->skin, g->mo->skinspriteset), g->oldmo.animator.subanimation, g->oldmo.frame & FF_FRAMEMASK);
+				P_SetMobjAnimation(g->mo, P_GetSkinAnimation((skin_t*)g->mo->skin, g->mo->skinspriteset), g->oldmo.animator.subanimation, g->oldmo.frame & FF_FRAMEMASK);
 				g->mo->frame |= g->oldmo.frame & ~FF_FRAMEMASK;
 			}
 			else
@@ -777,7 +777,7 @@ void G_GhostTicker(void)
 		}
 		if (g->fadein)
 		{
-			unsigned fadein = max(((g->fadein - 1) / 6), 3);
+			unsigned fadein = std::max(((g->fadein - 1) / 6), 3);
 			g->fadein--;
 			g->mo->frame |= fadein << FF_TRANSSHIFT;
 			g->mo->flags2 &= ~MF2_DONTDRAW;
@@ -1009,18 +1009,18 @@ void G_GhostTicker(void)
 				{
 					if (g->version < 0x0013 && sprite == SPR_PLAY)
 					{
-						P_SetMobjAnimation(follow, P_GetSkinAnimation(follow->skin, follow->skinspriteset), subanim, frame);
+						P_SetMobjAnimation(follow, P_GetSkinAnimation((skin_t*)follow->skin, follow->skinspriteset), subanim, frame);
 					}
 					else
 					{
-						follow->sprite = sprite;
+						follow->sprite = (spritenum_t)sprite;
 						follow->frame = frame;
 						follow->skinspriteset = spriteset;
 					}
 				}
 				else
 				{
-					follow->sprite = sprite;
+					follow->sprite = (spritenum_t)sprite;
 					follow->frame = frame;
 				}
 
@@ -1240,7 +1240,7 @@ void G_ReadMetalTic(mobj_t *metal)
 	{
 		if (metalversion < 0x0013 && metal->sprite == SPR_PLAY)
 		{
-			P_SetMobjAnimation(metal, P_GetSkinAnimation(metal->skin, metal->skinspriteset), oldmetal.animator.subanimation, oldmetal.frame & FF_FRAMEMASK);
+			P_SetMobjAnimation(metal, P_GetSkinAnimation((skin_t*)metal->skin, metal->skinspriteset), oldmetal.animator.subanimation, oldmetal.frame & FF_FRAMEMASK);
 			metal->frame |= oldmetal.frame & ~FF_FRAMEMASK;
 		}
 		else
@@ -1318,19 +1318,19 @@ void G_ReadMetalTic(mobj_t *metal)
 				{
 					if (metalversion < 0x0013 && sprite == SPR_PLAY)
 					{
-						P_SetMobjAnimation(follow, P_GetSkinAnimation(follow->skin, follow->skinspriteset), subanim, frame & FF_FRAMEMASK);
+						P_SetMobjAnimation(follow, P_GetSkinAnimation((skin_t*)follow->skin, follow->skinspriteset), subanim, frame & FF_FRAMEMASK);
 						follow->frame |= frame & ~FF_FRAMEMASK;
 					}
 					else
 					{
-						follow->sprite = sprite;
+						follow->sprite = (spritenum_t)sprite;
 						follow->frame = frame;
 						follow->skinspriteset = spriteset;
 					}
 				}
 				else
 				{
-					follow->sprite = sprite;
+					follow->sprite = (spritenum_t)sprite;
 					follow->frame = frame;
 				}
 
@@ -2758,7 +2758,7 @@ void G_AddGhost(char *defdemoname)
 	gh->fadein = (9-3)*6; // fade from invisible to trans30 over as close to 35 tics as possible
 	gh->mo->tics = -1;
 
-	P_SetMobjAnimation(gh->mo, P_GetSkinAnimation(gh->mo->skin, 0), 0, gh->mo->state->frame & FF_FRAMEMASK);
+	P_SetMobjAnimation(gh->mo, P_GetSkinAnimation((skin_t*)gh->mo->skin, 0), 0, gh->mo->state->frame & FF_FRAMEMASK);
 
 	CONS_Printf(M_GetText("Added ghost %s from %s\n"), name, pdemoname);
 	Z_Free(pdemoname);

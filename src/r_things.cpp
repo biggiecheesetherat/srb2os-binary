@@ -817,7 +817,7 @@ void R_InitSprites(void)
 		I_Error("R_AddSpriteDefs: no sprites in namelist\n");
 
 	sprites = static_cast<spritedef_t*>(Z_Calloc(numsprites * sizeof (*sprites), PU_STATIC, NULL));
-	missing_sprites = Z_Calloc(BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS), PU_STATIC, NULL);
+	missing_sprites = static_cast<bitarray_t*>(Z_Calloc(BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS), PU_STATIC, NULL));
 
 	// find sprites in each -file added pwad
 	for (i = 0; i < numwadfiles; i++)
@@ -1012,7 +1012,7 @@ UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 trans
 {
 	INT32 skinnum = TC_DEFAULT;
 
-	boolean is_player = mobj->skin && P_IsSkinSprite(mobj->skin, mobj->sprite);
+	boolean is_player = mobj->skin && P_IsSkinSprite(static_cast<skin_t*>(mobj->skin), mobj->sprite);
 	if (is_player) // This thing is a player!
 		skinnum = ((skin_t*)mobj->skin)->skinnum;
 

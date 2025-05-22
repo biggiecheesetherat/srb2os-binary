@@ -2607,7 +2607,7 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 	if (diff2 & MD2_ALPHA)
 		P_WriteFixed(save_p, mobj->alpha);
 	if (diff2 & MD2_SKINSPRITESET)
-		WriteUINT8(save_p, mobj->skinspriteset);
+		P_WriteUINT8(save_p, mobj->skinspriteset);
 	if (diff2 & MD2_ANIMATION)
 	{
 		P_WriteUINT16(save_p, mobj->animator.animation);
@@ -3682,16 +3682,16 @@ static thinker_t* LoadMobjThinker(save_t *save_p, actionf_p1 thinker)
 	else
 		mobj->alpha = FRACUNIT;
 	if (diff2 & MD2_SKINSPRITESET)
-		mobj->skinspriteset = ReadUINT8(save_p);
+		mobj->skinspriteset = P_ReadUINT8(save_p);
 	if (diff2 & MD2_ANIMATION)
 	{
-		mobj->animator.animation = ReadUINT16(save_p);
-		mobj->animator.subanimation = ReadUINT16(save_p);
-		mobj->animator.frame = ReadUINT16(save_p);
-		mobj->animator.timer = ReadFixed(save_p);
-		mobj->animator.frame_duration = ReadFixed(save_p);
-		mobj->animator.speed_mul = ReadFixed(save_p);
-		mobj->animator.direction = ReadUINT8(save_p);
+		mobj->animator.animation = P_ReadUINT16(save_p);
+		mobj->animator.subanimation = P_ReadUINT16(save_p);
+		mobj->animator.frame = P_ReadUINT16(save_p);
+		mobj->animator.timer = P_ReadFixed(save_p);
+		mobj->animator.frame_duration = P_ReadFixed(save_p);
+		mobj->animator.speed_mul = P_ReadFixed(save_p);
+		mobj->animator.direction = P_ReadUINT8(save_p);
 		P_UpdateAnimatorCurNextFrames(&mobj->animator);
 	}
 

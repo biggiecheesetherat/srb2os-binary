@@ -100,6 +100,17 @@ static const char *player_anim_names[NUMPLAYERSPRITES] =
 	"tail_b",
 	"tail_c",
 
+	"misc0",
+	"misc1",
+	"misc2",
+	"misc3",
+	"misc4",
+	"misc5",
+	"misc6",
+	"misc7",
+	"misc8",
+	"misc9",
+
 	"continue",
 	"continue_lift",
 	"continue_spin",

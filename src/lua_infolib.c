@@ -664,6 +664,8 @@ static int lib_setState(lua_State *L)
 			if (value < S_NULL || value >= NUMSTATES)
 				return luaL_error(L, "nextstate number %d is invalid.", value);
 			state->nextstate = (statenum_t)value;
+		} else if (i == 8 || (str && fastcmp(str, "subanim"))) {
+			state->anim_entry = (UINT16)luaL_checkinteger(L, 3);
 		}
 		lua_pop(L, 1);
 	}

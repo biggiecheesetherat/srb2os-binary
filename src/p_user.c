@@ -8641,8 +8641,6 @@ void P_MovePlayer(player_t *player)
 					if (P_MobjFlip(player->mo)*player->mo->momz < FixedMul(5*actionspd, player->mo->scale))
 						P_SetObjectMomZ(player->mo, actionspd/2, true);
 
-					P_SetMobjState(player->mo, player->mo->state->nextstate);
-
 					player->fly1--;
 				}
 			}

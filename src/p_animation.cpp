@@ -318,7 +318,7 @@ boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const 
 	if (mobj->animator.animation == animation_id && mobj->animator.subanimation == subanimation_id)
 		return true;
 
-	return P_SetupMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
+	return P_SetMobjAnimation(mobj, animation_id, subanimation_id, start_frame);
 }
 
 void P_DoAnimationPlayback(animator_s *animator, mobj_t *mobj, tic_t timedelta)

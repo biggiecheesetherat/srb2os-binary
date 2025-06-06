@@ -854,7 +854,7 @@ static void load_animations_from_range(UINT16 wadnum, UINT16 start, UINT16 end)
 
 void P_LoadAnimations(UINT16 wadnum)
 {
-	UINT16 start = INT16_MAX, end = INT16_MAX;
+	UINT16 lumpnum = INT16_MAX, start = INT16_MAX, end = INT16_MAX;
 
 	start = W_CheckNumForFolderStartPK3("Sprites/", wadnum, 0);
 	if (start != INT16_MAX)
@@ -875,6 +875,10 @@ void P_LoadAnimations(UINT16 wadnum)
 			load_animations_from_range(wadnum, start, end);
 		}
 	}
+
+	lumpnum = W_CheckNumForFullNamePK3("animation_defs.json", wadnum, 0);
+	if (lumpnum != INT16_MAX)
+		load_animations_from_range(wadnum, lumpnum, lumpnum + 1);
 }
 
 static void parse_anim_frame(animation_frame_s *frame, json& entry)

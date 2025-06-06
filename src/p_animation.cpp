@@ -55,20 +55,6 @@ static animation_list_s *get_animation_by_id(UINT16 id)
 	return animation_defs[id - 1];
 }
 
-static UINT16 get_subanimation_id(animation_list_s *animation, const char *name)
-{
-	if (animation)
-	{
-		for (size_t i = 0; i < animation->count; i++)
-		{
-			if (!strcmp(animation->animations[i]->name, name))
-				return i;
-		}
-	}
-
-	return UINT16_MAX;
-}
-
 // Animation playback
 static void P_UpdateMobjAnimationFrame(mobj_t *mobj, animator_s *animator)
 {
@@ -302,7 +288,7 @@ boolean P_SetNamedMobjAnimation(mobj_t *mobj, const char *animation_name, const 
 
 	animation_list_s *animation = animation_defs[animation_id];
 
-	UINT16 subanimation_id = get_subanimation_id(animation, subanimation_name);
+	UINT16 subanimation_id = P_GetSubAnimationByName(animation, subanimation_name)->id;
 	if (subanimation_id == UINT16_MAX)
 	{
 		subanimation_id = 0;
@@ -775,6 +761,20 @@ animation_s *P_GetSubAnimationByID(animation_list_s *animation, UINT16 subanimat
 		return nullptr;
 
 	return animation->animations[subanimation_id];
+}
+
+animation_s *P_GetSubAnimationByName(animation_list_s *animation, const char *subanimation_name)
+{
+	if (animation)
+	{
+		for (size_t i = 0; i < animation->count; i++)
+		{
+			if (!strcmp(animation->animations[i]->name, subanimation_name))
+				return animation->animations[i];
+		}
+	}
+
+	return nullptr;
 }
 
 static void set_subanim_speed(animation_list_s *animation, UINT16 subanimation_id, fixed_t speed)

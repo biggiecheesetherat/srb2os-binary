@@ -67,6 +67,7 @@ animation_list_t *P_MergeAnimations(const char *name, animation_list_t *anim_a, 
 animation_t *P_FindOrCreateSubAnimation(animation_list_t *animation, const char *subanimation_name);
 animation_list_t *P_GetAnimationByID(UINT16 animation_id);
 animation_t *P_GetSubAnimationByID(animation_list_t *animation, UINT16 subanimation_id);
+animation_t *P_GetSubAnimationByName(animation_list_s *animation, const char *subanimation_name);
 
 void P_InitAnimationFrame(animation_frame_t *frame);
 

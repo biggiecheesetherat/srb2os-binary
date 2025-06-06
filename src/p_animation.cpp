@@ -212,6 +212,16 @@ static boolean P_SetupMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 su
 	return false;
 }
 
+const char *P_GetAnimatorSubAnimationName(animator_s *animator)
+{
+	return P_GetSubanimationNameByID(animator->animation, animator->subanimation);
+}
+
+boolean P_IsAnimatorPlayingNamedSubAnimation(animator_s *animator, const char *name)
+{
+	return !strcmp(P_GetAnimatorSubAnimationName(animator), name);
+}
+
 UINT32 P_GetAnimatorFrame(animator_s *animator)
 {
 	return animator->current_frame;

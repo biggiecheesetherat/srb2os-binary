@@ -85,6 +85,8 @@ void P_SetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id, fixed_t
 void P_SetSubanimationFallback(UINT16 animation_id, UINT16 subanimation_id, const char *fallback);
 
 boolean P_SetupAnimator(animator_t *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame);
+const char *P_GetAnimatorSubAnimationName(animator_s *animator);
+boolean P_IsAnimatorPlayingNamedSubAnimation(animator_s *animator, const char *name);
 UINT32 P_GetAnimatorFrame(animator_t *animator);
 UINT32 P_GetAnimatorNextFrame(animator_t *animator);
 void P_UpdateAnimatorCurNextFrames(animator_t *animator); // for p_saveg.c

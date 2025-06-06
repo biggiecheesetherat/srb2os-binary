@@ -705,23 +705,23 @@ animation_list_s *P_DuplicateAnimation(const char *animation_name, animation_lis
 	return animation;
 }
 
-// Merges animations anim_a and anim_b. The subanimations of anim_a come first, then the subanimations in anim_b.
+// Merges animations anim_a and anim_b. The subanimations of anim_b come first, then the subanimations in anim_a.
 // NOTE: If it exists, this replaces the animation that has the same name.
 animation_list_s *P_MergeAnimations(const char *name, animation_list_s *anim_a, animation_list_s *anim_b)
 {
 	animation_list_s *output = create_animation(name);
 
-	for (size_t i = 0; i < anim_a->count + anim_b->count; i++)
+	for (size_t i = 0; i < anim_b->count + anim_a->count; i++)
 	{
 		animation_s *subanimation, *base_subanim;
 
-		if (i >= anim_a->count)
+		if (i >= anim_b->count)
 		{
-			base_subanim = anim_b->animations[i - anim_a->count];
+			base_subanim = anim_a->animations[i - anim_b->count];
 		}
 		else
 		{
-			base_subanim = anim_a->animations[i];
+			base_subanim = anim_b->animations[i];
 		}
 
 		if (base_subanim == nullptr)

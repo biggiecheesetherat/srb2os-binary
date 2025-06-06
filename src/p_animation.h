@@ -36,6 +36,7 @@ typedef struct animation_frame_s
 
 typedef struct animation_s
 {
+	UINT16 id;
 	char *name;
 	fixed_t speed;
 	unsigned loop_index;

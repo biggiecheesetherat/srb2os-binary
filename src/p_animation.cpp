@@ -548,7 +548,7 @@ static animation_list_s *create_animation(const char *name)
 	return animation;
 }
 
-static animation_s *create_subanimation(const char *name)
+static animation_s *create_subanimation(UINT16 id, const char *name)
 {
 	animation_s *subanimation = static_cast<animation_s *>(
 		Z_Calloc(sizeof(animation_s), PU_STATIC, nullptr)
@@ -562,7 +562,7 @@ static animation_s *create_subanimation(const char *name)
 
 static animation_s *create_and_add_subanimation(animation_list_s *list, const char *name)
 {
-	animation_s *subanimation = create_subanimation(name);
+	animation_s *subanimation = create_subanimation(list->count, name);
 
 	list->count++;
 	list->animations = static_cast<animation_s **>(
@@ -665,6 +665,7 @@ animation_list_s *P_DuplicateAnimation(const char *animation_name, animation_lis
 			if (is_valid_subanimation_id(base, i))
 			{
 				animation_s *base_subanim = base->animations[i];
+				subanimation->id = base_subanim->id;
 				subanimation->name = Z_StrDup(base_subanim->name);
 				subanimation->speed = base_subanim->speed;
 				subanimation->loop_index = base_subanim->loop_index;

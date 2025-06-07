@@ -563,6 +563,7 @@ static animation_s *create_subanimation(UINT16 id, const char *name)
 	animation_s *subanimation = static_cast<animation_s *>(
 		Z_Calloc(sizeof(animation_s), PU_STATIC, nullptr)
 	);
+	subanimation->id = id;
 	subanimation->name = Z_StrDup(name);
 	subanimation->speed = FRACUNIT;
 	subanimation->loop_index = UINT16_MAX;

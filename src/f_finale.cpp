@@ -3546,8 +3546,14 @@ void F_TitleDemoTicker(void)
 //  CONTINUE
 // ==========
 
+// 2 because Sonic & Tails
 static skin_t *contskins[2];
-static UINT16 cont_spr2[2][6];
+static UINT16 cont_anim_subanim[2];
+static UINT16 cont_anim_frame[2];
+static UINT16 cont_anim_numframes[2];
+static UINT16 cont_anim_rotation[2];
+static UINT16 cont_anim_ticker[2];
+static UINT16 cont_anim_speed[2];
 static UINT8 *contcolormaps[2];
 static player_t *contPlayers[2];
 static skincolornum_t contColors[2]; // it's possible to change your skincolor in the continue screen, so this is for Lua to identify the skincolor that was used to cache the colormap
@@ -3584,13 +3590,13 @@ void F_StartContinue(void)
 	contPlayers[0] = &players[consoleplayer];
 	contskins[0] = skins[players[consoleplayer].skin];
 
-	cont_spr2[0][0] = P_GetSkinSubanimation(contskins[0], "continue", SKINSPRITES_BASE, NULL, NULL);
-	cont_spr2[0][2] = contskins[0]->contangle & 7;
+	cont_anim_subanim[0] = P_GetSkinSubanimation(contskins[0], "continue", SKINSPRITES_BASE, NULL, NULL);
+	cont_anim_rotation[0] = contskins[0]->contangle & 7;
 	contColors[0] = static_cast<skincolornum_t>(players[consoleplayer].skincolor);
 	contcolormaps[0] = R_GetTranslationColormap(players[consoleplayer].skin, static_cast<skincolornum_t>(players[consoleplayer].skincolor), GTC_CACHE);
-	sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_spr2[0][0]), SKINSPRITES_BASE);
-	cont_spr2[0][4] = sprdef ? sprdef->numframes : 0;
-	cont_spr2[0][5] = std::max<UINT16>(1, contskins[0]->contspeed);
+	sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_anim_subanim[0]), SKINSPRITES_BASE);
+	cont_anim_numframes[0] = sprdef ? sprdef->numframes : 0;
+	cont_anim_speed[0] = std::max<UINT16>(1, contskins[0]->contspeed);
 
 	if (botskin)
 	{
@@ -3604,26 +3610,26 @@ void F_StartContinue(void)
 		contPlayers[1] = &players[secondplaya];
 		contskins[1] = skins[players[secondplaya].skin];
 
-		cont_spr2[1][0] = P_GetSkinSubanimation(contskins[1], "continue_partner", SKINSPRITES_BASE, NULL, NULL);
-		cont_spr2[1][2] = (contskins[1]->contangle >> 3) & 7;
+		cont_anim_subanim[1] = P_GetSkinSubanimation(contskins[1], "continue_partner", SKINSPRITES_BASE, NULL, NULL);
+		cont_anim_rotation[1] = (contskins[1]->contangle >> 3) & 7;
 		contColors[1] = static_cast<skincolornum_t>(players[secondplaya].skincolor);
 		contcolormaps[1] = R_GetTranslationColormap(players[secondplaya].skin, static_cast<skincolornum_t>(players[secondplaya].skincolor), GTC_CACHE);
-		sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_spr2[0][0]), SKINSPRITES_BASE);
-		cont_spr2[1][4] = sprdef ? sprdef->numframes : 0;
-		if (cont_spr2[1][0] == P_GetNamedSubanimationID(P_GetSkinAnimation(contskins[1], SKINSPRITES_BASE), "continue_partner"))
-			cont_spr2[1][5] = 4; // sorry, this one is hardcoded
+		sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_anim_subanim[0]), SKINSPRITES_BASE);
+		cont_anim_numframes[1] = sprdef ? sprdef->numframes : 0;
+		if (cont_anim_subanim[1] == P_GetNamedSubanimationID(P_GetSkinAnimation(contskins[1], SKINSPRITES_BASE), "continue_partner"))
+			cont_anim_speed[1] = 4; // sorry, this one is hardcoded
 		else
-			cont_spr2[1][5] = std::max<UINT16>(1, contskins[1]->contspeed);
+			cont_anim_speed[1] = std::max<UINT16>(1, contskins[1]->contspeed);
 	}
 	else
 	{
 		contskins[1] = NULL;
 		contcolormaps[1] = NULL;
-		cont_spr2[1][0] = cont_spr2[1][2] = cont_spr2[1][4] = cont_spr2[1][5] = 0;
+		cont_anim_subanim[1] = cont_anim_rotation[1] = cont_anim_numframes[1] = cont_anim_speed[1] = 0;
 	}
 
-	cont_spr2[0][1] = cont_spr2[0][3] =\
-	cont_spr2[1][1] = cont_spr2[1][3] = 0;
+	cont_anim_frame[0] = cont_anim_ticker[0] =\
+	cont_anim_frame[1] = cont_anim_ticker[1] = 0;
 
 	timetonext = (11*TICRATE)+11;
 	continuetime = 0;
@@ -3662,12 +3668,12 @@ static void F_DrawContinueCharacter(INT32 dx, INT32 dy, UINT8 n)
 	{
 		LUA_HUD_ClearDrawList(luahuddrawlist_continue[n]);
 		UINT16 skin_anim = P_GetSkinAnimation(contskins[n], SKINSPRITES_BASE);
-		const char *subanim_name = P_GetSubanimationNameByID(skin_anim, cont_spr2[n][0]);
+		const char *subanim_name = P_GetSubanimationNameByID(skin_anim, cont_anim_subanim[n]);
 		contOverrides[n] = LUA_HookCharacterHUD
 		(
 			HUD_HOOK(continue), luahuddrawlist_continue[n], contPlayers[n],
 			dx, dy, contskins[n]->highresscale,
-			(INT32)(contskins[n]->skinnum), subanim_name, cont_spr2[n][1], cont_spr2[n][2] + 1, contColors[n], // add 1 to rotation to convert internal angle numbers (0-7) to WAD editor angle numbers (1-8)
+			(INT32)(contskins[n]->skinnum), subanim_name, cont_anim_frame[n], cont_anim_rotation[n] + 1, contColors[n], // add 1 to rotation to convert internal angle numbers (0-7) to WAD editor angle numbers (1-8)
 			imcontinuing ? continuetime : timetonext, imcontinuing
 		);
 	}
@@ -3677,12 +3683,12 @@ static void F_DrawContinueCharacter(INT32 dx, INT32 dy, UINT8 n)
 	if (contOverrides[n] == true)
 		return;
 
-	sprdef = P_GetSkinSpritedef(contskins[n], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[n], SKINSPRITES_BASE), cont_spr2[n][0]), SKINSPRITES_BASE);
+	sprdef = P_GetSkinSpritedef(contskins[n], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[n], SKINSPRITES_BASE), cont_anim_subanim[n]), SKINSPRITES_BASE);
 	if (sprdef && sprdef->numframes)
 	{
-		sprframe = &sprdef->spriteframes[cont_spr2[n][1]];
-		patch = (patch_t*)W_CachePatchNum(sprframe->lumppat[cont_spr2[n][2]], PU_PATCH_LOWPRIORITY);
-		V_DrawFixedPatch((dx), (dy), contskins[n]->highresscale, (sprframe->flip & (1<<cont_spr2[n][2])) ? V_FLIP : 0, patch, contcolormaps[n]);
+		sprframe = &sprdef->spriteframes[cont_anim_frame[n]];
+		patch = (patch_t*)W_CachePatchNum(sprframe->lumppat[cont_anim_rotation[n]], PU_PATCH_LOWPRIORITY);
+		V_DrawFixedPatch((dx), (dy), contskins[n]->highresscale, (sprframe->flip & (1<<cont_anim_rotation[n])) ? V_FLIP : 0, patch, contcolormaps[n]);
 	}
 }
 
@@ -3767,7 +3773,7 @@ void F_ContinueDrawer(void)
 		V_DrawFadeFill(x-w, 0, w<<1, 140, 0, 0, (3+brightness));
 	}
 
-	if (contskins[1])
+	if (contskins[1]) // Do we play as Sonic & Tails?
 	{
 		if (continuetime > 15)
 		{
@@ -3792,7 +3798,7 @@ void F_ContinueDrawer(void)
 
 	if (offsy < 0)
 		F_DrawContinueCharacter((BASEVIDWIDTH<<(FRACBITS-1))-offsx, ((140-lift[0])<<FRACBITS)-offsy, 0);
-	if (contskins[1])
+	if (contskins[1]) // Do we play as Sonic & Tails?
 		F_DrawContinueCharacter((BASEVIDWIDTH<<(FRACBITS-1))+offsx, ((140-lift[1])<<FRACBITS)+offsy, 1);
 	if (offsy >= 0)
 		F_DrawContinueCharacter((BASEVIDWIDTH<<(FRACBITS-1))-offsx, ((140-lift[0])<<FRACBITS)-offsy, 0);
@@ -3828,61 +3834,61 @@ void F_ContinueTicker(void)
 
 		spritedef_t *sprdef = NULL;
 
-		if (continuetime > 5 && ((continuetime & 1) || continuetime > TICRATE) && (++cont_spr2[0][2]) >= 8)
-			cont_spr2[0][2] = 0;
+		if (continuetime > 5 && ((continuetime & 1) || continuetime > TICRATE) && (++cont_anim_rotation[0]) >= 8)
+			cont_anim_rotation[0] = 0;
 
-		if (continuetime > 10 && (!(continuetime & 1) || continuetime > TICRATE+5) && (++cont_spr2[1][2]) >= 8)
-			cont_spr2[1][2] = 0;
+		if (continuetime > 10 && (!(continuetime & 1) || continuetime > TICRATE+5) && (++cont_anim_rotation[1]) >= 8)
+			cont_anim_rotation[1] = 0;
 
 		if (continuetime == (3*TICRATE)-10)
 			S_StartSound(NULL, sfx_cdfm56); // or 31
 		else if (continuetime == 5)
 		{
-			cont_spr2[0][0] = P_GetSkinSubanimation(contskins[0], "continue_lift", SKINSPRITES_BASE, NULL, NULL);
-			sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_spr2[0][0]), SKINSPRITES_BASE);
-			cont_spr2[0][4] = sprdef ? sprdef->numframes : 0;
-			cont_spr2[0][1] = cont_spr2[0][3] = 0;
-			cont_spr2[0][5] = 2;
+			cont_anim_subanim[0] = P_GetSkinSubanimation(contskins[0], "continue_lift", SKINSPRITES_BASE, NULL, NULL);
+			sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_anim_subanim[0]), SKINSPRITES_BASE);
+			cont_anim_numframes[0] = sprdef ? sprdef->numframes : 0;
+			cont_anim_frame[0] = cont_anim_ticker[0] = 0;
+			cont_anim_speed[0] = 2;
 		}
 		else if (continuetime == TICRATE)
 		{
-			cont_spr2[0][0] = P_GetSkinSubanimation(contskins[0], "continue_spin", SKINSPRITES_BASE, NULL, NULL);
-			sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_spr2[0][0]), SKINSPRITES_BASE);
-			cont_spr2[0][4] = sprdef ? sprdef->numframes : 0;
-			cont_spr2[0][1] = cont_spr2[0][3] = 0;
+			cont_anim_subanim[0] = P_GetSkinSubanimation(contskins[0], "continue_spin", SKINSPRITES_BASE, NULL, NULL);
+			sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_anim_subanim[0]), SKINSPRITES_BASE);
+			cont_anim_numframes[0] = sprdef ? sprdef->numframes : 0;
+			cont_anim_frame[0] = cont_anim_ticker[0] = 0;
 		}
-		else if (contskins[1])
+		else if (contskins[1]) // Do we play as Sonic & Tails?
 		{
 			if (continuetime == 10)
 			{
-				cont_spr2[1][0] = P_GetSkinSubanimation(contskins[1], "continue_lift", SKINSPRITES_BASE, NULL, NULL);
-				sprdef = P_GetSkinSpritedef(contskins[1], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[1], SKINSPRITES_BASE), cont_spr2[1][0]), SKINSPRITES_BASE);
-				cont_spr2[1][4] = sprdef ? sprdef->numframes : 0;
-				cont_spr2[1][1] = cont_spr2[1][3] = 0;
-				cont_spr2[1][5] = 2;
+				cont_anim_subanim[1] = P_GetSkinSubanimation(contskins[1], "continue_lift", SKINSPRITES_BASE, NULL, NULL);
+				sprdef = P_GetSkinSpritedef(contskins[1], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[1], SKINSPRITES_BASE), cont_anim_subanim[1]), SKINSPRITES_BASE);
+				cont_anim_numframes[1] = sprdef ? sprdef->numframes : 0;
+				cont_anim_frame[1] = cont_anim_ticker[1] = 0;
+				cont_anim_speed[1] = 2;
 			}
 			else if (continuetime == TICRATE+5)
 			{
-				cont_spr2[1][0] = P_GetSkinSubanimation(contskins[1], "continue_spin", SKINSPRITES_BASE, NULL, NULL);
-				sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_spr2[1][0]), SKINSPRITES_BASE);
-				cont_spr2[1][4] = sprdef ? sprdef->numframes : 0;
-				cont_spr2[1][1] = cont_spr2[1][3] = 0;
+				cont_anim_subanim[1] = P_GetSkinSubanimation(contskins[1], "continue_spin", SKINSPRITES_BASE, NULL, NULL);
+				sprdef = P_GetSkinSpritedef(contskins[0], P_GetSubanimationNameByID(P_GetSkinAnimation(contskins[0], SKINSPRITES_BASE), cont_anim_subanim[1]), SKINSPRITES_BASE);
+				cont_anim_numframes[1] = sprdef ? sprdef->numframes : 0;
+				cont_anim_frame[1] = cont_anim_ticker[1] = 0;
 			}
 		}
 	}
 
-	if ((++cont_spr2[0][3]) >= cont_spr2[0][5])
+	if ((++cont_anim_ticker[0]) >= cont_anim_speed[0])
 	{
-		cont_spr2[0][3] = 0;
-		if (++cont_spr2[0][1] >= cont_spr2[0][4])
-			cont_spr2[0][1] = 0;
+		cont_anim_ticker[0] = 0;
+		if (++cont_anim_frame[0] >= cont_anim_numframes[0])
+			cont_anim_frame[0] = 0;
 	}
 
-	if (contskins[1] && (++cont_spr2[1][3]) >= cont_spr2[1][5])
+	if (contskins[1] && (++cont_anim_ticker[1]) >= cont_anim_speed[1])
 	{
-		cont_spr2[1][3] = 0;
-		if (++cont_spr2[1][1] >= cont_spr2[1][4])
-			cont_spr2[1][1] = 0;
+		cont_anim_ticker[1] = 0;
+		if (++cont_anim_frame[1] >= cont_anim_numframes[1])
+			cont_anim_frame[1] = 0;
 	}
 }
 

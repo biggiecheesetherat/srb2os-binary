@@ -516,22 +516,6 @@ void readfreeslots(MYFILE *f)
 						break;
 					}
 			}
-			else if (fastcmp(type, "SPR2"))
-			{
-				// Search if we already have an SPR2 by that name...
-				for (i = SPR2_FIRSTFREESLOT; i < (int)free_spr2; i++)
-					if (memcmp(spr2names[i],word,4) == 0)
-						break;
-				// We found it? (Two mods using the same SPR2 name?) Then don't allocate another one.
-				if (i < (int)free_spr2)
-					continue;
-				// Copy in the spr2 name and increment free_spr2.
-				if (free_spr2 < NUMPLAYERSPRITES) {
-					strlwr(word);
-					P_GetOrCreatePlayerSubanim(word);
-				} else
-					deh_warning("Ran out of free SPR2 slots!\n");
-			}
 			else if (fastcmp(type, "TOL"))
 			{
 				// Search if we already have a typeoflevel by that name...
@@ -558,8 +542,6 @@ void readfreeslots(MYFILE *f)
 	} while (!myfeof(f)); // finish when the line is empty
 
 	Z_Free(s);
-
-	R_RefreshSprite2();
 }
 
 void readthing(MYFILE *f, INT32 num)
@@ -966,7 +948,7 @@ static void readspriteframe(MYFILE *f, spriteinfo_t *sprinfo, UINT8 frame)
 	Z_Free(s);
 }
 
-void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
+void readspriteinfo(MYFILE *f, INT32 num)
 {
 	char *s = Z_Malloc(MAXLINELEN, PU_STATIC, NULL);
 	char *word, *word2;
@@ -1034,74 +1016,26 @@ void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
 
 			if (fastcmp(word, "LIGHTTYPE"))
 			{
-				if (sprite2)
-					deh_warning("Sprite2 %s: invalid word '%s'", spr2names[num], word);
-				else
-				{
-					INT32 oldvar;
-					for (oldvar = 0; t_lspr[num] != &lspr[oldvar]; oldvar++)
-						;
-					t_lspr[num] = &lspr[value];
-				}
+				INT32 oldvar;
+				for (oldvar = 0; t_lspr[num] != &lspr[oldvar]; oldvar++)
+					;
+				t_lspr[num] = &lspr[value];
 			}
 			else
 #endif
-			if (fastcmp(word, "SKIN"))
-			{
-				INT32 skinnum = -1;
-				if (!sprite2)
-				{
-					deh_warning("Sprite %s: %s keyword found outside of SPRITE2INFO block, ignoring", spr2names[num], word);
-					continue;
-				}
-
-				// make lowercase
-				strlwr(word2);
-				skinnum = R_SkinAvailable(word2);
-				if (skinnum == -1)
-				{
-					deh_warning("Sprite2 %s: unknown skin %s", spr2names[num], word2);
-					break;
-				}
-
-				if (skinnumbers == NULL)
-					skinnumbers = Z_Malloc(sizeof(UINT8) * numskins, PU_STATIC, NULL);
-				skinnumbers[foundskins] = (UINT8)skinnum;
-				foundskins++;
-			}
-			else if (fastcmp(word, "FRAME"))
+			if (fastcmp(word, "FRAME"))
 			{
 				UINT8 frame = R_Char2Frame(word2[0]);
 				// frame number too high
 				if (frame >= 64)
 				{
-					if (sprite2)
-						deh_warning("Sprite2 %s: invalid frame %s", spr2names[num], word2);
-					else
-						deh_warning("Sprite %s: invalid frame %s", sprnames[num], word2);
+					deh_warning("Sprite %s: invalid frame %s", sprnames[num], word2);
 					break;
 				}
 
 				// read sprite frame and store it in the spriteinfo_t struct
 				readspriteframe(f, info, frame);
-				if (sprite2)
-				{
-					INT32 i;
-					if (!foundskins)
-					{
-						deh_warning("Sprite2 %s: no skins specified", spr2names[num]);
-						break;
-					}
-					for (i = 0; i < foundskins; i++)
-					{
-						skin_t *skin = skins[skinnumbers[i]];
-						spriteinfo_t *skinsprinfo = P_GetSkinSpriteInfo(skin, num, SKINSPRITES_BASE);
-						if (skinsprinfo != NULL)
-							M_Memcpy(skinsprinfo, info, sizeof(spriteinfo_t));
-					}
-				}
-				else
-					M_Memcpy(&spriteinfo[num], info, sizeof(spriteinfo_t));
+				M_Memcpy(&spriteinfo[num], info, sizeof(spriteinfo_t));
 			}
 			else
 			{
@@ -4205,20 +4139,6 @@ spritenum_t get_sprite(const char *word)
 		return i;
 	deh_warning("Couldn't find sprite named 'SPR_%s'",word);
 	return SPR_NULL;
-}
-
-playersprite_t get_sprite2(const char *word)
-{ // Returns the value of SPR2_ enumerations
-	playersprite_t i;
-	if (*word >= '0' && *word <= '9')
-		return atoi(word);
-	if (fastncmp("SPR2_",word,5))
-		word += 5; // take off the SPR2_
-	for (i = 0; i < NUMPLAYERSPRITES; i++)
-		if (!spr2names[i][4] && memcmp(word,spr2names[i],4)==0)
-			return i;
-	deh_warning("Couldn't find sprite named 'SPR2_%s'",word);
-	return SPR2_STND;
 }
 
 sfxenum_t get_sfx(const char *word)

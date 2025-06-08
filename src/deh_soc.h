@@ -57,7 +57,6 @@ spritenum_t DEH_AddSpriteName(const char *name);
 mobjtype_t get_mobjtype(const char *word);
 statenum_t get_state(const char *word);
 spritenum_t get_sprite(const char *word);
-playersprite_t get_sprite2(const char *word);
 sfxenum_t get_sfx(const char *word);
 hudnum_t get_huditem(const char *word);
 menutype_t get_menutype(const char *word);
@@ -79,7 +78,7 @@ void readtextprompt(MYFILE *f, INT32 num);
 void readcutscene(MYFILE *f, INT32 num);
 void readlevelheader(MYFILE *f, INT32 num);
 void readgametype(MYFILE *f, char *gtname);
-void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2);
+void readspriteinfo(MYFILE *f, INT32 num);
 #ifdef HWRENDER
 void readlight(MYFILE *f, INT32 num);
 #endif

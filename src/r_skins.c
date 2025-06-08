@@ -20,7 +20,7 @@
 #include "z_zone.h"
 #include "m_menu.h"
 #include "m_misc.h"
-#include "info.h" // spr2names
+#include "info.h"
 #include "deh_soc.h" // DEH_AddSpriteName
 #include "deh_tables.h" // used_skinspr
 #include "i_system.h"
@@ -43,7 +43,7 @@ skin_t **skins = NULL;
 static animation_list_t *base_skin_animations[NUMSKINSPRITESETS];
 static UINT16 base_skin_animation_ids[NUMSKINSPRITESETS];
 
-static const char *player_anim_names[NUMPLAYERSPRITES] =
+static const char *player_anim_names[] =
 {
 	"stand",
 	"wait",
@@ -136,48 +136,6 @@ UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset)
 		spriteset = SKINSPRITES_BASE;
 
 	return skin->sprites[spriteset].animation_id;
-}
-
-const char *P_GetPlayerAnimName(UINT16 playeranim)
-{
-	return player_anim_names[playeranim];
-}
-
-UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name)
-{
-	char *subanim;
-
-	for (UINT16 i = 0; i < free_spr2; i++)
-	{
-		if (stricmp(player_anim_names[i], subanim_name) == 0)
-			return i;
-	}
-
-	if (free_spr2 == NUMPLAYERSPRITES)
-		return NUMPLAYERSPRITES;
-
-	subanim = Z_StrDup(subanim_name);
-	player_anim_names[free_spr2] = subanim;
-	while (*subanim)
-	{
-		*subanim = tolower(*subanim);
-		subanim++;
-	}
-
-	for (UINT8 i = 0; i < num_player_spritesets; i++)
-	{
-		if (base_skin_animations[i] != NULL)
-		{
-			P_FindOrCreateSubAnimation(base_skin_animations[i], subanim_name);
-		}
-	}
-
-	strlcpy(spr2names[free_spr2], subanim_name, 5);
-	strupr(spr2names[free_spr2]);
-
-	free_spr2++;
-
-	return free_spr2 - 1;
 }
 
 static UINT16 P_GetOrCreatePlayerSpriteset(const char *spriteset_name)
@@ -336,55 +294,50 @@ boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super)
 	return use_super;
 }
 
-UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 subanim_id, UINT8 spriteset, player_t *player)
+// NOTE: the returned string may be freed at any time
+const char *P_GetPlayerSubanimReplacement(skin_t *skin, const char *subanim_name, UINT8 spriteset, player_t *player)
 {
 	UINT16 animation_id;
 	animation_t *subanimation;
 
-	switch (subanim_id)
-	{
-	// Normal special cases.
-	case SPR2_JUMP:
-		return ((player ? player->charflags : skin->flags) & SF_NOJUMPSPIN) ? SPR2_SPNG : SPR2_ROLL;
-	case SPR2_TIRE:
-		return ((player ? player->charability : skin->ability) == CA_SWIM) ? SPR2_SWIM : SPR2_FLY;
-	}
+	if (!strcmp(subanim_name, "jump"))
+		return ((player ? player->charflags : skin->flags) & SF_NOJUMPSPIN) ? "spring" : "roll";
+	if (!strcmp(subanim_name, "tired"))
+		return ((player ? player->charability : skin->ability) == CA_SWIM) ? "swim" : "fly";
 
 	animation_id = P_GetSkinAnimation(skin, spriteset);
-	subanimation = P_GetSubAnimationByID(P_GetAnimationByID(animation_id), subanim_id);
+	subanimation = P_GetSubAnimationByName(P_GetAnimationByID(animation_id), subanim_name);
 
 	if (subanimation != NULL && subanimation->fallback != NULL)
-	{
-		return P_GetNamedSubanimationID(animation_id, subanimation->fallback);
-	}
+		return subanimation->fallback;
 
-	return UINT16_MAX;
+	return NULL;
 }
 
 // Walks a subanimation replacement chain.
 // If P_GetPlayerSubanimReplacement cannot find a suitable fallback, this tries again with a fallback spriteset.
-UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset)
+UINT16 P_GetSkinSubanimation(skin_t *skin, const char *subanim_name, UINT8 spriteset, player_t *player, UINT8 *found_spriteset)
 {
-	UINT16 original_subanim = subanim;
+	const char *original_subanim_name = subanim_name;
 	UINT8 i = 0;
 
 	if (!skin)
 	{
 		if (found_spriteset)
 			*found_spriteset = SKINSPRITES_BASE;
-		return SPR2_STND;
+		return 0;
 	}
 
-	while (!P_IsSkinAnimationValid(skin, subanim, spriteset)
-		&& subanim != SPR2_STND
+	while (!P_IsSkinAnimationValid(skin, subanim_name, spriteset)
+		&& strcmp(subanim_name, "stand")
 		&& ++i < 64) // recursion limiter
 	{
-		subanim = P_GetPlayerSubanimReplacement(skin, subanim, spriteset, player);
-		if (subanim == UINT16_MAX)
+		subanim_name = P_GetPlayerSubanimReplacement(skin, subanim_name, spriteset, player);
+		if (!subanim_name)
 		{
 			if (spriteset == SKINSPRITES_BASE)
 			{
-				subanim = SPR2_STND;
+				subanim_name = "stand";
 				break;
 			}
 			else
@@ -392,20 +345,20 @@ UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, play
 				spriteset = skin->sprites[spriteset].fallback_spriteset;
 			}
 
-			subanim = original_subanim;
+			subanim_name = original_subanim_name;
 		}
 	}
 
 	if (i >= 64) // probably an infinite loop...
 	{
-		subanim = SPR2_STND;
+		subanim_name = "stand";
 		spriteset = SKINSPRITES_BASE;
 	}
 
 	if (found_spriteset)
 		*found_spriteset = spriteset;
 
-	return subanim;
+	return P_GetNamedSubanimationID(P_GetSkinAnimation(skin, spriteset), subanim_name);
 }
 
 static skinspritedef_t *P_GetSkinSpriteSet(skin_t *skin, UINT8 spriteset)
@@ -431,18 +384,21 @@ static skinspritedef_t *P_GetSkinSpritesForAnimation(skin_t *skin, UINT16 anim)
 }
 
 // Gets the sprite number of a skin subanimation
-spritenum_t P_GetSkinSpriteID(skin_t *skin, UINT16 subanim, UINT8 spriteset)
+spritenum_t P_GetSkinSpriteID(skin_t *skin, const char *subanim_name, UINT8 spriteset)
 {
-	if (!skin || subanim >= NUMPLAYERSPRITES)
+	if (!skin)
 		return SPR_NULL;
 
-	return P_GetSkinSpriteSet(skin, spriteset)->spritenum[subanim];
+	skinspritedef_t *def = P_GetSkinSpriteSet(skin, spriteset);
+	animation_list_t *anim = P_GetAnimationByID(def->animation_id);
+	animation_t *subanim = P_GetSubAnimationByName(anim, subanim_name);
+	return subanim ? def->spritenum[subanim->id] : SPR_NULL;
 }
 
 // Gets the spritedef of a skin subanimation
-spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 subanim, UINT8 spriteset)
+spritedef_t *P_GetSkinSpritedef(skin_t *skin, const char *subanim_name, UINT8 spriteset)
 {
-	spritenum_t sprite = P_GetSkinSpriteID(skin, subanim, spriteset);
+	spritenum_t sprite = P_GetSkinSpriteID(skin, subanim_name, spriteset);
 	if (sprite == SPR_NULL)
 		return NULL;
 
@@ -450,23 +406,26 @@ spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 subanim, UINT8 spriteset)
 }
 
 // Gets the spriteinfo of a skin subanimation
-spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 subanim, UINT8 spriteset)
+spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, const char *subanim_name, UINT8 spriteset)
 {
-	spritenum_t sprite = P_GetSkinSpriteID(skin, subanim, spriteset);
+	spritenum_t sprite = P_GetSkinSpriteID(skin, subanim_name, spriteset);
 	if (sprite == SPR_NULL)
 		return NULL;
 
 	return &spriteinfo[sprite];
 }
 
-// Gets the spritedef of a skin from the given animation and subanimation IDs
-spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim)
+// Gets the spritedef of a skin from the given animation ID and subanimation name
+spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, const char *subanim_name)
 {
-	if (!skin || subanim >= NUMPLAYERSPRITES)
+	if (!skin)
 		return NULL;
 
 	skinspritedef_t *def = P_GetSkinSpritesForAnimation(skin, anim);
-	spritenum_t sprite = def->spritenum[subanim];
+	animation_t *subanim = P_GetSubAnimationByName(P_GetAnimationByID(def->animation_id), subanim_name);
+	if (!subanim)
+		return NULL;
+	spritenum_t sprite = def->spritenum[subanim->id];
 	if (sprite == SPR_NULL)
 		return NULL;
 
@@ -474,13 +433,16 @@ spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim)
 }
 
 // Gets the spriteinfo of a skin from the given animation and subanimation IDs
-spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, UINT16 subanim)
+spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, const char *subanim_name)
 {
-	if (!skin || subanim >= NUMPLAYERSPRITES)
+	if (!skin)
 		return NULL;
 
 	skinspritedef_t *def = P_GetSkinSpritesForAnimation(skin, anim);
-	spritenum_t sprite = def->spritenum[subanim];
+	animation_t *subanim = P_GetSubAnimationByName(P_GetAnimationByID(def->animation_id), subanim_name);
+	if (!subanim)
+		return NULL;
+	spritenum_t sprite = def->spritenum[subanim->id];
 	if (sprite == SPR_NULL)
 		return NULL;
 
@@ -488,9 +450,9 @@ spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, UINT16 subanim)
 }
 
 // Checks if a skin animation is valid
-boolean P_IsSkinAnimationValid(skin_t *skin, UINT16 subanim, UINT8 spriteset)
+boolean P_IsSkinAnimationValid(skin_t *skin, const char *subanim_name, UINT8 spriteset)
 {
-	spritedef_t *sprdef = P_GetSkinSpritedef(skin, subanim, spriteset);
+	spritedef_t *sprdef = P_GetSkinSpritedef(skin, subanim_name, spriteset);
 	return sprdef && sprdef->numframes;
 }
 
@@ -571,12 +533,11 @@ void R_InitSkinAnimations(void)
 	base_anim = P_CreateAnimation(PLAYER_ANIMATION_NAME);
 
 	// Create all subanimations
-	for (UINT16 i = 0; i < free_spr2; i++)
+	for (UINT16 i = 0; i < sizeof(player_anim_names) / sizeof(*player_anim_names); i++)
 	{
-		const char *subanim_name = P_GetPlayerAnimName(i);
-		if (subanim_name)
+		if (player_anim_names[i])
 		{
-			P_FindOrCreateSubAnimation(base_anim, subanim_name);
+			P_FindOrCreateSubAnimation(base_anim, player_anim_names[i]);
 		}
 	}
 
@@ -597,130 +558,130 @@ void R_InitSkinAnimations(void)
 	// Get the ID of the newly added animation
 	base_anim_id = P_GetNamedAnimationID(PLAYER_ANIMATION_NAME);
 
-#define SET_SPEED(spr2, speed) P_SetSubanimationSpeed(base_anim_id, spr2, speed)
+#define SET_SPEED(subanim_name, speed) P_SetSubanimationSpeed(base_anim_id, P_GetNamedSubanimationID(base_anim_id, subanim_name), speed)
 
 	// Set default subanimation speeds
-	SET_SPEED(SPR2_STND, FRACUNIT / 7);
-	SET_SPEED(SPR2_WAIT, FRACUNIT / 16);
-	SET_SPEED(SPR2_WALK, FRACUNIT / 4);
-	SET_SPEED(SPR2_RUN,  FRACUNIT / 2);
-	SET_SPEED(SPR2_DASH, FRACUNIT / 2);
-	SET_SPEED(SPR2_SKID, 0);
-	SET_SPEED(SPR2_PAIN, FRACUNIT / 4);
-	SET_SPEED(SPR2_STUN, FRACUNIT / 4);
-	SET_SPEED(SPR2_DEAD, FRACUNIT / 4);
-	SET_SPEED(SPR2_DRWN, FRACUNIT / 4);
-	SET_SPEED(SPR2_GASP, FRACUNIT / 4);
-	SET_SPEED(SPR2_SPNG, FRACUNIT / 2);
-	SET_SPEED(SPR2_FALL, FRACUNIT / 2);
-	SET_SPEED(SPR2_EDGE, FRACUNIT / 12);
-	SET_SPEED(SPR2_RIDE, FRACUNIT / 4);
+	SET_SPEED("stand", FRACUNIT / 7);
+	SET_SPEED("wait", FRACUNIT / 16);
+	SET_SPEED("walk", FRACUNIT / 4);
+	SET_SPEED("run",  FRACUNIT / 2);
+	SET_SPEED("dash", FRACUNIT / 2);
+	SET_SPEED("skid", 0);
+	SET_SPEED("pain", FRACUNIT / 4);
+	SET_SPEED("stun", FRACUNIT / 4);
+	SET_SPEED("dead", FRACUNIT / 4);
+	SET_SPEED("drown", FRACUNIT / 4);
+	SET_SPEED("gasp", FRACUNIT / 4);
+	SET_SPEED("spring", FRACUNIT / 2);
+	SET_SPEED("fall", FRACUNIT / 2);
+	SET_SPEED("edge", FRACUNIT / 12);
+	SET_SPEED("ride", FRACUNIT / 4);
 
-	SET_SPEED(SPR2_SPIN, FRACUNIT / 2);
+	SET_SPEED("spindash", FRACUNIT / 2);
 
-	SET_SPEED(SPR2_FLY,  FRACUNIT / 2);
-	SET_SPEED(SPR2_SWIM, FRACUNIT / 4);
-	SET_SPEED(SPR2_TIRE, FRACUNIT / 12);
+	SET_SPEED("fly",  FRACUNIT / 2);
+	SET_SPEED("swim", FRACUNIT / 4);
+	SET_SPEED("tired", FRACUNIT / 12);
 
-	SET_SPEED(SPR2_GLID, FRACUNIT / 2);
-	SET_SPEED(SPR2_LAND, FRACUNIT / 7);
-	SET_SPEED(SPR2_CLNG, FRACUNIT / 4);
-	SET_SPEED(SPR2_CLMB, FRACUNIT / 5);
+	SET_SPEED("glide", FRACUNIT / 2);
+	// SET_SPEED("land", FRACUNIT / 7);
+	SET_SPEED("cling", FRACUNIT / 4);
+	SET_SPEED("climb", FRACUNIT / 5);
 
-	SET_SPEED(SPR2_FLT,  FRACUNIT / 7);
-	SET_SPEED(SPR2_FRUN, FRACUNIT / 7);
+	SET_SPEED("float",  FRACUNIT / 7);
+	SET_SPEED("float_run", FRACUNIT / 7);
 
-	SET_SPEED(SPR2_BNCE, FRACUNIT / 4);
-	SET_SPEED(SPR2_LAND, FRACUNIT / 2);
+	SET_SPEED("bounce", FRACUNIT / 4);
+	SET_SPEED("land", FRACUNIT / 2);
 
-	SET_SPEED(SPR2_FIRE, FRACUNIT / 2);
+	SET_SPEED("fire", FRACUNIT / 2);
 
-	SET_SPEED(SPR2_TWIN, FRACUNIT / 2);
+	SET_SPEED("twinspin", FRACUNIT / 2);
 
-	SET_SPEED(SPR2_MLEE, FRACUNIT / 2);
-	SET_SPEED(SPR2_MLEL, FRACUNIT / 35);
+	SET_SPEED("melee", FRACUNIT / 2);
+	SET_SPEED("melee_land", FRACUNIT / 35);
 
-	SET_SPEED(SPR2_TRNS, FRACUNIT / 4);
+	SET_SPEED("transformation", FRACUNIT / 4);
 
-	SET_SPEED(SPR2_NSTD, FRACUNIT / 7);
-	SET_SPEED(SPR2_NFLT, FRACUNIT / 7);
-	SET_SPEED(SPR2_NFLY, FRACUNIT / 2);
-	SET_SPEED(SPR2_NDRL, FRACUNIT / 2);
-	SET_SPEED(SPR2_NSTN, FRACUNIT / 2);
+	SET_SPEED("nights_stand", FRACUNIT / 7);
+	SET_SPEED("nights_float", FRACUNIT / 7);
+	SET_SPEED("nights_fly", FRACUNIT / 2);
+	SET_SPEED("nights_drill", FRACUNIT / 2);
+	SET_SPEED("nights_stun", FRACUNIT / 2);
 
-	SET_SPEED(SPR2_TAL0, FRACUNIT / 5);
-	SET_SPEED(SPR2_TAL1, FRACUNIT / 2);
-	SET_SPEED(SPR2_TAL2, FRACUNIT / 2);
-	SET_SPEED(SPR2_TAL3, FRACUNIT / 2);
-	SET_SPEED(SPR2_TAL4, FRACUNIT / 2);
-	SET_SPEED(SPR2_TAL5, FRACUNIT / 2);
-	SET_SPEED(SPR2_TAL6, FRACUNIT / 2);
-	SET_SPEED(SPR2_TAL7, FRACUNIT / 4);
-	SET_SPEED(SPR2_TAL8, FRACUNIT / 4);
-	SET_SPEED(SPR2_TAL9, FRACUNIT / 2);
-	SET_SPEED(SPR2_TALA, FRACUNIT / 2);
-	SET_SPEED(SPR2_TALB, FRACUNIT / 2);
-	SET_SPEED(SPR2_TALC, FRACUNIT / 2);
+	SET_SPEED("tail_0", FRACUNIT / 5);
+	SET_SPEED("tail_1", FRACUNIT / 2);
+	SET_SPEED("tail_2", FRACUNIT / 2);
+	SET_SPEED("tail_3", FRACUNIT / 2);
+	SET_SPEED("tail_4", FRACUNIT / 2);
+	SET_SPEED("tail_5", FRACUNIT / 2);
+	SET_SPEED("tail_6", FRACUNIT / 2);
+	SET_SPEED("tail_7", FRACUNIT / 4);
+	SET_SPEED("tail_8", FRACUNIT / 4);
+	SET_SPEED("tail_9", FRACUNIT / 2);
+	SET_SPEED("tail_a", FRACUNIT / 2);
+	SET_SPEED("tail_b", FRACUNIT / 2);
+	SET_SPEED("tail_c", FRACUNIT / 2);
 
 #undef SET_SPEED
 
-#define SET_FALLBACK(spr2, def) P_SetSubanimationFallback(base_anim_id, spr2, player_anim_names[def])
+#define SET_FALLBACK(subanim_name, def_name) P_SetSubanimationFallback(base_anim_id, P_GetNamedSubanimationID(base_anim_id, subanim_name), def_name)
 
 	// Set default subanimation fallbacks
-	SET_FALLBACK(SPR2_SKID, SPR2_WALK);
-	SET_FALLBACK(SPR2_RUN,  SPR2_WALK);
-	SET_FALLBACK(SPR2_DASH, SPR2_FRUN);
-	SET_FALLBACK(SPR2_STUN, SPR2_PAIN);
-	SET_FALLBACK(SPR2_DEAD, SPR2_PAIN);
-	SET_FALLBACK(SPR2_DRWN, SPR2_DEAD);
-	SET_FALLBACK(SPR2_GASP, SPR2_SPNG);
-	SET_FALLBACK(SPR2_SPNG, SPR2_FALL);
-	SET_FALLBACK(SPR2_FALL, SPR2_WALK);
-	SET_FALLBACK(SPR2_RIDE, SPR2_FALL);
+	SET_FALLBACK("skid", "walk");
+	SET_FALLBACK("run",  "walk");
+	SET_FALLBACK("dash", "float_run");
+	SET_FALLBACK("stun", "pain");
+	SET_FALLBACK("dead", "pain");
+	SET_FALLBACK("drown", "dead");
+	SET_FALLBACK("gasp", "spring");
+	SET_FALLBACK("spring", "fall");
+	SET_FALLBACK("fall", "walk");
+	SET_FALLBACK("ride", "fall");
 
-	SET_FALLBACK(SPR2_SPIN, SPR2_ROLL);
+	SET_FALLBACK("spindash", "roll");
 
-	SET_FALLBACK(SPR2_FLY,  SPR2_SPNG);
-	SET_FALLBACK(SPR2_SWIM, SPR2_FLY);
+	SET_FALLBACK("fly",  "spring");
+	SET_FALLBACK("swim", "fly");
 
-	SET_FALLBACK(SPR2_GLID, SPR2_FLY);
-	SET_FALLBACK(SPR2_LAND, SPR2_ROLL);
-	SET_FALLBACK(SPR2_CLNG, SPR2_CLMB);
-	SET_FALLBACK(SPR2_CLMB, SPR2_ROLL);
+	SET_FALLBACK("glide", "fly");
+	SET_FALLBACK("land", "roll");
+	SET_FALLBACK("cling", "climb");
+	SET_FALLBACK("climb", "roll");
 
-	SET_FALLBACK(SPR2_FLT,  SPR2_WALK);
-	SET_FALLBACK(SPR2_FRUN, SPR2_RUN);
+	SET_FALLBACK("float",  "walk");
+	SET_FALLBACK("float_run", "run");
 
-	SET_FALLBACK(SPR2_BNCE, SPR2_FALL);
+	SET_FALLBACK("bounce", "fall");
 
-	SET_FALLBACK(SPR2_TWIN, SPR2_ROLL);
+	SET_FALLBACK("twinspin", "roll");
 
-	SET_FALLBACK(SPR2_MLEE, SPR2_TWIN);
+	SET_FALLBACK("melee", "twinspin");
 
-	SET_FALLBACK(SPR2_NSTD, SPR2_STND);
-	SET_FALLBACK(SPR2_NFLT, SPR2_FALL);
-	SET_FALLBACK(SPR2_NDRL, SPR2_NFLY);
-	SET_FALLBACK(SPR2_NSTN, SPR2_STUN);
-	SET_FALLBACK(SPR2_NPUL, SPR2_NSTN);
-	SET_FALLBACK(SPR2_NATK, SPR2_ROLL);
+	SET_FALLBACK("nights_stand", "stand");
+	SET_FALLBACK("nights_float", "fall");
+	SET_FALLBACK("nights_drill", "nights_fly");
+	SET_FALLBACK("nights_stun", "stun");
+	SET_FALLBACK("nights_pull", "nights_stun");
+	SET_FALLBACK("nights_attack", "roll");
 
-	SET_FALLBACK(SPR2_TAL1, SPR2_TAL0);
-	SET_FALLBACK(SPR2_TAL2, SPR2_TAL1);
-	SET_FALLBACK(SPR2_TAL3, SPR2_TAL2);
-	SET_FALLBACK(SPR2_TAL4, SPR2_TAL1);
-	SET_FALLBACK(SPR2_TAL5, SPR2_TAL4);
-	SET_FALLBACK(SPR2_TAL6, SPR2_TAL0);
-	SET_FALLBACK(SPR2_TAL7, SPR2_TAL3);
-	SET_FALLBACK(SPR2_TAL8, SPR2_TAL7);
-	SET_FALLBACK(SPR2_TAL9, SPR2_TAL0);
-	SET_FALLBACK(SPR2_TALA, SPR2_TAL9);
-	SET_FALLBACK(SPR2_TALB, SPR2_TAL0);
-	SET_FALLBACK(SPR2_TALC, SPR2_TAL6);
+	SET_FALLBACK("tail_1", "tail_0");
+	SET_FALLBACK("tail_2", "tail_1");
+	SET_FALLBACK("tail_3", "tail_2");
+	SET_FALLBACK("tail_4", "tail_1");
+	SET_FALLBACK("tail_5", "tail_4");
+	SET_FALLBACK("tail_6", "tail_0");
+	SET_FALLBACK("tail_7", "tail_3");
+	SET_FALLBACK("tail_8", "tail_7");
+	SET_FALLBACK("tail_9", "tail_0");
+	SET_FALLBACK("tail_a", "tail_9");
+	SET_FALLBACK("tail_b", "tail_0");
+	SET_FALLBACK("tail_c", "tail_6");
 
-	SET_FALLBACK(SPR2_CNT1, SPR2_WAIT);
-	SET_FALLBACK(SPR2_CNT2, SPR2_FALL);
-	SET_FALLBACK(SPR2_CNT3, SPR2_SPNG);
-	SET_FALLBACK(SPR2_CNT4, SPR2_CNT1);
+	SET_FALLBACK("continue", "wait");
+	SET_FALLBACK("continue_lift", "fall");
+	SET_FALLBACK("continue_spin", "spring");
+	SET_FALLBACK("continue_partner", "continue");
 
 #undef SET_FALLBACK
 
@@ -952,7 +913,7 @@ static void SetSkin(player_t *player, INT32 skinnum)
 	if (player->mo)
 	{
 		fixed_t radius = FixedMul(skin->radius, player->mo->scale);
-		if ((player->powers[pw_carry] == CR_NIGHTSMODE) && (!P_IsSkinAnimationValid(skin, SPR2_NFLY, SKINSPRITES_BASE))) // If you don't have a sprite for flying horizontally, use the default NiGHTS skin.
+		if ((player->powers[pw_carry] == CR_NIGHTSMODE) && (!P_IsSkinAnimationValid(skin, "nights_fly", SKINSPRITES_BASE))) // If you don't have a sprite for flying horizontally, use the default NiGHTS skin.
 		{
 			skin = skins[DEFAULTNIGHTSSKIN];
 			player->followitem = skin->followitem;
@@ -1103,18 +1064,18 @@ static void InitSubanimationForSpritedef(animation_t *subanim, spritedef_t *spri
 	subanim->num_frames = spritedef->numframes;
 }
 
-static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *def, const char *spritename, const char *lumpname, UINT16 subanimation_id, UINT16 wadnum, UINT16 startlump, UINT16 endlump)
+static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *def, const char *spritename, const char *lumpname, const char *subanimation_name, UINT16 wadnum, UINT16 startlump, UINT16 endlump)
 {
 	spritedef_t spritedef = { 0 };
 
-	if (def->spritenum[subanimation_id] != SPR_NULL)
-		memcpy(&spritedef, &sprites[def->spritenum[subanimation_id]], sizeof(spritedef_t));
+	animation_t *subanim = P_FindOrCreateSubAnimation(animation, subanimation_name);
 
-	animation_t *subanim = P_FindOrCreateSubAnimation(animation, player_anim_names[subanimation_id]);
+	if (def->spritenum[subanim->id] != SPR_NULL)
+		memcpy(&spritedef, &sprites[def->spritenum[subanim->id]], sizeof(spritedef_t));
 
 	if (R_AddSingleSpriteDef(spritename, &spritedef, wadnum, startlump, endlump, true) && spritedef.numframes > 0)
 	{
-		if (def->spritenum[subanimation_id] == SPR_NULL)
+		if (def->spritenum[subanim->id] == SPR_NULL)
 		{
 			spritenum_t sprnum = DEH_FindSpriteByName(spritename);
 			if (sprnum == NUMSPRITES)
@@ -1129,10 +1090,10 @@ static boolean R_AddSkinSpriteDef(animation_list_t *animation, skinspritedef_t *
 				set_bit_array(used_skinspr, sprnum - SPR_FIRSTFREESLOT);
 			}
 
-			def->spritenum[subanimation_id] = sprnum;
+			def->spritenum[subanim->id] = sprnum;
 		}
 
-		spritedef_t *skin_sprdef = &sprites[def->spritenum[subanimation_id]];
+		spritedef_t *skin_sprdef = &sprites[def->spritenum[subanim->id]];
 
 		memcpy(skin_sprdef, &spritedef, sizeof(spritedef_t));
 
@@ -1146,7 +1107,7 @@ static animation_list_t *GetSkinAnimation(const char *anim_name, UINT8 spriteset
 {
 	animation_list_t *animation = P_FindAnimation(anim_name);
 
-	if (!animation || animation->count < SPR2_FIRSTFREESLOT - 1)
+	if (!animation || animation->count < sizeof(player_anim_names) / sizeof(*player_anim_names))
 	{
 		animation_list_t *base_anim = base_skin_animations[spriteset];
 		if (base_anim == NULL)
@@ -1168,7 +1129,7 @@ static animation_list_t *GetSkinAnimation(const char *anim_name, UINT8 spriteset
 	return animation;
 }
 
-static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
+static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin)
 {
 	char *anim_name = NULL;
 	char *spr_name = NULL;
@@ -1193,7 +1154,7 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 		char *underscore;
 		char *fullname, *name_p;
 		UINT16 startlump, endlump;
-		UINT16 anim_id, subanim;
+		UINT16 anim_id;
 		UINT8 spriteset;
 		size_t len, name_size;
 		animation_list_t *animation;
@@ -1247,18 +1208,6 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 		}
 		memcpy(subanim_name, name_p, len);
 		subanim_name[len] = '\0';
-
-		// Get player subanimation ID
-		subanim = P_GetOrCreatePlayerSubanim(subanim_name);
-		if (subanim < start_spr2)
-		{
-			continue;
-		}
-		else if (subanim == NUMPLAYERSPRITES)
-		{
-			CONS_Alert(CONS_ERROR, "Could not create player animation \"%s\" while adding skin \"%s\" (exceeded limit)\n", subanim_name, skin->name);
-			break;
-		}
 
 		// Get path to where the sprites are located
 		name_p += name_size;
@@ -1319,13 +1268,13 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 		skin->sprites[spriteset].animation_id = anim_id;
 
 		// Create the sprite name
-		name_size = strlen(anim_name) + strlen(player_anim_names[subanim]) + 2;
+		name_size = strlen(anim_name) + strlen(subanim_name) + 2;
 		if (spr_name == NULL || name_size > spr_name_size)
 		{
 			spr_name_size = name_size;
 			spr_name = Z_Realloc(spr_name, spr_name_size, PU_STATIC, NULL);
 		}
-		snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[subanim]);
+		snprintf(spr_name, spr_name_size, "%s_%s", anim_name, subanim_name);
 		strupr(spr_name);
 
 		// Finally, add the sprites
@@ -1333,7 +1282,7 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 
 		strlcpy(sprname, wadfiles[wadnum]->lumpinfo[startlump].name, sizeof sprname);
 
-		if (!R_AddSkinSpriteDef(animation, &skin->sprites[spriteset], spr_name, sprname, subanim, wadnum, startlump, endlump))
+		if (!R_AddSkinSpriteDef(animation, &skin->sprites[spriteset], spr_name, sprname, subanim_name, wadnum, startlump, endlump))
 			I_Error("No more free sprite slots when adding skin animation \"%s\"", anim_name);
 	}
 
@@ -1343,100 +1292,6 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 	Z_Free(spriteset_name);
 	Z_Free(subanim_name);
 	Z_Free(fullname_buf);
-}
-
-static void R_LoadSkinAnimationsWAD(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
-{
-	size_t anim_name_size = strlen(skin->name) + 12 + 1; // "skin_" + skin name + "_super"
-
-	char *anim_name = Z_Malloc(anim_name_size, PU_STATIC, NULL);
-
-	size_t spr_name_size = 0;
-	char *spr_name = NULL;
-
-	animation_list_t *animation;
-
-	UINT16 newlastlump;
-	UINT16 sprite2, subanim;
-
-	*lump += 1; // start after S_SKIN
-	*lastlump = W_CheckNumForNamePwad("S_END",wadnum,*lump); // stop at S_END
-
-	// old wadding practices die hard -- stop at S_SKIN (or P_SKIN) or S_START if they come before S_END.
-	newlastlump = W_CheckForSkinMarkerInPwad(wadnum,*lump);
-	if (newlastlump < *lastlump) *lastlump = newlastlump;
-	newlastlump = W_CheckForPatchSkinMarkerInPwad(wadnum,*lump);
-	if (newlastlump < *lastlump) *lastlump = newlastlump;
-	newlastlump = W_CheckNumForNamePwad("S_START",wadnum,*lump);
-	if (newlastlump < *lastlump) *lastlump = newlastlump;
-
-	// ...and let's handle super, too
-	newlastlump = W_CheckNumForNamePwad("S_SUPER",wadnum,*lump);
-	if (newlastlump < *lastlump)
-	{
-		newlastlump++;
-
-		snprintf(anim_name, anim_name_size, "skin_%s_super", skin->name);
-		animation = GetSkinAnimation(anim_name, SKINSPRITES_SUPER);
-		skin->sprites[SKINSPRITES_SUPER].animation_id = P_GetNamedAnimationID(anim_name);
-
-		// load all sprite sets we are aware of... for super!
-		for (sprite2 = start_spr2; sprite2 < free_spr2; sprite2++)
-		{
-			spr_name_size = strlen(anim_name) + strlen(player_anim_names[sprite2]) + 2;
-			spr_name = Z_Realloc(spr_name, spr_name_size, PU_STATIC, NULL);
-			snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[sprite2]);
-			strupr(spr_name);
-
-			subanim = P_GetOrCreatePlayerSubanim(player_anim_names[sprite2]);
-			if (subanim != NUMPLAYERSPRITES) // This shouldn't really happen
-			{
-				if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_SUPER], spr_name, spr2names[sprite2], subanim, wadnum, newlastlump, *lastlump))
-					I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
-			}
-		}
-
-		newlastlump--;
-		*lastlump = newlastlump; // okay, make the normal sprite set loading end there
-	}
-	else
-	{
-		skin->sprites[SKINSPRITES_SUPER].animation_id = 0;
-	}
-
-	snprintf(anim_name, anim_name_size, "skin_%s", skin->name);
-	animation = GetSkinAnimation(anim_name, SKINSPRITES_BASE);
-	skin->sprites[SKINSPRITES_BASE].animation_id = P_GetNamedAnimationID(anim_name);
-
-	// load all sprite sets we are aware of... for normal stuff.
-	for (sprite2 = start_spr2; sprite2 < free_spr2; sprite2++)
-	{
-		spr_name_size = strlen(anim_name) + strlen(player_anim_names[sprite2]) + 2;
-		spr_name = Z_Realloc(spr_name, spr_name_size, PU_STATIC, NULL);
-		snprintf(spr_name, spr_name_size, "%s_%s", anim_name, player_anim_names[sprite2]);
-		strupr(spr_name);
-
-		subanim = P_GetOrCreatePlayerSubanim(player_anim_names[sprite2]);
-		if (subanim != NUMPLAYERSPRITES) // This shouldn't really happen
-		{
-			if (!R_AddSkinSpriteDef(animation, &skin->sprites[SKINSPRITES_BASE], spr_name, spr2names[sprite2], sprite2, wadnum, *lump, *lastlump))
-				I_Error("No more free sprite slots when adding skin animation '%s'", anim_name);
-		}
-	}
-
-	if (!P_IsSkinAnimationValid(skin, SPR2_STND, SKINSPRITES_BASE))
-		CONS_Alert(CONS_ERROR, M_GetText("No frames found for skin %s subanimation '%s'\n"), skin->name, player_anim_names[SPR2_STND]);
-
-	Z_Free(anim_name);
-	Z_Free(spr_name);
-}
-
-static void R_LoadSkinSprites(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, skin_t *skin, UINT16 start_spr2)
-{
-	if (W_FileHasFolders(wadfiles[wadnum]))
-		R_LoadSkinAnimations(wadnum, lump, lastlump, skin, start_spr2);
-	else
-		R_LoadSkinAnimationsWAD(wadnum, lump, lastlump, skin, start_spr2);
 }
 
 // returns whether found appropriate property
@@ -1724,7 +1579,8 @@ next_token:
 		free(buf2);
 
 		// Add sprites
-		R_LoadSkinSprites(wadnum, &lump, &lastlump, skin, 0);
+		if (W_FileHasFolders(wadfiles[wadnum]))
+			R_LoadSkinAnimations(wadnum, &lump, &lastlump, skin);
 
 		R_FlushTranslationColormapCache();
 
@@ -1860,7 +1716,8 @@ next_token:
 		}
 
 		// Patch sprites
-		R_LoadSkinSprites(wadnum, &lump, &lastlump, skin, 0);
+		if (W_FileHasFolders(wadfiles[wadnum]))
+			R_LoadSkinAnimations(wadnum, &lump, &lastlump, skin);
 
 		R_FlushTranslationColormapCache();
 
@@ -1889,132 +1746,4 @@ static UINT16 W_CheckForEitherSkinMarkerInPwad(UINT16 wadid, UINT16 startlump)
 				return i;
 	}
 	return INT16_MAX; // not found
-}
-
-static void R_RefreshSprite2ForWad(UINT16 wadnum, UINT8 start_spr2)
-{
-	UINT16 lump, lastlump = 0;
-	char *buf;
-	char *buf2;
-	char *stoken;
-	char *value;
-	size_t size;
-	skin_t *skin;
-	boolean noskincomplain;
-
-	//
-	// search for all skin patch markers in pwad
-	//
-
-	while ((lump = W_CheckForEitherSkinMarkerInPwad(wadnum, lastlump)) != INT16_MAX)
-	{
-		INT32 skinnum = 0;
-
-		// advance by default
-		lastlump = lump + 1;
-
-		buf = W_CacheLumpNumPwad(wadnum, lump, PU_CACHE);
-		size = W_LumpLengthPwad(wadnum, lump);
-
-		// for strtok
-		buf2 = malloc(size+1);
-		if (!buf2)
-			I_Error("R_RefreshSprite2ForWad: No more free memory\n");
-		M_Memcpy(buf2,buf,size);
-		buf2[size] = '\0';
-
-		skin = NULL;
-		noskincomplain = false;
-
-		/*
-		Parse. Has more phases than the parser in R_AddSkins because it needs to have the patching name first (no default skin name is acceptible for patching, unlike skin creation)
-		*/
-
-		stoken = strtok(buf2, "\r\n= ");
-		while (stoken)
-		{
-			if ((stoken[0] == '/' && stoken[1] == '/')
-				|| (stoken[0] == '#'))// skip comments
-			{
-				stoken = strtok(NULL, "\r\n"); // skip end of line
-				goto next_token;              // find the real next token
-			}
-
-			value = strtok(NULL, "\r\n= ");
-
-			if (!value)
-				I_Error("R_RefreshSprite2ForWad: syntax error in P_SKIN lump# %d(%s) in WAD %s\n", lump, W_CheckNameForNumPwad(wadnum,lump), wadfiles[wadnum]->filename);
-
-			if (!stricmp(stoken, "name"))
-			{
-				strlwr(value);
-				skinnum = R_SkinAvailable(value);
-				if (skinnum != -1)
-					skin = skins[skinnum];
-				else
-				{
-					CONS_Debug(DBG_SETUP, "R_RefreshSprite2ForWad: unknown skin name in P_SKIN lump# %d(%s) in WAD %s\n", lump, W_CheckNameForNumPwad(wadnum,lump), wadfiles[wadnum]->filename);
-					noskincomplain = true;
-				}
-			}
-
-			if (!skin)
-				break;
-
-next_token:
-			stoken = strtok(NULL, "\r\n= ");
-		}
-		free(buf2);
-
-		if (!skin) // Didn't include a name parameter? What a waste.
-		{
-			if (!noskincomplain)
-				CONS_Debug(DBG_SETUP, "R_RefreshSprite2ForWad: no skin name given in P_SKIN lump #%d (WAD %s)\n", lump, wadfiles[wadnum]->filename);
-			continue;
-		}
-
-		// Update sprites, in the range of (start_spr2 - free_spr2-1)
-		R_LoadSkinSprites(wadnum, &lump, &lastlump, skin, start_spr2);
-		//R_FlushTranslationColormapCache(); // I don't think this is needed for what we're doing?
-	}
-}
-
-static playersprite_t old_spr2 = SPR2_FIRSTFREESLOT;
-void R_RefreshSprite2(void)
-{
-	// Sprite2s being defined by custom wads can create situations where
-	// a custom character might want to add support, but due to load order,
-	// might not be defined in time.
-
-	// The trick where you load characters then level packs to keep savedata
-	// in particular will practically garantuee a level pack can NEVER add custom animations,
-	// because custom character's Sprite2s will not be added.
-
-	// So, go through every file, and reload the sprite2s that were added.
-
-	INT32 i;
-
-	if (old_spr2 > free_spr2)
-	{
-#ifdef PARANOIA
-		I_Error("R_RefreshSprite2: old_spr2 is too high?! (old_spr2: %d, free_spr2: %d)\n", old_spr2, free_spr2);
-#else
-		// Just silently fix
-		old_spr2 = free_spr2;
-#endif
-	}
-
-	if (old_spr2 == free_spr2)
-	{
-		// No sprite2s were added since the last time we did freeslots.
-		return;
-	}
-
-	for (i = 0; i < numwadfiles; i++)
-	{
-		R_RefreshSprite2ForWad(i, old_spr2);
-	}
-
-	// Update previous value.
-	old_spr2 = free_spr2;
 }

@@ -68,7 +68,7 @@ animation_list_t *P_MergeAnimations(const char *name, animation_list_t *anim_a, 
 animation_t *P_FindOrCreateSubAnimation(animation_list_t *animation, const char *subanimation_name);
 animation_list_t *P_GetAnimationByID(UINT16 animation_id);
 animation_t *P_GetSubAnimationByID(animation_list_t *animation, UINT16 subanimation_id);
-animation_t *P_GetSubAnimationByName(animation_list_s *animation, const char *subanimation_name);
+animation_t *P_GetSubAnimationByName(animation_list_t *animation, const char *subanimation_name);
 
 void P_InitAnimationFrame(animation_frame_t *frame);
 
@@ -85,8 +85,8 @@ void P_SetSubanimationSpeed(UINT16 animation_id, UINT16 subanimation_id, fixed_t
 void P_SetSubanimationFallback(UINT16 animation_id, UINT16 subanimation_id, const char *fallback);
 
 boolean P_SetupAnimator(animator_t *animator, UINT16 animation_id, UINT16 subanimation_id, UINT16 start_frame);
-const char *P_GetAnimatorSubAnimationName(animator_s *animator);
-boolean P_IsAnimatorPlayingNamedSubAnimation(animator_s *animator, const char *name);
+const char *P_GetAnimatorSubAnimationName(animator_t *animator);
+boolean P_IsAnimatorPlayingNamedSubAnimation(animator_t *animator, const char *name);
 UINT32 P_GetAnimatorFrame(animator_t *animator);
 UINT32 P_GetAnimatorNextFrame(animator_t *animator);
 void P_UpdateAnimatorCurNextFrames(animator_t *animator); // for p_saveg.c

@@ -8477,7 +8477,7 @@ static void M_DrawLoadGameData(void)
 			if (savegameinfo[savetodraw].botskin)
 			{
 				skin_t *charbotskin = skins[savegameinfo[savetodraw].botskin-1];
-				sprdef = P_GetSkinSpritedef(charbotskin, SPR2_SIGN, SKINSPRITES_BASE);
+				sprdef = P_GetSkinSpritedef(charbotskin, "end_sign", SKINSPRITES_BASE);
 				if (!sprdef || !sprdef->numframes)
 					goto skipbot;
 				colormap = R_GetTranslationColormap(savegameinfo[savetodraw].botskin-1, charbotskin->prefcolor, GTC_CACHE);
@@ -8497,7 +8497,7 @@ skipbot:
 			// signpost image
 			if (!charskin) // shut up compiler
 				goto skipsign;
-			sprdef = P_GetSkinSpritedef(charskin, SPR2_SIGN, SKINSPRITES_BASE);
+			sprdef = P_GetSkinSpritedef(charskin, "end_sign", SKINSPRITES_BASE);
 			if (!sprdef || !sprdef->numframes)
 				goto skipsign;
 			colormap = R_GetTranslationColormap(savegameinfo[savetodraw].skinnum, charskin->prefcolor, GTC_CACHE);
@@ -8526,7 +8526,7 @@ skipsign:
 				goto skiplife;
 
 			// lives
-			sprdef = P_GetSkinSpritedef(charskin, SPR2_LIFE, SKINSPRITES_BASE);
+			sprdef = P_GetSkinSpritedef(charskin, "life_icon", SKINSPRITES_BASE);
 			if (!sprdef || sprdef->numframes)
 				goto skiplife;
 			sprframe = &sprdef->spriteframes[0];
@@ -9089,7 +9089,7 @@ static void M_CacheCharacterSelectEntry(INT32 i, INT32 skinnum)
 {
 	if (!(description[i].picname[0]))
 	{
-		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnum], SPR2_XTRA, 0);
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnum], "extra", 0);
 		if (sprdef && sprdef->numframes > XTRA_CHARSEL)
 		{
 			spriteframe_t *sprframe = &sprdef->spriteframes[XTRA_CHARSEL];
@@ -9897,7 +9897,7 @@ void M_DrawTimeAttackMenu(void)
 
 	// Character face!
 	{
-		spritedef_t *sprdef = P_GetSkinSpritedef(skins[cv_chooseskin.value-1], SPR2_XTRA, SKINSPRITES_BASE);
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[cv_chooseskin.value-1], "extra", SKINSPRITES_BASE);
 		if (sprdef && sprdef->numframes > XTRA_CHARSEL)
 		{
 			spriteframe_t *sprframe = &sprdef->spriteframes[XTRA_CHARSEL];
@@ -10226,11 +10226,11 @@ void M_DrawNightsAttackMenu(void)
 		INT32 skinnumber = cv_chooseskin.value-1; //Number for skin
 		UINT16 color; //natkcolor
 
-		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnumber], SPR2_NFLY, 0);
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnumber], "nights_fly", 0);
 		if (sprdef == NULL) //If we don't have NiGHTS sprites
 		{
 			skinnumber = 0;
-			sprdef = P_GetSkinSpritedef(skins[skinnumber], SPR2_NFLY, 0); //Default to Sonic
+			sprdef = P_GetSkinSpritedef(skins[skinnumber], "nights_fly", 0); //Default to Sonic
 		}
 
 		if (sprdef)
@@ -12002,7 +12002,7 @@ static void M_HandleConnectIP(INT32 choice)
 
 static fixed_t      multi_tics;
 static UINT8        multi_frame;
-static UINT16       multi_spr2;
+static const char  *multi_subanim;
 static spritedef_t *multi_sprdef;
 static animator_t   multi_animator;
 static boolean      multi_paused;
@@ -12165,13 +12165,15 @@ static menucolor_t *M_GridIndexToMenuColor(UINT16 index)
 	}
 }
 
-static UINT8 M_SetupPlayerMenuAnimator(animator_t *animator, skin_t *skin, UINT16 player_anim, spritedef_t **sprdef)
+static const char *M_SetupPlayerMenuAnimator(animator_t *animator, skin_t *skin, const char *subanim_name, spritedef_t **sprdef)
 {
 	UINT8 spriteset = SKINSPRITES_BASE;
-	UINT16 subanimation = P_GetSkinSubanimation(skin, player_anim, spriteset, NULL, &spriteset);
+	UINT16 subanimation = P_GetSkinSubanimation(skin, subanim_name, spriteset, NULL, &spriteset);
 	UINT16 animation = P_GetSkinAnimation(skin, spriteset);
 
-	*sprdef = P_GetSkinSpritedef(skin, subanimation, spriteset);
+	subanim_name = P_GetSubanimationNameByID(animation, subanimation);
+
+	*sprdef = P_GetSkinSpritedef(skin, subanim_name, spriteset);
 
 	memset(animator, 0, sizeof(animator_t));
 
@@ -12180,7 +12182,7 @@ static UINT8 M_SetupPlayerMenuAnimator(animator_t *animator, skin_t *skin, UINT1
 	if (!P_SetupAnimator(animator, animation, subanimation, 0))
 		animator->animation = UINT16_MAX;
 
-	return subanimation;
+	return subanim_name;
 }
 
 static void M_SetPlayerSetupFollowItem(void)
@@ -12382,7 +12384,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 		(
 			HUD_HOOK(playersetup), luahuddrawlist_playersetup, setupm_player,
 			x << FRACBITS, chary << FRACBITS, scale,
-			setupm_fakeskin, multi_spr2, multi_frame, 1, setupm_fakecolor->color,
+			setupm_fakeskin, multi_subanim, multi_frame, 1, setupm_fakecolor->color,
 			(multi_tics >> FRACBITS) + 1, multi_paused
 		);
 	}
@@ -12650,7 +12652,7 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = numskins-1;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
+				multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 				M_SetPlayerSetupFollowItem();
 				M_AnimatePlayerSetup();
 			}
@@ -12692,7 +12694,7 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = 0;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
+				multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 				M_SetPlayerSetupFollowItem();
 				M_AnimatePlayerSetup();
 			}
@@ -12844,7 +12846,7 @@ static void M_SetupMultiPlayer(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
+	multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 	M_SetPlayerSetupFollowItem();
 	M_AnimatePlayerSetup();
 
@@ -12890,7 +12892,7 @@ static void M_SetupMultiPlayer2(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], SPR2_WALK, &multi_sprdef);
+	multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 	M_SetPlayerSetupFollowItem();
 	M_AnimatePlayerSetup();
 

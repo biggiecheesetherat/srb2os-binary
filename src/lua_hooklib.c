@@ -704,7 +704,7 @@ int LUA_HookCharacterHUD
 (
 	int hook_type, huddrawlist_h list, player_t *player,
 	fixed_t x, fixed_t y, fixed_t scale,
-	INT32 skinIndex, UINT8 sprite2, UINT8 frame, UINT8 rotation, skincolornum_t color,
+	INT32 skinIndex, const char *subanim_name, UINT8 frame, UINT8 rotation, skincolornum_t color,
 	INT32 ticker, boolean mode
 ){
 	Hook_State hook;
@@ -716,7 +716,7 @@ int LUA_HookCharacterHUD
 		lua_pushfixed(gL, y);
 		lua_pushfixed(gL, scale);
 		lua_pushstring(gL, skins[skinIndex]->name);
-		lua_pushinteger(gL, sprite2);
+		lua_pushstring(gL, subanim_name);
 		lua_pushinteger(gL, frame);
 		lua_pushinteger(gL, rotation);
 		lua_pushinteger(gL, color);

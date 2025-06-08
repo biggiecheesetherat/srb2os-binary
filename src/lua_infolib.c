@@ -106,44 +106,6 @@ static int lib_sprnamelen(lua_State *L)
 	return 1;
 }
 
-//
-// Player Sprite Names
-//
-
-// push sprite name
-static int lib_getSpr2name(lua_State *L)
-{
-	playersprite_t i;
-
-	lua_remove(L, 1); // don't care about spr2names[] dummy userdata.
-
-	if (lua_isnumber(L, 1))
-	{
-		i = lua_tonumber(L, 1);
-		if (i >= free_spr2)
-			return 0;
-		lua_pushlstring(L, spr2names[i], 4);
-		return 1;
-	}
-	else if (lua_isstring(L, 1))
-	{
-		const char *name = lua_tostring(L, 1);
-		for (i = 0; i < free_spr2; i++)
-			if (fastcmp(name, spr2names[i]))
-			{
-				lua_pushinteger(L, i);
-				return 1;
-			}
-	}
-	return 0;
-}
-
-static int lib_spr2namelen(lua_State *L)
-{
-	lua_pushinteger(L, free_spr2);
-	return 1;
-}
-
 /////////////////
 // SPRITE INFO //
 /////////////////
@@ -665,7 +627,9 @@ static int lib_setState(lua_State *L)
 				return luaL_error(L, "nextstate number %d is invalid.", value);
 			state->nextstate = (statenum_t)value;
 		} else if (i == 8 || (str && fastcmp(str, "subanim"))) {
-			state->anim_entry = (UINT16)luaL_checkinteger(L, 3);
+			if (state->anim_entry)
+				free(state->anim_entry);
+			state->anim_entry = strdup(luaL_checkstring(L, 3));
 		}
 		lua_pop(L, 1);
 	}
@@ -1857,7 +1821,6 @@ int LUA_InfoLib(lua_State *L)
 	mobjinfo_fields_ref = Lua_CreateFieldTable(L, mobjinfo_opt);
 
 	LUA_RegisterGlobalUserdata(L, "sprnames", lib_getSprname, NULL, lib_sprnamelen);
-	LUA_RegisterGlobalUserdata(L, "spr2names", lib_getSpr2name, NULL, lib_spr2namelen);
 	LUA_RegisterGlobalUserdata(L, "states", lib_getState, lib_setState, lib_statelen);
 	LUA_RegisterGlobalUserdata(L, "mobjinfo", lib_getMobjInfo, lib_setMobjInfo, lib_mobjinfolen);
 	LUA_RegisterGlobalUserdata(L, "skincolors", lib_getSkinColor, lib_setSkinColor, lib_skincolorslen);

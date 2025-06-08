@@ -90,7 +90,7 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 
 	if (st->sprite == SPR_PLAY && mobj->skin)
 	{
-		spritedef_t *spritedef = P_GetSkinSpritedef(mobj->skin, mobj->animator.subanimation, mobj->skinspriteset);
+		spritedef_t *spritedef = P_GetSkinSpritedef(mobj->skin, P_GetSubanimationNameByID(mobj->animator.animation, mobj->animator.subanimation), mobj->skinspriteset);
 		animlength = (INT32)(spritedef->numframes) - 1;
 	}
 	else
@@ -98,7 +98,7 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 
 	if (mobj->animator.animation)
 	{
-		P_SetMobjAnimation(mobj, mobj->animator.animation, st->anim_entry, st->frame & FF_FRAMEMASK);
+		P_SetMobjAnimation(mobj, mobj->animator.animation, P_GetNamedSubanimationID(mobj->animator.animation, st->anim_entry), st->frame & FF_FRAMEMASK);
 		return;
 	}
 
@@ -203,7 +203,7 @@ UINT8 P_SetupSkinAnimation(mobj_t *mobj, state_t *st)
 		return NUMSKINSPRITESETS;
 	}
 
-	sprite = P_GetSkinSpriteID(skin, subanimation, spriteset);
+	sprite = P_GetSkinSpriteID(skin, P_GetSubanimationNameByID(animation, subanimation), spriteset);
 	if (sprite != SPR_NULL)
 		mobj->sprite = sprite;
 
@@ -235,7 +235,7 @@ static void P_SetupPlayerMobjAnimation(mobj_t *mobj, state_t *st)
 
 	if (spriteset == SKINSPRITES_SUPER && st == &states[S_PLAY_STND])
 	{
-		spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, SPR2_WAIT);
+		spritedef_t *sprdef = P_GetSkinAnimSpritedef(skin, mobj->animator.animation, "wait");
 		if (!sprdef || sprdef->numframes == 0)
 			mobj->tics = -1; // If no super wait, don't wait at all
 	}
@@ -269,7 +269,7 @@ static boolean P_SetPlayerMobjState(mobj_t *mobj, statenum_t state)
 		return P_SetPlayerMobjState(mobj, S_PLAY_FALL);
 
 	// Catch swimming versus flying
-	if ((state == S_PLAY_FLY || (state == S_PLAY_GLIDE && P_IsSkinAnimationValid(skins[player->skin], SPR2_SWIM, SKINSPRITES_BASE)))
+	if ((state == S_PLAY_FLY || (state == S_PLAY_GLIDE && P_IsSkinAnimationValid(skins[player->skin], "swim", SKINSPRITES_BASE)))
 	&& player->mo->eflags & MFE_UNDERWATER && !player->skidtime)
 		return P_SetPlayerMobjState(player->mo, S_PLAY_SWIM);
 	else if (state == S_PLAY_SWIM && !(player->mo->eflags & MFE_UNDERWATER))

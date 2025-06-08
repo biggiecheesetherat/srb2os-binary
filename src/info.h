@@ -1092,101 +1092,6 @@ typedef enum sprite
 	NUMSPRITES
 } spritenum_t;
 
-typedef enum playersprite
-{
-	SPR2_STND = 0,
-	SPR2_WAIT,
-	SPR2_WALK,
-	SPR2_SKID,
-	SPR2_RUN ,
-	SPR2_DASH,
-	SPR2_PAIN,
-	SPR2_STUN,
-	SPR2_DEAD,
-	SPR2_DRWN, // drown
-	SPR2_ROLL,
-	SPR2_GASP,
-	SPR2_JUMP,
-	SPR2_SPNG, // spring
-	SPR2_FALL,
-	SPR2_EDGE,
-	SPR2_RIDE,
-
-	SPR2_SPIN, // spindash
-
-	SPR2_FLY ,
-	SPR2_SWIM,
-	SPR2_TIRE, // tired
-
-	SPR2_GLID, // glide
-	SPR2_LAND, // landing after glide/bounce
-	SPR2_CLNG, // cling
-	SPR2_CLMB, // climb
-
-	SPR2_FLT , // float
-	SPR2_FRUN, // float run
-
-	SPR2_BNCE, // bounce
-
-	SPR2_FIRE, // fire
-
-	SPR2_TWIN, // twinspin
-
-	SPR2_MLEE, // melee
-	SPR2_MLEL, // melee land
-
-	SPR2_TRNS, // transformation
-
-	SPR2_NSTD, // NiGHTS stand
-	SPR2_NFLT, // NiGHTS float
-	SPR2_NFLY, // NiGHTS fly
-	SPR2_NDRL, // NiGHTS drill
-	SPR2_NSTN, // NiGHTS stun
-	SPR2_NPUL, // NiGHTS pull
-	SPR2_NATK, // NiGHTS attack
-
-	// c:
-	SPR2_TAL0,
-	SPR2_TAL1,
-	SPR2_TAL2,
-	SPR2_TAL3,
-	SPR2_TAL4,
-	SPR2_TAL5,
-	SPR2_TAL6,
-	SPR2_TAL7,
-	SPR2_TAL8,
-	SPR2_TAL9,
-	SPR2_TALA,
-	SPR2_TALB,
-	SPR2_TALC,
-
-	// Misc slots
-	SPR2_MSC0,
-	SPR2_MSC1,
-	SPR2_MSC2,
-	SPR2_MSC3,
-	SPR2_MSC4,
-	SPR2_MSC5,
-	SPR2_MSC6,
-	SPR2_MSC7,
-	SPR2_MSC8,
-	SPR2_MSC9,
-
-	SPR2_CNT1, // continue disappointment
-	SPR2_CNT2, // continue lift
-	SPR2_CNT3, // continue spin
-	SPR2_CNT4, // continue "soooooooniiic!" tugging
-
-	SPR2_SIGN, // end sign head
-	SPR2_LIFE, // life monitor icon
-
-	SPR2_XTRA, // stuff that isn't in-map - "would this ever need an md2 or variable length animation?"
-
-	SPR2_FIRSTFREESLOT,
-	SPR2_LASTFREESLOT = 1024, // Do not make higher than SPR2F_MASK (currently 0x3FF) plus one
-	NUMPLAYERSPRITES
-} playersprite_t;
-
 typedef enum skinspriteset
 {
 	SKINSPRITES_BASE,
@@ -1216,14 +1121,12 @@ typedef struct
 	INT32 var1;
 	INT32 var2;
 	statenum_t nextstate;
-	UINT16 anim_entry;
+	char *anim_entry;
 } state_t;
 
 extern state_t states[NUMSTATES];
 extern char sprnames[NUMSPRITES + 1][MAXSPRITENAME + 1];
-extern char spr2names[NUMPLAYERSPRITES][MAXSPRITENAME + 1];
 extern state_t *astate;
-extern playersprite_t free_spr2;
 
 enum
 {

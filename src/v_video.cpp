@@ -935,9 +935,9 @@ void V_DrawContinueIcon(INT32 x, INT32 y, INT32 flags, INT32 skinnum, UINT16 ski
 {
 	spritedef_t *sprdef = NULL;
 
-	if (skinnum >= 0 && skinnum < numskins && P_IsSkinAnimationValid(skins[skinnum], SPR2_XTRA, SKINSPRITES_BASE))
+	if (skinnum >= 0 && skinnum < numskins && P_IsSkinAnimationValid(skins[skinnum], "extra", SKINSPRITES_BASE))
 	{
-		sprdef = P_GetSkinSpritedef(skins[skinnum], SPR2_XTRA, SKINSPRITES_BASE);
+		sprdef = P_GetSkinSpritedef(skins[skinnum], "extra", SKINSPRITES_BASE);
 		if (sprdef->numframes <= XTRA_CONTINUE)
 			sprdef = NULL;
 	}

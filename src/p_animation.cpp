@@ -271,11 +271,14 @@ boolean P_SetMobjAnimation(mobj_t *mobj, UINT16 animation_id, UINT16 subanimatio
 		{
 			spritenum_t sprite;
 			UINT8 spriteset = P_GetMobjSkinSpriteset(mobj, mobj->state);
+			const char *subanimation_name;
 
-			subanimation_id = P_GetSkinSubanimation(skin, subanimation_id, spriteset, mobj->player, &spriteset);
+			subanimation_name = P_GetSubanimationNameByID(animation_id, subanimation_id);
+			subanimation_id = P_GetSkinSubanimation(skin, subanimation_name, spriteset, mobj->player, &spriteset);
 			animation_id = P_GetSkinAnimation(skin, spriteset);
 
-			sprite = P_GetSkinSpriteID(skin, subanimation_id, spriteset);
+			subanimation_name = P_GetSubanimationNameByID(animation_id, subanimation_id);
+			sprite = P_GetSkinSpriteID(skin, subanimation_name, spriteset);
 			if (sprite != SPR_NULL)
 				mobj->sprite = sprite;
 		}

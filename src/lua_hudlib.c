@@ -499,9 +499,6 @@ static int libd_getSpritePatch(lua_State *L)
 	else
 		return 0;
 
-	if (i == SPR_PLAY) // Use getSprite2Patch instead!
-		return 0;
-
 	sprdef = &sprites[i];
 
 	// set frame number
@@ -530,107 +527,6 @@ static int libd_getSpritePatch(lua_State *L)
 
 		if (rot) {
 			patch_t *rotsprite = Patch_GetRotatedSprite(sprframe, frame, angle, sprframe->flip & (1<<angle), &spriteinfo[i], rot);
-			LUA_PushUserdata(L, rotsprite, META_PATCH);
-			lua_pushboolean(L, false);
-			lua_pushboolean(L, true);
-			return 3;
-		}
-	}
-
-	// push both the patch and it's "flip" value
-	LUA_PushUserdata(L, W_CachePatchNum(sprframe->lumppat[angle], PU_SPRITE), META_PATCH);
-	lua_pushboolean(L, (sprframe->flip & (1<<angle)) != 0);
-	return 2;
-}
-
-// v.getSprite2Patch(skin, sprite, [super?,] [frame, [angle, [rollangle]]])
-static int libd_getSprite2Patch(lua_State *L)
-{
-	INT32 i; // skin number
-	playersprite_t j; // sprite2 prefix
-	UINT32 frame = 0; // 'A'
-	UINT8 angle = 0;
-	spritedef_t *sprdef;
-	spriteframe_t *sprframe;
-	boolean super = false; // use super variant if true
-	HUDONLY
-
-	// get skin first!
-	if (lua_isnumber(L, 1)) // find skin by number
-	{
-		i = lua_tonumber(L, 1);
-		if (i < 0 || i >= MAXSKINS)
-			return luaL_error(L, "skin number %d out of range (0 - %d)", i, MAXSKINS-1);
-		if (i >= numskins)
-			return 0;
-	}
-	else // find skin by name
-	{
-		const char *name = luaL_checkstring(L, 1);
-		for (i = 0; i < numskins; i++)
-			if (fastcmp(skins[i]->name, name))
-				break;
-		if (i >= numskins)
-			return 0;
-	}
-
-	lua_remove(L, 1); // remove skin now
-
-	if (lua_isnumber(L, 1)) // sprite number given, e.g. SPR2_STND
-	{
-		j = lua_tonumber(L, 1);
-
-		if (j >= free_spr2)
-			return 0;
-	}
-	else if (lua_isstring(L, 1)) // sprite prefix name given, e.g. "STND"
-	{
-		const char *name = lua_tostring(L, 1);
-		for (j = 0; j < free_spr2; j++)
-			if (fastcmp(name, spr2names[j]))
-				break;
-		// if you want super flags you'll have to use the optional boolean following this
-		if (j >= free_spr2)
-			return 0;
-	}
-	else
-		return 0;
-
-	if (lua_isboolean(L, 2)) // optional boolean for superness
-	{
-		super = lua_toboolean(L, 2); // note: this can override SPR2F_SUPER from sprite number
-		lua_remove(L, 2); // remove
-	}
-	// if it's not boolean then just assume it's the frame number
-
-	sprdef = P_GetSkinSpritedef(skins[i], j, super ? 1 : 0);
-
-	// set frame number
-	frame = luaL_optinteger(L, 2, 0);
-	frame &= FF_FRAMEMASK; // ignore any bits that are not the actual frame, just in case
-	if (frame >= sprdef->numframes)
-		return 0;
-	// set angle number
-	sprframe = &sprdef->spriteframes[frame];
-	angle = luaL_optinteger(L, 3, 1);
-
-	// convert WAD editor angle numbers (1-8) to internal angle numbers (0-7)
-	// keep 0 the same since we'll make it default to angle 1 (which is internally 0)
-	// in case somebody didn't know that angle 0 really just maps all 8/16 angles to the same patch
-	if (angle != 0)
-		angle--;
-
-	if (angle >= ((sprframe->rotate & SRF_3DGE) ? 16 : 8)) // out of range?
-		return 0;
-
-	if (lua_isnumber(L, 4))
-	{
-		// rotsprite?????
-		angle_t rollangle = luaL_checkangle(L, 4);
-		INT32 rot = R_GetRollAngle(rollangle);
-
-		if (rot) {
-			patch_t *rotsprite = Patch_GetRotatedSprite(sprframe, frame, angle, sprframe->flip & (1<<angle), P_GetSkinSpriteInfo(skins[i], j, 0), rot);
 			LUA_PushUserdata(L, rotsprite, META_PATCH);
 			lua_pushboolean(L, false);
 			lua_pushboolean(L, true);
@@ -1353,7 +1249,6 @@ static luaL_Reg lib_draw[] = {
 	{"patchExists", libd_patchExists},
 	{"cachePatch", libd_cachePatch},
 	{"getSpritePatch", libd_getSpritePatch},
-	{"getSprite2Patch", libd_getSprite2Patch},
 	{"getColormap", libd_getColormap},
 	{"getStringColormap", libd_getStringColormap},
 	{"getSectorColormap", libd_getSectorColormap},

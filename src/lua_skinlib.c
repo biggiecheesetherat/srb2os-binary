@@ -342,7 +342,7 @@ static int soundsid_num(lua_State *L)
 static int lib_getSkinSprite(lua_State *L)
 {
 	skinspritedef_t *sksprites = *(skinspritedef_t **)luaL_checkudata(L, 1, META_SKINSPRITES);
-	playersprite_t i = luaL_checkinteger(L, 2);
+	int i = luaL_checkinteger(L, 2);
 
 	if (i < 0 || i >= NUMPLAYERSPRITES)
 		return luaL_error(L, "skin sprites index %d out of range (0 - %d)", i, NUMPLAYERSPRITES-1);

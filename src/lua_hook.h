@@ -131,7 +131,7 @@ int LUA_HookCharacterHUD
 (
 	int hook, huddrawlist_h drawlist, player_t *player,
 	fixed_t x, fixed_t y, fixed_t scale,
-	INT32 skinIndex, UINT8 sprite2, UINT8 frame, UINT8 rotation, skincolornum_t color,
+	INT32 skinIndex, const char *subanim_name, UINT8 frame, UINT8 rotation, skincolornum_t color,
 	INT32 ticker, boolean mode
 );
 

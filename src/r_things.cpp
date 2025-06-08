@@ -22,7 +22,7 @@
 #include "z_zone.h"
 #include "m_menu.h" // character select
 #include "m_misc.h"
-#include "info.h" // spr2names
+#include "info.h"
 #include "i_video.h" // rendermode
 #include "i_system.h"
 #include "r_fps.h"

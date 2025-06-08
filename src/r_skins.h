@@ -32,6 +32,8 @@ extern "C" {
 #define DEFAULTSKIN2 "tails" // secondary player
 #define DEFAULTNIGHTSSKIN 0
 
+#define NUMPLAYERSPRITES 1024
+
 typedef struct skinspritedef_s
 {
 	UINT16 animation_id;
@@ -113,22 +115,21 @@ void R_AddSkins(UINT16 wadnum, boolean mainfile);
 void R_PatchSkins(UINT16 wadnum, boolean mainfile);
 
 UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset);
-UINT16 P_GetSkinSubanimation(skin_t *skin, UINT16 subanim, UINT8 spriteset, player_t *player, UINT8 *found_spriteset);
-UINT16 P_GetPlayerSubanimReplacement(skin_t *skin, UINT16 subanim_id, UINT8 spriteset, player_t *player);
+UINT16 P_GetSkinSubanimation(skin_t *skin, const char *subanim_name, UINT8 spriteset, player_t *player, UINT8 *found_spriteset);
+const char *P_GetPlayerSubanimReplacement(skin_t *skin, const char *subanim_name, UINT8 spriteset, player_t *player);
 UINT8 P_GetMobjSkinSpriteset(mobj_t *mobj, state_t *st);
 UINT8 P_GetPlayerSpritesetID(const char *spriteset_name);
 const char *P_GetPlayerSpritesetName(UINT8 id);
 boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super);
-spritenum_t P_GetSkinSpriteID(skin_t *skin, UINT16 subanim, UINT8 spriteset);
-spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 subanim, UINT8 spriteset);
-spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 subanim, UINT8 spriteset);
-spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, UINT16 subanim);
-spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, UINT16 subanim);
-boolean P_IsSkinAnimationValid(skin_t *skin, UINT16 subanim, UINT8 spriteset);
+spritenum_t P_GetSkinSpriteID(skin_t *skin, const char *subanim_name, UINT8 spriteset);
+spritedef_t *P_GetSkinSpritedef(skin_t *skin, const char *subanim_name, UINT8 spriteset);
+spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, const char *subanim_name, UINT8 spriteset);
+spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, const char *subanim_name);
+spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, const char *subanim_name);
+boolean P_IsSkinAnimationValid(skin_t *skin, const char *subanim_name, UINT8 spriteset);
 skin_t *P_IsSkinSprite(skin_t *skin, spritenum_t spritenum);
 skin_t *P_IsAnimationForSkin(skin_t *skin, UINT16 animation_id);
 const char *P_GetPlayerAnimName(UINT16 playeranim);
-UINT16 P_GetOrCreatePlayerSubanim(const char *subanim_name);
 
 void R_RefreshSprite2(void);
 

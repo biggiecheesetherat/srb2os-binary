@@ -132,26 +132,6 @@ static inline int lib_freeslot(lua_State *L)
 			if (i == NUMCOLORFREESLOTS)
 				CONS_Alert(CONS_WARNING, "Ran out of free skincolor slots!\n");
 		}
-		else if (fastcmp(type, "SPR2"))
-		{
-			// Search if we already have an SPR2 by that name...
-			playersprite_t i;
-			for (i = SPR2_FIRSTFREESLOT; i < free_spr2; i++)
-				if (memcmp(spr2names[i],word,4) == 0)
-					break;
-			// We don't, so allocate a new one.
-			if (i >= free_spr2) {
-				if (free_spr2 < NUMPLAYERSPRITES)
-				{
-					CONS_Printf("Sprite SPR2_%s allocated.\n",word);
-					strlwr(word);
-					P_GetOrCreatePlayerSubanim(word);
-					lua_pushinteger(L, free_spr2);
-					r++;
-				} else
-					CONS_Alert(CONS_WARNING, "Ran out of free SPR2 slots!\n");
-			}
-		}
 		else if (fastcmp(type, "TOL"))
 		{
 			// Search if we already have a typeoflevel by that name...
@@ -177,8 +157,6 @@ static inline int lib_freeslot(lua_State *L)
 		lua_remove(L, 1);
 		continue;
 	}
-
-	R_RefreshSprite2();
 
 	return r;
 }
@@ -457,27 +435,6 @@ static int ScanConstants(lua_State *L, boolean mathlib, const char *word)
 		}
 		else if (mathlib)
 			return luaL_error(L, "sprite '%s' could not be found.\n", word);
-		return 0;
-	}
-	else if (fastncmp("SPR2_",word,5)) {
-		p = word+5;
-		for (i = 0; i < (fixed_t)free_spr2; i++)
-			if (!spr2names[i][4])
-			{
-				// special 3-char cases, e.g. SPR2_RUN
-				// the spr2names entry will have "_" on the end, as in "RUN_"
-				if (spr2names[i][3] == '_' && !p[3]) {
-					if (fastncmp(p,spr2names[i],3)) {
-						CacheAndPushConstant(L, word, i);
-						return 1;
-					}
-				}
-				else if (fastncmp(p,spr2names[i],4)) {
-					CacheAndPushConstant(L, word, i);
-					return 1;
-				}
-			}
-		if (mathlib) return luaL_error(L, "player sprite '%s' could not be found.\n", word);
 		return 0;
 	}
 	else if (!mathlib && fastncmp("sfx_",word,4)) {

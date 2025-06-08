@@ -783,7 +783,7 @@ void P_NightserizePlayer(player_t *player, INT32 nighttime)
 		player->mo->height = P_GetPlayerHeight(player); // Just to make sure jumping into the drone doesn't result in a squashed hitbox.
 		player->oldscale = player->mo->scale;
 
-		if (!P_IsSkinAnimationValid(skins[player->skin], SPR2_NFLY, SKINSPRITES_BASE)) // If you don't have a sprite for flying horizontally, use the default NiGHTS skin.
+		if (!P_IsSkinAnimationValid(skins[player->skin], "nights_fly", SKINSPRITES_BASE)) // If you don't have a sprite for flying horizontally, use the default NiGHTS skin.
 		{
 			player->mo->skin = skins[DEFAULTNIGHTSSKIN];
 			if (!(cv_debug || devparm) && !(netgame || multiplayer || demoplayback))
@@ -1192,7 +1192,7 @@ boolean P_PlayerCanDamage(player_t *player, mobj_t *thing)
 	}
 	else if (P_MobjFlip(player->mo)*(topheight - (thing->z + thing->height/2)) < 0)
 	{
-		if ((player->powers[pw_strong] & STR_UPPER) && (player->mo->animator.subanimation != SPR2_SWIM) && (P_MobjFlip(player->mo)*(player->mo->momz - thing->momz) > 0))
+		if ((player->powers[pw_strong] & STR_UPPER) && (!P_IsAnimatorPlayingNamedSubAnimation(&player->mo->animator, "swim")) && (P_MobjFlip(player->mo)*(player->mo->momz - thing->momz) > 0))
 			return true;
 	}
 
@@ -6928,7 +6928,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 	if (!(player->charflags & SF_NONIGHTSROTATION))
 	{
 		if ((player->mo->state == &states[S_PLAY_NIGHTS_PULL])
-		&& (player->mo->animator.subanimation == SPR2_NPUL))
+		&& (P_IsAnimatorPlayingNamedSubAnimation(&player->mo->animator, "nights_pull")))
 			player->mo->spriteroll -= ANG30;
 		else
 			player->mo->spriteroll = 0;
@@ -8935,7 +8935,7 @@ void P_AdjustPlayerAnimSpeed(player_t *player)
 			if (speed <= 16<<FRACBITS)
 				anim_speed = FixedDiv(FRACUNIT / 2, base_anim_speed);
 		}
-		else if (player->mo->state == &states[S_PLAY_SKID] && !P_IsSkinAnimationValid(skins[player->skin], SPR2_SKID, P_GetMobjSkinSpriteset(mobj, player->mo->state)))
+		else if (player->mo->state == &states[S_PLAY_SKID] && !P_IsSkinAnimationValid(skins[player->skin], "skid", P_GetMobjSkinSpriteset(mobj, player->mo->state)))
 		{
 			anim_speed = 0;
 		}
@@ -8948,8 +8948,10 @@ void P_AdjustPlayerAnimSpeed(player_t *player)
 			}
 			else if (player->panim == PA_RUN || player->panim == PA_DASH)
 			{
-				if (speed <= 52<<FRACBITS)
-					anim_speed = FixedDiv(FRACUNIT / 2, base_anim_speed);
+				if (speed > 52<<FRACBITS)
+					anim_speed = FixedMul(anim_speed * 2, base_anim_speed);
+				else
+					anim_speed = FixedMul(anim_speed, base_anim_speed);
 			}
 		}
 		else if (!P_IsObjectOnGround(mobj))
@@ -8963,7 +8965,7 @@ void P_AdjustPlayerAnimSpeed(player_t *player)
 				anim_speed = FRACUNIT / 2;
 			}
 
-			anim_speed = FixedDiv(anim_speed, base_anim_speed);
+			anim_speed = FixedMul(anim_speed, base_anim_speed);
 		}
 	}
 
@@ -11492,11 +11494,11 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 		else
 			chosenstate = S_TAILSOVERLAY_MINUS30DEGREES;
 	}
-	else if (player->mo->animator.subanimation == SPR2_FLY)
+	else if (P_IsAnimatorPlayingNamedSubAnimation(&player->mo->animator, "fly"))
 		chosenstate = S_TAILSOVERLAY_FLY;
-	else if (player->mo->animator.subanimation == SPR2_SWIM)
+	else if (P_IsAnimatorPlayingNamedSubAnimation(&player->mo->animator, "swim"))
 		chosenstate = S_TAILSOVERLAY_FLY;
-	else if (player->mo->animator.subanimation == SPR2_TIRE)
+	else if (P_IsAnimatorPlayingNamedSubAnimation(&player->mo->animator, "tired"))
 		chosenstate = S_TAILSOVERLAY_TIRE;
 	else if (player->panim == PA_ABILITY2)
 		chosenstate = S_TAILSOVERLAY_PLUS30DEGREES;
@@ -11543,7 +11545,7 @@ void P_DoTailsOverlay(player_t *player, mobj_t *tails)
 	}
 	else if (player->panim == PA_PAIN)
 		anim_speed = FRACUNIT / 2;
-	else if (player->mo->animator.subanimation == SPR2_TIRE)
+	else if (P_IsAnimatorPlayingNamedSubAnimation(&player->mo->animator, "tired"))
 		anim_speed = FRACUNIT / (doswim ? 2 : 4);
 	else if (player->panim != PA_IDLE)
 		anim_speed = player->mo->animator.speed_mul;
@@ -11646,7 +11648,7 @@ void P_DoMetalJetFume(player_t *player, mobj_t *fume)
 	}
 
 	// Rotate on skid animation if follow item is MT_METALJETFUME, or if MF2_AMBUSH is set
-	if (player->mo->animator.subanimation == SPR2_SKID)
+	if (P_IsAnimatorPlayingNamedSubAnimation(&player->mo->animator, "skid"))
 	{
 		if ((ismetaljetfume && (player->charflags & SF_JETFUME)) || (fume->flags2 & MF2_AMBUSH))
 			angle += ANGLE_90;
@@ -13004,7 +13006,7 @@ void P_PlayerAfterThink(player_t *player)
 				{
 					if (player->mo->state-states != S_PLAY_RIDE)
 						P_SetMobjState(player->mo, S_PLAY_RIDE);
-					if (tails->player && (tails->skin && P_IsSkinAnimationValid((skin_t *)tails->skin, SPR2_SWIM, SKINSPRITES_BASE)) && (tails->eflags & MFE_UNDERWATER))
+					if (tails->player && (tails->skin && P_IsSkinAnimationValid((skin_t *)tails->skin, "swim", SKINSPRITES_BASE)) && (tails->eflags & MFE_UNDERWATER))
 						tails->player->powers[pw_tailsfly] = 0;
 				}
 				else if (player->powers[pw_carry] == CR_NONE)

@@ -4151,8 +4151,7 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 	gpatch = spr->gpatch;
 
 #ifdef ALAM_LIGHTING
-	if (!(spr->mobj->flags2 & MF2_DEBRIS) && (spr->mobj->sprite != SPR_PLAY ||
-	 (spr->mobj->player && spr->mobj->player->powers[pw_super])))
+	if (!(spr->mobj->flags2 & MF2_DEBRIS) && spr->mobj->player && spr->mobj->player->powers[pw_super])
 		HWR_DL_AddLight(spr, gpatch);
 #endif
 
@@ -4977,25 +4976,12 @@ static void HWR_DrawSprites(void)
 				skipshadow = false;
 			}
 
-			if (spr->mobj && spr->mobj->skin && P_IsSkinSprite(spr->mobj->skin, spr->mobj->sprite))
-			{
-				if (!cv_glmodels.value || !md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].found || md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].scale < 0.0f)
-					HWR_DrawSprite(spr);
-				else
-				{
-					if (!HWR_DrawModel(spr))
-						HWR_DrawSprite(spr);
-				}
-			}
+			if (!cv_glmodels.value || !md2_models[spr->mobj->sprite].found || md2_models[spr->mobj->sprite].scale < 0.0f)
+				HWR_DrawSprite(spr);
 			else
 			{
-				if (!cv_glmodels.value || !md2_models[spr->mobj->sprite].found || md2_models[spr->mobj->sprite].scale < 0.0f)
+				if (!HWR_DrawModel(spr))
 					HWR_DrawSprite(spr);
-				else
-				{
-					if (!HWR_DrawModel(spr))
-						HWR_DrawSprite(spr);
-				}
 			}
 		}
 	}
@@ -5162,10 +5148,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	{
 		if (cv_glmodels.value) //Yellow: Only MD2's dont disappear
 		{
-			if (thing->skin && P_IsSkinSprite(thing->skin, thing->sprite))
-				md2 = &md2_playermodels[((skin_t *)thing->skin)->skinnum];
-			else
-				md2 = &md2_models[thing->sprite];
+			md2 = &md2_models[thing->sprite];
 
 			if (!md2->found || md2->scale < 0.0f)
 				return;

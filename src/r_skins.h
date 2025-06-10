@@ -32,6 +32,15 @@ extern "C" {
 #define DEFAULTSKIN2 "tails" // secondary player
 #define DEFAULTNIGHTSSKIN 0
 
+#define NUMPLAYERSPRITES 1024
+
+typedef struct skinspritedef_s
+{
+	UINT16 animation_id;
+	UINT8 fallback_spriteset;
+	spritenum_t spritenum[NUMPLAYERSPRITES];
+} skinspritedef_t;
+
 /// The skin_t struct
 typedef struct
 {
@@ -84,17 +93,7 @@ typedef struct
 	// specific sounds per skin
 	sfxenum_t soundsid[NUMSKINSOUNDS]; // sound # in S_sfx table
 
-	spritedef_t sprites[NUMPLAYERSPRITES];
-	spriteinfo_t sprinfo[NUMPLAYERSPRITES];
-
-	// contains super versions too
-	struct {
-		spritedef_t sprites[NUMPLAYERSPRITES];
-		spriteinfo_t sprinfo[NUMPLAYERSPRITES];
-	} super;
-
-	// TODO: 2.3: Delete
-	spritedef_t sprites_compat[NUMPLAYERSPRITES * 2];
+	skinspritedef_t sprites[NUMSKINSPRITESETS];
 } skin_t;
 
 /// Externs
@@ -103,6 +102,7 @@ extern skin_t **skins;
 
 /// Function prototypes
 void R_InitSkins(void);
+void R_InitSkinAnimations(void);
 
 INT32 GetPlayerDefaultSkin(INT32 playernum);
 void SetPlayerSkin(INT32 playernum,const char *skinname);
@@ -114,14 +114,22 @@ INT32 R_GetForcedSkin(INT32 playernum);
 void R_AddSkins(UINT16 wadnum, boolean mainfile);
 void R_PatchSkins(UINT16 wadnum, boolean mainfile);
 
-UINT16 P_GetStateSprite2(state_t *state);
-UINT16 P_GetSprite2StateFrame(state_t *state);
-UINT16 P_GetSkinSprite2(skin_t *skin, UINT16 spr2, player_t *player);
-UINT16 P_ApplySuperFlagToSprite2(UINT16 spr2, mobj_t *mobj);
-spritedef_t *P_GetSkinSpritedef(skin_t *skin, UINT16 spr2);
-spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, UINT16 spr2);
-boolean P_IsValidSprite2(skin_t *skin, UINT16 spr2);
-boolean P_IsStateSprite2Super(state_t *state);
+UINT16 P_GetSkinAnimation(skin_t *skin, UINT8 spriteset);
+UINT16 P_GetSkinSubanimation(skin_t *skin, const char *subanim_name, UINT8 spriteset, player_t *player, UINT8 *found_spriteset);
+const char *P_GetPlayerSubanimReplacement(skin_t *skin, const char *subanim_name, UINT8 spriteset, player_t *player);
+UINT8 P_GetMobjSkinSpriteset(mobj_t *mobj, state_t *st);
+UINT8 P_GetPlayerSpritesetID(const char *spriteset_name);
+const char *P_GetPlayerSpritesetName(UINT8 id);
+boolean P_ShouldUseSuperSprites(mobj_t *mobj, boolean use_super);
+spritenum_t P_GetSkinSpriteID(skin_t *skin, const char *subanim_name, UINT8 spriteset);
+spritedef_t *P_GetSkinSpritedef(skin_t *skin, const char *subanim_name, UINT8 spriteset);
+spriteinfo_t *P_GetSkinSpriteInfo(skin_t *skin, const char *subanim_name, UINT8 spriteset);
+spritedef_t *P_GetSkinAnimSpritedef(skin_t *skin, UINT16 anim, const char *subanim_name);
+spriteinfo_t *P_GetSkinAnimSpriteInfo(skin_t *skin, UINT16 anim, const char *subanim_name);
+boolean P_IsSkinAnimationValid(skin_t *skin, const char *subanim_name, UINT8 spriteset);
+skin_t *P_IsSkinSprite(skin_t *skin, spritenum_t spritenum);
+skin_t *P_IsAnimationForSkin(skin_t *skin, UINT16 animation_id);
+const char *P_GetPlayerAnimName(UINT16 playeranim);
 
 void R_RefreshSprite2(void);
 

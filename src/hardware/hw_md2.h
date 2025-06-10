@@ -40,15 +40,11 @@ typedef struct
 } md2_t;
 
 extern md2_t md2_models[NUMSPRITES];
-extern md2_t *md2_playermodels;
-extern size_t md2_numplayermodels;
 
 void HWR_InitModels(void);
 void HWR_LoadModels(void);
 
 boolean HWR_DrawModel(gl_vissprite_t *spr);
-
-#define PLAYERMODELPREFIX "PLAYER"
 
 #ifdef __cplusplus
 } // extern "C"

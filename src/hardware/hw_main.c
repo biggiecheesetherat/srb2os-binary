@@ -25,6 +25,7 @@
 #include "../i_video.h"
 #include "../v_video.h"
 #include "../p_local.h"
+#include "../p_animation.h"
 #include "../p_setup.h"
 #include "../r_fps.h"
 #include "../r_local.h"
@@ -4150,8 +4151,7 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 	gpatch = spr->gpatch;
 
 #ifdef ALAM_LIGHTING
-	if (!(spr->mobj->flags2 & MF2_DEBRIS) && (spr->mobj->sprite != SPR_PLAY ||
-	 (spr->mobj->player && spr->mobj->player->powers[pw_super])))
+	if (!(spr->mobj->flags2 & MF2_DEBRIS) && spr->mobj->player && spr->mobj->player->powers[pw_super])
 		HWR_DL_AddLight(spr, gpatch);
 #endif
 
@@ -4976,25 +4976,12 @@ static void HWR_DrawSprites(void)
 				skipshadow = false;
 			}
 
-			if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
-			{
-				if (!cv_glmodels.value || !md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].found || md2_playermodels[((skin_t*)spr->mobj->skin)->skinnum].scale < 0.0f)
-					HWR_DrawSprite(spr);
-				else
-				{
-					if (!HWR_DrawModel(spr))
-						HWR_DrawSprite(spr);
-				}
-			}
+			if (!cv_glmodels.value || !md2_models[spr->mobj->sprite].found || md2_models[spr->mobj->sprite].scale < 0.0f)
+				HWR_DrawSprite(spr);
 			else
 			{
-				if (!cv_glmodels.value || !md2_models[spr->mobj->sprite].found || md2_models[spr->mobj->sprite].scale < 0.0f)
+				if (!HWR_DrawModel(spr))
 					HWR_DrawSprite(spr);
-				else
-				{
-					if (!HWR_DrawModel(spr))
-						HWR_DrawSprite(spr);
-				}
 			}
 		}
 	}
@@ -5161,10 +5148,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	{
 		if (cv_glmodels.value) //Yellow: Only MD2's dont disappear
 		{
-			if (thing->skin && thing->sprite == SPR_PLAY)
-				md2 = &md2_playermodels[((skin_t *)thing->skin)->skinnum];
-			else
-				md2 = &md2_models[thing->sprite];
+			md2 = &md2_models[thing->sprite];
 
 			if (!md2->found || md2->scale < 0.0f)
 				return;
@@ -5186,28 +5170,33 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	rot = thing->frame&FF_FRAMEMASK;
 
 	//Fab : 02-08-98: 'skin' override spritedef currently used for skin
-	if (thing->skin && thing->sprite == SPR_PLAY)
-	{
-		sprdef = P_GetSkinSpritedef(thing->skin, thing->sprite2);
-		sprinfo = P_GetSkinSpriteInfo(thing->skin, thing->sprite2);
-	}
-	else
-	{
-		sprdef = &sprites[thing->sprite];
-		sprinfo = &spriteinfo[thing->sprite];
-	}
+	// Lactozilla: No longer needed. Skins now use sprites[] and spriteinfo[]
+	sprdef = &sprites[thing->sprite];
+	sprinfo = &spriteinfo[thing->sprite];
 
 	if (rot >= sprdef->numframes)
 	{
-		CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
-			sizeu1(rot), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
-		thing->sprite = states[S_UNKNOWN].sprite;
-		thing->frame = states[S_UNKNOWN].frame;
-		sprdef = &sprites[thing->sprite];
-		sprinfo = &spriteinfo[thing->sprite];
-		rot = thing->frame&FF_FRAMEMASK;
-		thing->state->sprite = thing->sprite;
-		thing->state->frame = thing->frame;
+		if (!in_bit_array(missing_sprites, thing->sprite))
+		{
+			set_bit_array(missing_sprites, thing->sprite);
+
+			if (thing->animator.animation)
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for animation %s subanimation %s\n"),
+					sizeu1(rot), sizeu2(sprdef->numframes),
+					P_GetAnimationNameByID(thing->animator.animation),
+					P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation));
+			}
+			else
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("HWR_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
+					sizeu1(rot), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
+			}
+		}
+
+		sprdef = &sprites[states[S_UNKNOWN].sprite];
+		sprinfo = &spriteinfo[states[S_UNKNOWN].sprite];
+		rot = states[S_UNKNOWN].frame&FF_FRAMEMASK;
 	}
 
 	sprframe = &sprdef->spriteframes[rot];

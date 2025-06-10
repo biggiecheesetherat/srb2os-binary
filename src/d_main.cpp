@@ -48,6 +48,7 @@
 #include "m_misc.h"
 #include "p_setup.h"
 #include "p_saveg.h"
+#include "p_animation.h"
 #include "r_main.h"
 #include "r_local.h"
 #include "r_translation.h"
@@ -1604,6 +1605,9 @@ void D_SRB2Main(void)
 #ifdef USE_PATCH_DTA
 	mainwads++;
 #endif
+
+	CONS_Printf("P_InitAnimations()...\n");
+	P_InitAnimations();
 
 	// load wad, including the main wad file
 	CONS_Printf("W_InitMultipleFiles(): Adding IWAD and main PWADs.\n");

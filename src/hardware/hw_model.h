@@ -84,13 +84,6 @@ typedef struct tag_s
 
 #define MODEL_INTERPOLATION_FLAG "+i"
 
-typedef struct
-{
-	INT32 frames[256];
-	UINT8 numframes;
-	boolean interpolate;
-} modelspr2frames_t;
-
 typedef struct model_s
 {
 	int maxNumFrames;
@@ -104,8 +97,6 @@ typedef struct model_s
 
 	char *frameNames;
 	boolean interpolate[256];
-	modelspr2frames_t *spr2frames;
-	modelspr2frames_t *superspr2frames;
 
 	// the max_s and max_t values that the uvs are currently adjusted to
 	// (if a sprite is used as a texture)
@@ -127,7 +118,6 @@ model_t *LoadModel(const char *filename, int ztag);
 void UnloadModel(model_t *model);
 void Optimize(model_t *model);
 void LoadModelInterpolationSettings(model_t *model);
-void LoadModelSprite2(model_t *model);
 void GenerateVertexNormals(model_t *model);
 void GeneratePolygonNormals(model_t *model, int ztag);
 void CreateVBOTiny(mesh_t *mesh, tinyframe_t *frame);

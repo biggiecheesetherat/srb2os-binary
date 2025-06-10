@@ -20,6 +20,7 @@
 #include "m_misc.h"
 #include "p_local.h"
 #include "p_setup.h"
+#include "p_animation.h"
 #include "p_saveg.h"
 #include "r_data.h"
 #include "r_fps.h"
@@ -2174,7 +2175,9 @@ typedef enum
 	MD2_DRAWONLYFORPLAYER   = 1<<24,
 	MD2_DONTDRAWFORVIEWMOBJ = 1<<25,
 	MD2_TRANSLATION         = 1<<26,
-	MD2_ALPHA               = 1<<27
+	MD2_ALPHA               = 1<<27,
+	MD2_SKINSPRITESET       = 1<<28,
+	MD2_ANIMATION           = 1<<29
 } mobj_diff2_t;
 
 typedef enum
@@ -2312,8 +2315,6 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 		diff |= MD_TICS;
 	if (mobj->sprite != mobj->state->sprite)
 		diff |= MD_SPRITE;
-	if (mobj->sprite == SPR_PLAY && mobj->sprite2 != P_GetStateSprite2(mobj->state))
-		diff |= MD_SPRITE;
 	if (mobj->frame != mobj->state->frame)
 		diff |= MD_FRAME;
 	if (mobj->anim_duration != (UINT16)mobj->state->var2)
@@ -2365,6 +2366,10 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 		diff2 |= MD2_COLOR;
 	if (mobj->translation)
 		diff2 |= MD2_TRANSLATION;
+	if (mobj->skinspriteset)
+		diff2 |= MD2_SKINSPRITESET;
+	if (mobj->animator.animation)
+		diff2 |= MD2_ANIMATION;
 	if (mobj->skin)
 		diff2 |= MD2_SKIN;
 	if (mobj->extravalue1)
@@ -2495,11 +2500,8 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 		P_WriteUINT16(save_p, mobj->state-states);
 	if (diff & MD_TICS)
 		P_WriteINT32(save_p, mobj->tics);
-	if (diff & MD_SPRITE) {
+	if (diff & MD_SPRITE)
 		P_WriteUINT16(save_p, mobj->sprite);
-		if (mobj->sprite == SPR_PLAY)
-			P_WriteUINT16(save_p, mobj->sprite2);
-	}
 	if (diff & MD_FRAME)
 	{
 		P_WriteUINT32(save_p, mobj->frame);
@@ -2604,6 +2606,18 @@ static void SaveMobjThinker(save_t *save_p, const thinker_t *th, const UINT8 typ
 		P_WriteUINT16(save_p, mobj->translation);
 	if (diff2 & MD2_ALPHA)
 		P_WriteFixed(save_p, mobj->alpha);
+	if (diff2 & MD2_SKINSPRITESET)
+		P_WriteUINT8(save_p, mobj->skinspriteset);
+	if (diff2 & MD2_ANIMATION)
+	{
+		P_WriteUINT16(save_p, mobj->animator.animation);
+		P_WriteUINT16(save_p, mobj->animator.subanimation);
+		P_WriteUINT16(save_p, mobj->animator.frame);
+		P_WriteFixed(save_p, mobj->animator.timer);
+		P_WriteFixed(save_p, mobj->animator.frame_duration);
+		P_WriteFixed(save_p, mobj->animator.speed_mul);
+		P_WriteUINT8(save_p, mobj->animator.direction);
+	}
 
 	P_WriteUINT32(save_p, mobj->mobjnum);
 }
@@ -3526,16 +3540,10 @@ static thinker_t* LoadMobjThinker(save_t *save_p, actionf_p1 thinker)
 		mobj->tics = P_ReadINT32(save_p);
 	else
 		mobj->tics = mobj->state->tics;
-	if (diff & MD_SPRITE) {
+	if (diff & MD_SPRITE)
 		mobj->sprite = P_ReadUINT16(save_p);
-		if (mobj->sprite == SPR_PLAY)
-			mobj->sprite2 = P_ReadUINT16(save_p);
-	}
-	else {
+	else
 		mobj->sprite = mobj->state->sprite;
-		if (mobj->sprite == SPR_PLAY)
-			mobj->sprite2 = P_GetStateSprite2(mobj->state);
-	}
 	if (diff & MD_FRAME)
 	{
 		mobj->frame = P_ReadUINT32(save_p);
@@ -3673,6 +3681,19 @@ static thinker_t* LoadMobjThinker(save_t *save_p, actionf_p1 thinker)
 		mobj->alpha = P_ReadFixed(save_p);
 	else
 		mobj->alpha = FRACUNIT;
+	if (diff2 & MD2_SKINSPRITESET)
+		mobj->skinspriteset = P_ReadUINT8(save_p);
+	if (diff2 & MD2_ANIMATION)
+	{
+		mobj->animator.animation = P_ReadUINT16(save_p);
+		mobj->animator.subanimation = P_ReadUINT16(save_p);
+		mobj->animator.frame = P_ReadUINT16(save_p);
+		mobj->animator.timer = P_ReadFixed(save_p);
+		mobj->animator.frame_duration = P_ReadFixed(save_p);
+		mobj->animator.speed_mul = P_ReadFixed(save_p);
+		mobj->animator.direction = P_ReadUINT8(save_p);
+		P_UpdateAnimatorCurNextFrames(&mobj->animator);
+	}
 
 	if (diff & MD_REDFLAG)
 	{

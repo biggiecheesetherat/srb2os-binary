@@ -32,6 +32,7 @@ char *FREE_STATES[NUMSTATES];
 char *FREE_MOBJS[NUMMOBJTYPES];
 char *FREE_SKINCOLORS[NUMCOLORFREESLOTS];
 bitarray_t used_spr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Sprite freeslots in use
+bitarray_t used_skinspr[BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS)]; // Which sprite freeslots are being used by skins
 
 const char NIGHTSGRADE_LIST[] = {
 	'F', // GRADE_F
@@ -1042,8 +1043,6 @@ struct int_const_s const INT_CONST[] = {
 
 	// Frame settings
 	{"FF_FRAMEMASK",FF_FRAMEMASK},
-	{"FF_SPR2SUPER",FF_SPR2SUPER},
-	{"FF_SPR2ENDSTATE",FF_SPR2ENDSTATE},
 	{"FF_SPR2MIDSTART",FF_SPR2MIDSTART},
 	{"FF_ANIMATE",FF_ANIMATE},
 	{"FF_RANDOMANIM",FF_RANDOMANIM},

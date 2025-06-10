@@ -18,6 +18,7 @@
 #include "deh_lua.h"
 #include "p_mobj.h"
 #include "p_local.h"
+#include "p_animation.h"
 #include "z_zone.h"
 #include "r_patch.h"
 #include "r_picformats.h"
@@ -102,133 +103,6 @@ static int lib_getSprname(lua_State *L)
 static int lib_sprnamelen(lua_State *L)
 {
 	lua_pushinteger(L, NUMSPRITES);
-	return 1;
-}
-
-//
-// Player Sprite Names
-//
-
-// push sprite name
-static int lib_getSpr2name(lua_State *L)
-{
-	playersprite_t i;
-
-	lua_remove(L, 1); // don't care about spr2names[] dummy userdata.
-
-	if (lua_isnumber(L, 1))
-	{
-		i = lua_tonumber(L, 1);
-		if (i >= free_spr2)
-			return 0;
-		lua_pushlstring(L, spr2names[i], 4);
-		return 1;
-	}
-	else if (lua_isstring(L, 1))
-	{
-		const char *name = lua_tostring(L, 1);
-		for (i = 0; i < free_spr2; i++)
-			if (fastcmp(name, spr2names[i]))
-			{
-				lua_pushinteger(L, i);
-				return 1;
-			}
-	}
-	return 0;
-}
-
-static int lib_getSpr2default(lua_State *L)
-{
-	playersprite_t i;
-
-	lua_remove(L, 1); // don't care about spr2defaults[] dummy userdata.
-
-	if (lua_isnumber(L, 1))
-		i = lua_tonumber(L, 1);
-	else if (lua_isstring(L, 1))
-	{
-		const char *name = lua_tostring(L, 1);
-		for (i = 0; i < free_spr2; i++)
-			if (fastcmp(name, spr2names[i]))
-				break;
-	}
-	else
-		return luaL_error(L, "spr2defaults[] invalid index");
-
-	if (i >= free_spr2)
-		return luaL_error(L, "spr2defaults[] index %d out of range (%d - %d)", i, 0, free_spr2-1);
-
-	lua_pushinteger(L, spr2defaults[i]);
-	return 1;
-}
-
-static int lib_setSpr2default(lua_State *L)
-{
-	playersprite_t i;
-	UINT16 j = 0;
-
-	if (hud_running)
-		return luaL_error(L, "Do not alter spr2defaults[] in HUD rendering code!");
-	if (hook_cmd_running)
-		return luaL_error(L, "Do not alter spr2defaults[] in CMD building code!");
-
-// todo: maybe allow setting below first freeslot..? step 1 is toggling this, step 2 is testing to see whether it's net-safe
-#ifdef SETALLSPR2DEFAULTS
-#define FIRSTMODIFY 0
-#else
-#define FIRSTMODIFY SPR2_FIRSTFREESLOT
-	if (free_spr2 == SPR2_FIRSTFREESLOT)
-		return luaL_error(L, "You can only modify the spr2defaults[] entries of sprite2 freeslots, and none are currently added.");
-#endif
-
-	lua_remove(L, 1); // don't care about spr2defaults[] dummy userdata.
-
-	if (lua_isnumber(L, 1))
-		i = lua_tonumber(L, 1);
-	else if (lua_isstring(L, 1))
-	{
-		const char *name = lua_tostring(L, 1);
-		for (i = 0; i < free_spr2; i++)
-		{
-			if (fastcmp(name, spr2names[i]))
-				break;
-		}
-		if (i == free_spr2)
-			return luaL_error(L, "spr2defaults[] invalid index");
-	}
-	else
-		return luaL_error(L, "spr2defaults[] invalid index");
-
-	if (i < FIRSTMODIFY || i >= free_spr2)
-		return luaL_error(L, "spr2defaults[] index %d out of range (%d - %d)", i, FIRSTMODIFY, free_spr2-1);
-#undef FIRSTMODIFY
-
-	if (lua_isnumber(L, 2))
-		j = lua_tonumber(L, 2);
-	else if (lua_isstring(L, 2))
-	{
-		const char *name = lua_tostring(L, 2);
-		for (j = 0; j < free_spr2; j++)
-		{
-			if (fastcmp(name, spr2names[j]))
-				break;
-		}
-		if (j == free_spr2)
-			return luaL_error(L, "spr2defaults[] invalid set");
-	}
-	else
-		return luaL_error(L, "spr2defaults[] invalid set");
-
-	if (j >= free_spr2)
-		return luaL_error(L, "spr2defaults[] set %d out of range (%d - %d)", j, 0, free_spr2-1);
-
-	spr2defaults[i] = j;
-	return 0;
-}
-
-static int lib_spr2namelen(lua_State *L)
-{
-	lua_pushinteger(L, free_spr2);
 	return 1;
 }
 
@@ -752,6 +626,10 @@ static int lib_setState(lua_State *L)
 			if (value < S_NULL || value >= NUMSTATES)
 				return luaL_error(L, "nextstate number %d is invalid.", value);
 			state->nextstate = (statenum_t)value;
+		} else if (i == 8 || (str && fastcmp(str, "subanim"))) {
+			if (state->anim_entry)
+				free(state->anim_entry);
+			state->anim_entry = strdup(luaL_checkstring(L, 3));
 		}
 		lua_pop(L, 1);
 	}
@@ -1117,8 +995,14 @@ static int lib_setMobjInfo(lua_State *L)
 			info->activesound = luaL_checkinteger(L, 3);
 		else if (i == 23 || (str && fastcmp(str,"flags")))
 			info->flags = (INT32)luaL_checkinteger(L, 3);
-		else if (i == 24 || (str && fastcmp(str,"raisestate"))) {
+		else if (i == 24 || (str && fastcmp(str,"raisestate")))
 			info->raisestate = luaL_checkinteger(L, 3);
+		else if (i == 25 || (str && fastcmp(str,"animation"))) {
+			const char *animation_name = luaL_checkstring(L, 3);
+			UINT16 animation_id = P_GetNamedAnimationID(animation_name);
+			if (animation_id == 0)
+				return luaL_error(L, "invalid animation name '%s'", animation_name);
+			info->animation = animation_id;
 		}
 		lua_pop(L, 1);
 	}
@@ -1158,6 +1042,7 @@ enum mobjinfo_e
 	mobjinfo_activesound,
 	mobjinfo_flags,
 	mobjinfo_raisestate,
+	mobjinfo_animation
 };
 
 const char *const mobjinfo_opt[] = {
@@ -1185,6 +1070,7 @@ const char *const mobjinfo_opt[] = {
 	"activesound",
 	"flags",
 	"raisestate",
+	"animation",
 	NULL,
 };
 
@@ -1273,6 +1159,13 @@ static int mobjinfo_get(lua_State *L)
 	case mobjinfo_raisestate:
 		lua_pushinteger(L, info->raisestate);
 		break;
+	case mobjinfo_animation: {
+		const char *animation_name = P_GetAnimationNameByID(info->animation);
+		if (animation_name == NULL)
+			return 0;
+		lua_pushstring(L, animation_name);
+		break;
+	}
 	default:
 		lua_getfield(L, LUA_REGISTRYINDEX, LREG_EXTVARS);
 		I_Assert(lua_istable(L, -1));
@@ -1379,6 +1272,18 @@ static int mobjinfo_set(lua_State *L)
 	case mobjinfo_raisestate:
 		info->raisestate = luaL_checkinteger(L, 3);
 		break;
+	case mobjinfo_animation: {
+		if (lua_isnil(L, 3)) {
+			info->animation = 0;
+			break;
+		}
+		const char *animation_name = luaL_checkstring(L, 3);
+		UINT16 animation_id = P_GetNamedAnimationID(animation_name);
+		if (animation_id == 0)
+			return luaL_error(L, "invalid animation name '%s'", animation_name);
+		info->animation = animation_id;
+		break;
+	}
 	default:
 		lua_getfield(L, LUA_REGISTRYINDEX, LREG_EXTVARS);
 		I_Assert(lua_istable(L, -1));
@@ -1916,8 +1821,6 @@ int LUA_InfoLib(lua_State *L)
 	mobjinfo_fields_ref = Lua_CreateFieldTable(L, mobjinfo_opt);
 
 	LUA_RegisterGlobalUserdata(L, "sprnames", lib_getSprname, NULL, lib_sprnamelen);
-	LUA_RegisterGlobalUserdata(L, "spr2names", lib_getSpr2name, NULL, lib_spr2namelen);
-	LUA_RegisterGlobalUserdata(L, "spr2defaults", lib_getSpr2default, lib_setSpr2default, lib_spr2namelen);
 	LUA_RegisterGlobalUserdata(L, "states", lib_getState, lib_setState, lib_statelen);
 	LUA_RegisterGlobalUserdata(L, "mobjinfo", lib_getMobjInfo, lib_setMobjInfo, lib_mobjinfolen);
 	LUA_RegisterGlobalUserdata(L, "skincolors", lib_getSkinColor, lib_setSkinColor, lib_skincolorslen);

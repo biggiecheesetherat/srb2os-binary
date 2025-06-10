@@ -195,9 +195,7 @@ model_t *LoadModel(const char *filename, int ztag)
 
 	Optimize(model);
 	GeneratePolygonNormals(model, ztag);
-	LoadModelSprite2(model);
-	if (!model->spr2frames)
-		LoadModelInterpolationSettings(model);
+	LoadModelInterpolationSettings(model);
 
 	// Default material properties
 	for (i = 0 ; i < model->numMaterials; i++)
@@ -235,12 +233,6 @@ void HWR_ReloadModels(void)
 	size_t i;
 
 	HWR_LoadModels();
-
-	for (i = 0; i < md2_numplayermodels; i++)
-	{
-		if (md2_playermodels[i].model)
-			LoadModelSprite2(md2_playermodels[i].model);
-	}
 
 	for (i = 0; i < numsprites; i++)
 	{
@@ -286,99 +278,6 @@ void LoadModelInterpolationSettings(model_t *model)
 	}
 
 	#undef GET_OFFSET
-}
-
-void LoadModelSprite2(model_t *model)
-{
-	INT32 i;
-	modelspr2frames_t *spr2frames = NULL;
-	modelspr2frames_t *superspr2frames = NULL;
-	INT32 numframes = model->meshes[0].numFrames;
-	char *framename = model->frameNames;
-
-	if (!framename)
-		return;
-
-	for (i = 0; i < numframes; i++)
-	{
-		char prefix[6];
-		char name[5];
-		char interpolation_flag[3];
-		char framechars[4];
-		UINT8 frame = 0;
-		UINT8 spr2idx;
-		boolean interpolate = false;
-
-		memset(&prefix, 0x00, 6);
-		memset(&name, 0x00, 5);
-		memset(&interpolation_flag, 0x00, 3);
-		memset(&framechars, 0x00, 4);
-
-		if (strlen(framename) >= 9)
-		{
-			boolean super;
-			char *modelframename = framename;
-			memcpy(&prefix, modelframename, 5);
-			modelframename += 5;
-			memcpy(&name, modelframename, 4);
-			modelframename += 4;
-			// Oh look
-			memcpy(&interpolation_flag, modelframename, 2);
-			if (!memcmp(interpolation_flag, MODEL_INTERPOLATION_FLAG, 2))
-			{
-				interpolate = true;
-				modelframename += 2;
-			}
-			memcpy(&framechars, modelframename, 3);
-
-			if ((super = (!memcmp(prefix, "SUPER", 5))) || (!memcmp(prefix, "SPR2_", 5)))
-			{
-				spr2idx = 0;
-				while (spr2idx < free_spr2)
-				{
-					modelspr2frames_t *frames = NULL;
-					if (!memcmp(spr2names[spr2idx], name, 4))
-					{
-						if (!spr2frames)
-							spr2frames = (modelspr2frames_t*)Z_Calloc(sizeof(modelspr2frames_t)*NUMPLAYERSPRITES, PU_STATIC, NULL);
-						frames = spr2frames;
-
-						if (super)
-						{
-							if (!superspr2frames)
-								superspr2frames = (modelspr2frames_t*)Z_Calloc(sizeof(modelspr2frames_t)*NUMPLAYERSPRITES, PU_STATIC, NULL);
-							frames = superspr2frames;
-						}
-
-						if (framechars[0])
-						{
-							frame = atoi(framechars);
-							if (frames[spr2idx].numframes < frame+1)
-								frames[spr2idx].numframes = frame+1;
-						}
-						else
-						{
-							frame = frames[spr2idx].numframes;
-							frames[spr2idx].numframes++;
-						}
-						frames[spr2idx].frames[frame] = i;
-						frames[spr2idx].interpolate = interpolate;
-						break;
-					}
-					spr2idx++;
-				}
-			}
-		}
-
-		framename += 16;
-	}
-
-	if (model->spr2frames)
-		Z_Free(model->spr2frames);
-	if (model->superspr2frames)
-		Z_Free(model->superspr2frames);
-	model->spr2frames = spr2frames;
-	model->superspr2frames = superspr2frames;
 }
 
 //

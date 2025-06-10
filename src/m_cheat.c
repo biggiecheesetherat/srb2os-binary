@@ -1006,19 +1006,27 @@ static void OP_CycleThings(INT32 amt)
 	}
 
 	// HACK, minus has SPR_NULL sprite
-	if (states[mobjinfo[op_currentthing].spawnstate].sprite == SPR_NULL)
+	state_t *st = &states[mobjinfo[op_currentthing].spawnstate];
+	if (st->sprite == SPR_NULL)
 	{
-		states[S_OBJPLACE_DUMMY].sprite = states[mobjinfo[op_currentthing].seestate].sprite;
-		states[S_OBJPLACE_DUMMY].frame = states[mobjinfo[op_currentthing].seestate].frame;
+		st = &states[mobjinfo[op_currentthing].seestate];
+		states[S_OBJPLACE_DUMMY].sprite = st->sprite;
+		states[S_OBJPLACE_DUMMY].frame = st->frame;
+	}
+	else if (st->sprite == SPR_PLAY)
+	{
+		states[S_OBJPLACE_DUMMY].sprite = P_GetSkinSpriteID(skins[0], st->anim_entry, SKINSPRITES_BASE);
+		states[S_OBJPLACE_DUMMY].frame = st->frame;
 	}
 	else
 	{
-		states[S_OBJPLACE_DUMMY].sprite = states[mobjinfo[op_currentthing].spawnstate].sprite;
-		states[S_OBJPLACE_DUMMY].frame = states[mobjinfo[op_currentthing].spawnstate].frame;
+		states[S_OBJPLACE_DUMMY].sprite = st->sprite;
+		states[S_OBJPLACE_DUMMY].frame = st->frame;
 	}
 	if (players[0].mo->eflags & MFE_VERTICALFLIP) // correct z when flipped
 		players[0].mo->z += players[0].mo->height - FixedMul(mobjinfo[op_currentthing].height, players[0].mo->scale);
 	players[0].mo->height = FixedMul(mobjinfo[op_currentthing].height, players[0].mo->scale);
+	players[0].mo->animator.animation = 0;
 	P_SetMobjState(players[0].mo, S_OBJPLACE_DUMMY);
 
 	op_currentdoomednum = mobjinfo[op_currentthing].doomednum;

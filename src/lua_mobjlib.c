@@ -38,7 +38,6 @@ enum mobj_e {
 	mobj_rollangle, // backwards compat
 	mobj_sprite,
 	mobj_frame,
-	mobj_sprite2,
 	mobj_anim_duration,
 	mobj_spritexscale,
 	mobj_spriteyscale,
@@ -66,6 +65,7 @@ enum mobj_e {
 	mobj_eflags,
 	mobj_renderflags,
 	mobj_skin,
+	mobj_skinspriteset,
 	mobj_color,
 	mobj_translation,
 	mobj_blendmode,
@@ -120,7 +120,6 @@ static const char *const mobj_opt[] = {
 	"rollangle", // backwards compat
 	"sprite",
 	"frame",
-	"sprite2",
 	"anim_duration",
 	"spritexscale",
 	"spriteyscale",
@@ -148,6 +147,7 @@ static const char *const mobj_opt[] = {
 	"eflags",
 	"renderflags",
 	"skin",
+	"skinspriteset",
 	"color",
 	"translation",
 	"blendmode",
@@ -250,9 +250,6 @@ static int mobj_get(lua_State *L)
 	case mobj_frame:
 		lua_pushinteger(L, mo->frame);
 		break;
-	case mobj_sprite2:
-		lua_pushinteger(L, mo->sprite2);
-		break;
 	case mobj_anim_duration:
 		lua_pushinteger(L, mo->anim_duration);
 		break;
@@ -339,6 +336,9 @@ static int mobj_get(lua_State *L)
 		if (!mo->skin)
 			return 0;
 		lua_pushstring(L, ((skin_t *)mo->skin)->name);
+		break;
+	case mobj_skinspriteset:
+		lua_pushstring(L, P_GetPlayerSpritesetName(mo->skinspriteset));
 		break;
 	case mobj_color:
 		lua_pushinteger(L, mo->color);
@@ -568,9 +568,6 @@ static int mobj_set(lua_State *L)
 	case mobj_frame:
 		mo->frame = (UINT32)luaL_checkinteger(L, 3);
 		break;
-	case mobj_sprite2:
-		mo->sprite2 = P_GetSkinSprite2(((skin_t *)mo->skin), (UINT16)luaL_checkinteger(L, 3), mo->player);
-		break;
 	case mobj_anim_duration:
 		mo->anim_duration = (UINT16)luaL_checkinteger(L, 3);
 		break;
@@ -708,6 +705,20 @@ static int mobj_set(lua_State *L)
 			}
 		return luaL_error(L, "mobj.skin '%s' not found!", skin);
 	}
+	case mobj_skinspriteset: // set spriteset by name
+		if (!lua_isnil(L, 3)) {
+			const char *spritesetname = luaL_checkstring(L, 3);
+			UINT8 id = P_GetPlayerSpritesetID(spritesetname);
+			if (id == NUMSKINSPRITESETS) {
+				return luaL_error(L, "mobj.skinspriteset '%s' not found!", spritesetname);
+			}
+			mo->skinspriteset = id;
+		}
+		else
+			mo->skinspriteset = SKINSPRITES_BASE;
+		if (mo->skin && mo->state->sprite == SPR_PLAY)
+			P_SetupSkinAnimation(mo, mo->state);
+		break;
 	case mobj_color:
 	{
 		UINT16 newcolor = (UINT16)luaL_checkinteger(L, 3);

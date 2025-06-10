@@ -44,6 +44,7 @@
 #include "keys.h"
 #include "z_zone.h"
 #include "w_wad.h"
+#include "p_animation.h"
 #include "p_local.h"
 #include "p_setup.h"
 #include "f_finale.h"
@@ -8476,8 +8477,8 @@ static void M_DrawLoadGameData(void)
 			if (savegameinfo[savetodraw].botskin)
 			{
 				skin_t *charbotskin = skins[savegameinfo[savetodraw].botskin-1];
-				sprdef = &charbotskin->sprites[SPR2_SIGN];
-				if (!sprdef->numframes)
+				sprdef = P_GetSkinSpritedef(charbotskin, "end_sign", SKINSPRITES_BASE);
+				if (!sprdef || !sprdef->numframes)
 					goto skipbot;
 				colormap = R_GetTranslationColormap(savegameinfo[savetodraw].botskin-1, charbotskin->prefcolor, GTC_CACHE);
 				sprframe = &sprdef->spriteframes[0];
@@ -8496,10 +8497,10 @@ skipbot:
 			// signpost image
 			if (!charskin) // shut up compiler
 				goto skipsign;
-			sprdef = &charskin->sprites[SPR2_SIGN];
-			colormap = R_GetTranslationColormap(savegameinfo[savetodraw].skinnum, charskin->prefcolor, GTC_CACHE);
-			if (!sprdef->numframes)
+			sprdef = P_GetSkinSpritedef(charskin, "end_sign", SKINSPRITES_BASE);
+			if (!sprdef || !sprdef->numframes)
 				goto skipsign;
+			colormap = R_GetTranslationColormap(savegameinfo[savetodraw].skinnum, charskin->prefcolor, GTC_CACHE);
 			sprframe = &sprdef->spriteframes[0];
 			patch = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
 
@@ -8525,8 +8526,8 @@ skipsign:
 				goto skiplife;
 
 			// lives
-			sprdef = &charskin->sprites[SPR2_LIFE];
-			if (!sprdef->numframes)
+			sprdef = P_GetSkinSpritedef(charskin, "life_icon", SKINSPRITES_BASE);
+			if (!sprdef || sprdef->numframes)
 				goto skiplife;
 			sprframe = &sprdef->spriteframes[0];
 			patch = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
@@ -9088,9 +9089,9 @@ static void M_CacheCharacterSelectEntry(INT32 i, INT32 skinnum)
 {
 	if (!(description[i].picname[0]))
 	{
-		if (skins[skinnum]->sprites[SPR2_XTRA].numframes > XTRA_CHARSEL)
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnum], "extra", 0);
+		if (sprdef && sprdef->numframes > XTRA_CHARSEL)
 		{
-			spritedef_t *sprdef = &skins[skinnum]->sprites[SPR2_XTRA];
 			spriteframe_t *sprframe = &sprdef->spriteframes[XTRA_CHARSEL];
 			description[i].charpic = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
 		}
@@ -9896,9 +9897,9 @@ void M_DrawTimeAttackMenu(void)
 
 	// Character face!
 	{
-		if (skins[cv_chooseskin.value-1]->sprites[SPR2_XTRA].numframes > XTRA_CHARSEL)
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[cv_chooseskin.value-1], "extra", SKINSPRITES_BASE);
+		if (sprdef && sprdef->numframes > XTRA_CHARSEL)
 		{
-			spritedef_t *sprdef = &skins[cv_chooseskin.value-1]->sprites[SPR2_XTRA];
 			spriteframe_t *sprframe = &sprdef->spriteframes[XTRA_CHARSEL];
 			PictureOfUrFace = W_CachePatchNum(sprframe->lumppat[0], PU_PATCH);
 		}
@@ -10222,37 +10223,42 @@ void M_DrawNightsAttackMenu(void)
 		// Draw selected character's NiGHTS sprite
 		patch_t *natksprite; //The patch for the sprite itself
 		INT32 spritetimer; //Timer for animating NiGHTS sprite
-		INT32 skinnumber; //Number for skin
+		INT32 skinnumber = cv_chooseskin.value-1; //Number for skin
 		UINT16 color; //natkcolor
 
-		if (skins[cv_chooseskin.value-1]->sprites[SPR2_NFLY].numframes == 0) //If we don't have NiGHTS sprites
-			skinnumber = 0; //Default to Sonic
-		else
-			skinnumber = (cv_chooseskin.value-1);
+		spritedef_t *sprdef = P_GetSkinSpritedef(skins[skinnumber], "nights_fly", 0);
+		if (sprdef == NULL) //If we don't have NiGHTS sprites
+		{
+			skinnumber = 0;
+			sprdef = P_GetSkinSpritedef(skins[skinnumber], "nights_fly", 0); //Default to Sonic
+		}
 
-		spritedef_t *sprdef = &skins[skinnumber]->sprites[SPR2_NFLY]; //Make our patch the selected character's NFLY sprite
-		spritetimer = FixedInt(ntsatkdrawtimer/2) % skins[skinnumber]->sprites[SPR2_NFLY].numframes; //Make the sprite timer cycle though all the frames at 2 tics per frame
-		spriteframe_t *sprframe = &sprdef->spriteframes[spritetimer]; //Our animation frame is equal to the number on the timer
+		if (sprdef)
+		{
+			//Make our patch the selected character's NFLY sprite
+			spritetimer = FixedInt(ntsatkdrawtimer/2) % sprdef->numframes; //Make the sprite timer cycle though all the frames at 2 tics per frame
+			spriteframe_t *sprframe = &sprdef->spriteframes[spritetimer]; //Our animation frame is equal to the number on the timer
 
-		natksprite = W_CachePatchNum(sprframe->lumppat[6], PU_PATCH); //Draw the right facing angle
+			natksprite = W_CachePatchNum(sprframe->lumppat[6], PU_PATCH); //Draw the right facing angle
 
-		if (skins[skinnumber]->natkcolor) //If you set natkcolor use it
-			color = skins[skinnumber]->natkcolor;
-		else if ((skins[skinnumber]->flags & SF_SUPER) && !(skins[skinnumber]->flags & SF_NONIGHTSSUPER)) //If you go super in NiGHTS, use supercolor
-			color = skins[skinnumber]->supercolor+4;
-		else //If you don't go super in NiGHTS or at all, use prefcolor
-			color = skins[skinnumber]->prefcolor;
+			if (skins[skinnumber]->natkcolor) //If you set natkcolor use it
+				color = skins[skinnumber]->natkcolor;
+			else if ((skins[skinnumber]->flags & SF_SUPER) && !(skins[skinnumber]->flags & SF_NONIGHTSSUPER)) //If you go super in NiGHTS, use supercolor
+				color = skins[skinnumber]->supercolor+4;
+			else //If you don't go super in NiGHTS or at all, use prefcolor
+				color = skins[skinnumber]->prefcolor;
 
-		angle_t fa = (FixedAngle(((FixedInt(ntsatkdrawtimer * 4)) % 360)<<FRACBITS)>>ANGLETOFINESHIFT) & FINEMASK;
-		fixed_t scale = skins[skinnumber]->highresscale;
-		if (skins[skinnumber]->shieldscale)
-			scale = FixedDiv(scale, skins[skinnumber]->shieldscale);
+			angle_t fa = (FixedAngle(((FixedInt(ntsatkdrawtimer * 4)) % 360)<<FRACBITS)>>ANGLETOFINESHIFT) & FINEMASK;
+			fixed_t scale = skins[skinnumber]->highresscale;
+			if (skins[skinnumber]->shieldscale)
+				scale = FixedDiv(scale, skins[skinnumber]->shieldscale);
 
-		V_DrawFixedPatch(270<<FRACBITS, (186<<FRACBITS) - 8*FINESINE(fa),
-						 scale,
-						 (sprframe->flip & 1<<6) ? V_FLIP : 0,
-						 natksprite,
-						 R_GetTranslationColormap(TC_BLINK, color, GTC_CACHE));
+			V_DrawFixedPatch(270<<FRACBITS, (186<<FRACBITS) - 8*FINESINE(fa),
+							 scale,
+							 (sprframe->flip & 1<<6) ? V_FLIP : 0,
+							 natksprite,
+							 R_GetTranslationColormap(TC_BLINK, color, GTC_CACHE));
+		}
 
 		//if (P_HasGrades(cv_nextmap.value, 0))
 		//	V_DrawScaledPatch(235 - (((ngradeletters[bestoverall])->width)*3)/2, 135, 0, ngradeletters[bestoverall]);
@@ -11994,14 +12000,17 @@ static void M_HandleConnectIP(INT32 choice)
 // ========================
 // Tails 03-02-2002
 
-static fixed_t    multi_tics;
-static UINT8      multi_frame;
-static UINT16     multi_spr2;
-static boolean    multi_paused;
-static boolean    multi_invcolor;
-static boolean    multi_override;
+static fixed_t      multi_tics;
+static UINT8        multi_frame;
+static const char  *multi_subanim;
+static spritedef_t *multi_sprdef;
+static animator_t   multi_animator;
+static boolean      multi_paused;
+static boolean      multi_invcolor;
+static boolean      multi_override;
 
 static spritedef_t *multi_followitem_sprdef;
+static animator_t   multi_followitem_animator;
 static INT32        multi_followitem_skinnum;
 static UINT8        multi_followitem_numframes;
 static UINT8        multi_followitem_startframe;
@@ -12156,6 +12165,26 @@ static menucolor_t *M_GridIndexToMenuColor(UINT16 index)
 	}
 }
 
+static const char *M_SetupPlayerMenuAnimator(animator_t *animator, skin_t *skin, const char *subanim_name, spritedef_t **sprdef)
+{
+	UINT8 spriteset = SKINSPRITES_BASE;
+	UINT16 subanimation = P_GetSkinSubanimation(skin, subanim_name, spriteset, NULL, &spriteset);
+	UINT16 animation = P_GetSkinAnimation(skin, spriteset);
+
+	subanim_name = P_GetSubanimationNameByID(animation, subanimation);
+
+	*sprdef = P_GetSkinSpritedef(skin, subanim_name, spriteset);
+
+	memset(animator, 0, sizeof(animator_t));
+
+	animator->speed_mul = FixedDiv(FRACUNIT, MULTI_DURATION);
+
+	if (!P_SetupAnimator(animator, animation, subanimation, 0))
+		animator->animation = UINT16_MAX;
+
+	return subanim_name;
+}
+
 static void M_SetPlayerSetupFollowItem(void)
 {
 	const mobjtype_t followitem = skins[setupm_fakeskin]->followitem;
@@ -12165,14 +12194,16 @@ static void M_SetPlayerSetupFollowItem(void)
 		case MT_TAILSOVERLAY:
 		{
 			const state_t *state = &states[S_TAILSOVERLAY_MINUS30DEGREES];
-			const UINT8 sprite2 = P_GetSkinSprite2(skins[setupm_fakeskin], state->frame & FF_FRAMEMASK, NULL);
 
 			if (state->sprite != SPR_PLAY)
 				break;
 
-			multi_followitem_sprdef = &skins[setupm_fakeskin]->sprites[sprite2];
+			animator_t *animator = &multi_followitem_animator;
+
+			M_SetupPlayerMenuAnimator(animator, skins[setupm_fakeskin], state->anim_entry, &multi_followitem_sprdef);
+
 			multi_followitem_skinnum = setupm_fakeskin;
-			multi_followitem_numframes = multi_followitem_sprdef->numframes;
+			multi_followitem_numframes = P_GetSubanimationFrameCount(animator->animation, animator->subanimation) / 2;
 			multi_followitem_startframe = 0;
 			multi_followitem_frame = multi_frame;
 			multi_followitem_duration = MULTI_DURATION;
@@ -12180,9 +12211,9 @@ static void M_SetPlayerSetupFollowItem(void)
 			multi_followitem_scale = FRACUNIT;
 			multi_followitem_yoffset = 0;
 
-			if ((state->frame & FF_SPR2MIDSTART) && (multi_followitem_numframes > 0) && M_RandomChance(FRACUNIT / 2))
+			if ((state->frame & FF_SPR2MIDSTART) && animator->animation != UINT16_MAX && M_RandomChance(FRACUNIT / 2))
 			{
-				multi_followitem_frame += multi_followitem_numframes / 2;
+				P_SetupAnimator(animator, animator->animation, animator->subanimation, multi_followitem_numframes / 2);
 			}
 			break;
 		}
@@ -12193,6 +12224,7 @@ static void M_SetPlayerSetupFollowItem(void)
 			if (!(state->frame & FF_ANIMATE))
 				break;
 
+			multi_followitem_animator.animation = UINT16_MAX;
 			multi_followitem_sprdef = &sprites[state->sprite];
 			multi_followitem_skinnum = TC_DEFAULT;
 			multi_followitem_numframes = state->var1 + 1;
@@ -12205,8 +12237,35 @@ static void M_SetPlayerSetupFollowItem(void)
 			break;
 		}
 		default:
+			multi_followitem_animator.animation = UINT16_MAX;
 			multi_followitem_sprdef = NULL;
 			break;
+	}
+}
+
+static void M_AnimatePlayerSetup(void)
+{
+	if (multi_animator.animation != UINT16_MAX)
+	{
+		P_DoAnimationPlayback(&multi_animator, NULL, renderdeltatics);
+		multi_tics = multi_animator.timer;
+		multi_frame = P_GetAnimatorFrame(&multi_animator);
+	}
+
+	if (multi_followitem_animator.animation != UINT16_MAX)
+	{
+		P_DoAnimationPlayback(&multi_followitem_animator, NULL, renderdeltatics);
+		multi_followitem_tics = multi_followitem_animator.timer;
+		multi_followitem_frame = P_GetAnimatorFrame(&multi_followitem_animator);
+	}
+	else if (multi_followitem_sprdef != NULL)
+	{
+		multi_followitem_tics -= renderdeltatics;
+		while (multi_followitem_tics <= 0)
+		{
+			multi_followitem_frame++;
+			multi_followitem_tics += multi_followitem_duration;
+		}
 	}
 }
 
@@ -12219,7 +12278,8 @@ static void M_DrawPlayerSetupFollowItem(INT32 x, INT32 y, fixed_t scale, INT32 f
 	if (multi_followitem_sprdef == NULL)
 		return;
 
-	if (multi_followitem_frame >= multi_followitem_startframe + multi_followitem_numframes)
+	if (multi_followitem_animator.animation == UINT16_MAX
+	&& multi_followitem_frame >= multi_followitem_startframe + multi_followitem_numframes)
 		multi_followitem_frame = multi_followitem_startframe;
 
 	colormap = R_GetTranslationColormap(multi_followitem_skinnum, setupm_fakecolor->color, GTC_CACHE);
@@ -12293,22 +12353,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	// anim the player in the box
 	if (!multi_paused)
 	{
-		multi_tics -= renderdeltatics;
-		while (multi_tics <= 0)
-		{
-			multi_frame++;
-			multi_tics += MULTI_DURATION;
-		}
-
-		if (multi_followitem_sprdef != NULL)
-		{
-			multi_followitem_tics -= renderdeltatics;
-			while (multi_followitem_tics <= 0)
-			{
-				multi_followitem_frame++;
-				multi_followitem_tics += multi_followitem_duration;
-			}
-		}
+		M_AnimatePlayerSetup();
 	}
 
 #define charw 74
@@ -12317,9 +12362,9 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	V_DrawFill(x-(charw/2), y, charw, 84,
 		multi_invcolor ?skincolors[skincolors[setupm_fakecolor->color].invcolor].ramp[skincolors[setupm_fakecolor->color].invshade] : 159);
 
-	sprdef = &skins[setupm_fakeskin]->sprites[multi_spr2];
+	sprdef = multi_sprdef;
 
-	if (!setupm_fakecolor->color || !sprdef->numframes) // should never happen but hey, who knows
+	if (!setupm_fakecolor->color || !sprdef || !sprdef->numframes) // should never happen but hey, who knows
 		goto faildraw;
 
 	// ok, draw player sprite for sure now
@@ -12339,7 +12384,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 		(
 			HUD_HOOK(playersetup), luahuddrawlist_playersetup, setupm_player,
 			x << FRACBITS, chary << FRACBITS, scale,
-			setupm_fakeskin, multi_spr2, multi_frame, 1, setupm_fakecolor->color,
+			setupm_fakeskin, multi_subanim, multi_frame, 1, setupm_fakecolor->color,
 			(multi_tics >> FRACBITS) + 1, multi_paused
 		);
 	}
@@ -12607,8 +12652,9 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = numskins-1;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+				multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 				M_SetPlayerSetupFollowItem();
+				M_AnimatePlayerSetup();
 			}
 			else if (itemOn == 2) // player color
 			{
@@ -12648,8 +12694,9 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 						setupm_fakeskin = 0;
 				}
 				while ((prev_setupm_fakeskin != setupm_fakeskin) && !(R_SkinUsable(-1, setupm_fakeskin)));
-				multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+				multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 				M_SetPlayerSetupFollowItem();
+				M_AnimatePlayerSetup();
 			}
 			else if (itemOn == 2) // player color
 			{
@@ -12799,8 +12846,9 @@ static void M_SetupMultiPlayer(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+	multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 	M_SetPlayerSetupFollowItem();
+	M_AnimatePlayerSetup();
 
 	// allocate and/or clear Lua player setup draw list
 	M_InitPlayerSetupLua();
@@ -12844,8 +12892,9 @@ static void M_SetupMultiPlayer2(INT32 choice)
 
 	MP_PlayerSetupMenu[2].status = (IT_KEYHANDLER|IT_STRING);
 
-	multi_spr2 = P_GetSkinSprite2(skins[setupm_fakeskin], SPR2_WALK, NULL);
+	multi_subanim = M_SetupPlayerMenuAnimator(&multi_animator, skins[setupm_fakeskin], "walk", &multi_sprdef);
 	M_SetPlayerSetupFollowItem();
+	M_AnimatePlayerSetup();
 
 	// allocate and/or clear Lua player setup draw list
 	M_InitPlayerSetupLua();

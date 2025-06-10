@@ -39,6 +39,7 @@
 #include "../r_things.h"
 #include "../r_draw.h"
 #include "../p_tick.h"
+#include "../p_animation.h"
 #include "hw_model.h"
 
 #include "hw_main.h"
@@ -73,8 +74,6 @@
 #endif
 
 md2_t md2_models[NUMSPRITES];
-md2_t *md2_playermodels = NULL;
-size_t md2_numplayermodels = 0;
 
 
 /*
@@ -515,30 +514,10 @@ void HWR_LoadModels(void)
 	char name[26], filename[32];
 	// name[24] is used to check for names in the models.dat file that match with sprites or player skins
 	// sprite names are always 4 characters long, and names is for player skins can be up to 19 characters long
-	// PLAYERMODELPREFIX is 6 characters long
 	float scale, offset;
-	size_t prefixlen;
 
 	if (nomd2s)
 		return;
-
-	// realloc player models table
-	if (numskins != (INT32)md2_numplayermodels)
-	{
-		md2_numplayermodels = (size_t)numskins;
-		md2_playermodels = Z_Realloc(md2_playermodels, sizeof(md2_t) * md2_numplayermodels, PU_STATIC, NULL);
-
-		for (s = 0; s < numskins; s++)
-		{
-			md2_playermodels[s].scale = -1.0f;
-			md2_playermodels[s].model = NULL;
-			md2_playermodels[s].grpatch = NULL;
-			md2_playermodels[s].notexturefile = false;
-			md2_playermodels[s].noblendfile = false;
-			md2_playermodels[s].found = false;
-			md2_playermodels[s].error = false;
-		}
-	}
 
 	// read the models.dat file
 	//Filename checking fixed ~Monster Iestyn and Golden
@@ -555,20 +534,9 @@ void HWR_LoadModels(void)
 		}
 	}
 
-	// length of the player model prefix
-	prefixlen = strlen(PLAYERMODELPREFIX);
-
 	while (fscanf(f, "%25s %31s %f %f", name, filename, &scale, &offset) == 4)
 	{
-		char *skinname = name;
 		size_t len = strlen(name);
-
-		// Check for the player model prefix.
-		if (!strnicmp(name, PLAYERMODELPREFIX, prefixlen) && (len > prefixlen))
-		{
-			skinname += prefixlen;
-			goto addskinmodel;
-		}
 
 		// Add sprite models.
 		for (i = 0; i < numsprites; i++)
@@ -579,20 +547,6 @@ void HWR_LoadModels(void)
 				md2_models[i].offset = offset;
 				md2_models[i].found = true;
 				strcpy(md2_models[i].filename, filename);
-				goto modelfound;
-			}
-		}
-
-addskinmodel:
-		// Add player models.
-		for (s = 0; s < numskins; s++)
-		{
-			if (stricmp(skinname, skins[s]->name) == 0)
-			{
-				md2_playermodels[s].scale = scale;
-				md2_playermodels[s].offset = offset;
-				md2_playermodels[s].found = true;
-				strcpy(md2_playermodels[s].filename, filename);
 				goto modelfound;
 			}
 		}
@@ -1053,7 +1007,7 @@ static void HWR_GetBlendedTexture(patch_t *patch, patch_t *blendpatch, INT32 ski
 static boolean HWR_AllowModel(mobj_t *mobj)
 {
 	// Signpost overlay. Not needed.
-	if (mobj->sprite2 == SPR2_SIGN || mobj->state-states == S_PLAY_SIGN)
+	if (P_IsAnimatorPlayingNamedSubAnimation(&mobj->animator, "end_sign") || mobj->state-states == S_PLAY_SIGN)
 		return false;
 
 	// Otherwise, render the model.
@@ -1063,85 +1017,6 @@ static boolean HWR_AllowModel(mobj_t *mobj)
 static boolean HWR_CanInterpolateModel(mobj_t *mobj, model_t *model)
 {
 	return model->interpolate[(mobj->frame & FF_FRAMEMASK)];
-}
-
-static boolean HWR_CanInterpolateSprite2(modelspr2frames_t *spr2frame)
-{
-	return spr2frame->interpolate;
-}
-
-static modelspr2frames_t *HWR_GetModelSprite2Frames(md2_t *md2, UINT16 spr2)
-{
-	if (!md2 || !md2->model)
-		return NULL;
-
-	boolean is_super = spr2 & SPR2F_SUPER;
-
-	spr2 &= SPR2F_MASK;
-
-	if (spr2 >= free_spr2)
-		return NULL;
-
-	if (is_super)
-	{
-		modelspr2frames_t *frames = md2->model->superspr2frames;
-		if (frames && md2->model->superspr2frames[spr2].numframes)
-			return &md2->model->superspr2frames[spr2];
-	}
-
-	if (md2->model->spr2frames[spr2].numframes)
-		return &md2->model->spr2frames[spr2];
-
-	return NULL;
-}
-
-static UINT16 HWR_GetModelSprite2Num(md2_t *md2, skin_t *skin, UINT16 spr2, player_t *player)
-{
-	UINT16 super = 0;
-	UINT8 i = 0;
-
-	if (!md2 || !md2->model || !skin)
-		return 0;
-
-	while (!HWR_GetModelSprite2Frames(md2, spr2)
-		&& spr2 != SPR2_STND
-		&& ++i < 32) // recursion limiter
-	{
-		if (spr2 & SPR2F_SUPER)
-		{
-			super = SPR2F_SUPER;
-			spr2 &= ~SPR2F_SUPER;
-			continue;
-		}
-
-		switch(spr2)
-		{
-		// Normal special cases.
-		case SPR2_JUMP:
-			spr2 = ((player
-					? player->charflags
-					: skin->flags)
-					& SF_NOJUMPSPIN) ? SPR2_SPNG : SPR2_ROLL;
-			break;
-		case SPR2_TIRE:
-			spr2 = ((player
-					? player->charability
-					: skin->ability)
-					== CA_SWIM) ? SPR2_SWIM : SPR2_FLY;
-			break;
-		// Use the handy list, that's what it's there for!
-		default:
-			spr2 = spr2defaults[spr2];
-			break;
-		}
-
-		spr2 |= super;
-	}
-
-	if (i >= 32) // probably an infinite loop...
-		spr2 = 0;
-
-	return spr2;
 }
 
 // Adjust texture coords of model to fit into a patch's max_s and max_t
@@ -1284,7 +1159,6 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 	char filename[64];
 	INT32 frame = 0;
 	INT32 nextFrame = -1;
-	modelspr2frames_t *spr2frames = NULL;
 	FTransform p;
 	FSurfaceInfo Surf;
 
@@ -1352,10 +1226,10 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		const UINT8 flip = (UINT8)(!(spr->mobj->eflags & MFE_VERTICALFLIP) != !R_ThingVerticallyFlipped(spr->mobj));
 		const UINT8 hflip = (UINT8)(!(spr->mobj->mirrored) != !R_ThingHorizontallyFlipped(spr->mobj));
 		spritedef_t *sprdef;
-		UINT16 spr2 = 0;
 		spriteframe_t *sprframe;
 		INT32 mod;
 		interpmobjstate_t interp;
+		boolean is_using_animator;
 
 		if (R_UsingFrameInterpolation() && !paused)
 		{
@@ -1393,18 +1267,11 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 
 		// don't forget to enable the depth test because we can't do this
 		// like before: model polygons are not sorted
+		is_using_animator = spr->mobj->animator.animation != 0;
 
 		// 1. load model+texture if not already loaded
 		// 2. draw model with correct position, rotation,...
-		if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY) // Use the player MD2 list if the mobj has a skin and is using the player sprites
-		{
-			UINT8 skinnum = ((skin_t*)spr->mobj->skin)->skinnum;
-			md2 = &md2_playermodels[skinnum];
-		}
-		else
-		{
-			md2 = &md2_models[spr->mobj->sprite];
-		}
+		md2 = &md2_models[spr->mobj->sprite];
 
 		// texture loading before model init, so it knows if sprite graphics are used, which
 		// means that texture coordinates have to be adjusted
@@ -1493,7 +1360,7 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 					else
 						skinnum = TC_RAINBOW;
 				}
-				else if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+				else if (spr->mobj->skin && P_IsSkinSprite(spr->mobj->skin, spr->mobj->sprite))
 					skinnum = ((skin_t*)spr->mobj->skin)->skinnum;
 				else
 					skinnum = TC_DEFAULT;
@@ -1522,28 +1389,14 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			tics = (float)spr->mobj->anim_duration;
 		}
 
-		if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
-			sprdef = P_GetSkinSpritedef(spr->mobj->skin, spr->mobj->sprite2);
-		else
-			sprdef = &sprites[spr->mobj->sprite];
+		sprdef = &sprites[spr->mobj->sprite];
+		frame = spr->mobj->frame & FF_FRAMEMASK;
 
-		frame = (spr->mobj->frame & FF_FRAMEMASK);
-		if (spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+		if (is_using_animator)
 		{
-			spr2 = HWR_GetModelSprite2Num(md2, spr->mobj->skin, spr->mobj->sprite2, spr->mobj->player);
-			spr2frames = HWR_GetModelSprite2Frames(md2, spr2);
-		}
-		if (spr2frames)
-		{
-			spritedef_t *defaultdef = P_GetSkinSpritedef(spr->mobj->skin, spr2);
-			mod = spr2frames->numframes;
-#ifndef DONTHIDEDIFFANIMLENGTH // by default, different anim length is masked by the mod
-			if (mod > (INT32)defaultdef->numframes)
-				mod = defaultdef->numframes;
-#endif
-			if (!mod)
-				mod = 1;
-			frame = spr2frames->frames[frame % mod];
+			// OpenGL interpolation factor is inverted
+			tics = FixedToFloat(spr->mobj->animator.frame_duration - spr->mobj->animator.timer);
+			durs = FixedToFloat(spr->mobj->animator.frame_duration);
 		}
 		else
 		{
@@ -1553,8 +1406,21 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		}
 
 #ifdef USE_MODEL_NEXTFRAME
-		// Interpolate the model interpolation. (lol)
-		tics -= FixedToFloat(rendertimefrac);
+		// Interpolate the model interpolation
+		if (is_using_animator && rendertimefrac != 0)
+		{
+			fixed_t anim_speed = P_GetSubanimationSpeed(spr->mobj->animator.animation, spr->mobj->animator.subanimation);
+			anim_speed = FixedMul(anim_speed, spr->mobj->animator.speed_mul);
+			tics -= FixedToFloat(FixedMul(anim_speed, rendertimefrac));
+			if (tics < 0.0)
+				tics = 0.0;
+			else if (tics > durs)
+				tics = durs;
+		}
+		else
+		{
+			tics -= FixedToFloat(rendertimefrac);
+		}
 
 #define INTERPOLERATION_LIMIT (TICRATE * 0.25f)
 
@@ -1563,37 +1429,14 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			if (durs > INTERPOLERATION_LIMIT)
 				durs = INTERPOLERATION_LIMIT;
 
-			if (spr2frames)
+			if (HWR_CanInterpolateModel(spr->mobj, md2->model))
 			{
-				UINT16 next_spr2 = P_GetStateSprite2(&states[spr->mobj->state->nextstate]);
-
-				// Add or remove SPR2F_SUPER based on certain conditions
-				next_spr2 = P_ApplySuperFlagToSprite2(next_spr2, spr->mobj);
-
-				if (HWR_CanInterpolateSprite2(spr2frames)
-					&& (spr->mobj->frame & FF_ANIMATE
-					|| (spr->mobj->state->nextstate != S_NULL
-					&& states[spr->mobj->state->nextstate].sprite == SPR_PLAY
-					&& ((P_GetSkinSprite2(spr->mobj->skin, next_spr2, spr->mobj->player) == spr->mobj->sprite2)))))
+				if (is_using_animator)
 				{
-					nextFrame = (spr->mobj->frame & FF_FRAMEMASK) + 1;
-					if (nextFrame >= mod)
-					{
-						if (spr->mobj->state->frame & FF_SPR2ENDSTATE)
-							nextFrame--;
-						else
-							nextFrame = 0;
-					}
-					if (frame || !(spr->mobj->state->frame & FF_SPR2ENDSTATE))
-						nextFrame = spr2frames->frames[nextFrame];
-					else
-						nextFrame = -1;
+					nextFrame = P_GetAnimatorNextFrame(&spr->mobj->animator) & FF_FRAMEMASK;
 				}
-			}
-			else if (HWR_CanInterpolateModel(spr->mobj, md2->model))
-			{
 				// frames are handled differently for states with FF_ANIMATE, so get the next frame differently for the interpolation
-				if (spr->mobj->frame & FF_ANIMATE)
+				else if (spr->mobj->frame & FF_ANIMATE)
 				{
 					nextFrame = (spr->mobj->frame & FF_FRAMEMASK) + 1;
 					if (nextFrame >= (INT32)(spr->mobj->state->var1 + (spr->mobj->state->frame & FF_FRAMEMASK)))

@@ -1137,6 +1137,7 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 	char *subanim_name = NULL;
 	char *fullname_buf = NULL;
 	char sprname[5] = { 0 };
+	UINT16 i = *lump;
 
 	size_t anim_name_size = 0;
 	size_t spr_name_size = 0;
@@ -1146,10 +1147,11 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 
 	char *folderpath = W_GetLumpFolderPathPK3(wadnum, *lump);
 
-	(*lump)++;
 	*lastlump = W_CheckNumForFolderEndPK3(folderpath, wadnum, *lump);
 
-	for (UINT16 i = *lump; i < *lastlump; i++)
+	i = *lump;
+
+	while (i < *lastlump)
 	{
 		char *underscore;
 		char *fullname, *name_p;
@@ -1159,9 +1161,14 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 		size_t len, name_size;
 		animation_list_t *animation;
 
+		CONS_Printf("%s line %d: iter %s\n", __func__, __LINE__, wadfiles[wadnum]->lumpinfo[i].fullname);
+
 		// Ignore lumps that are folders
 		if (W_IsLumpFolder(wadnum, i))
+		{
+			i++;
 			continue;
+		}
 
 		fullname = wadfiles[wadnum]->lumpinfo[i].fullname;
 		name_p = fullname + strlen(folderpath) + 1; // Skip parent folder of S_SKIN lump
@@ -1170,6 +1177,7 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 		underscore = strchr(name_p, '/');
 		if (underscore == NULL)
 		{
+			i++;
 			continue;
 		}
 
@@ -1196,6 +1204,7 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 		underscore = strchr(name_p, '/');
 		if (underscore == NULL)
 		{
+			i++;
 			continue;
 		}
 
@@ -1227,6 +1236,7 @@ static void R_LoadSkinAnimations(UINT16 wadnum, UINT16 *lump, UINT16 *lastlump, 
 
 		if (startlump == wadfiles[wadnum]->numlumps || startlump >= endlump)
 		{
+			i++;
 			continue;
 		}
 

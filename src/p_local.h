@@ -191,6 +191,7 @@ void P_PlayerAfterThink(player_t *player);
 void P_DoPlayerFinish(player_t *player);
 void P_DoPlayerExit(player_t *player, boolean finishedflag);
 void P_NightserizePlayer(player_t *player, INT32 ptime);
+void P_AdjustPlayerAnimSpeed(player_t *player);
 
 void P_InstaThrust(mobj_t *mo, angle_t angle, fixed_t move);
 fixed_t P_ReturnThrustX(mobj_t *mo, angle_t angle, fixed_t move);
@@ -296,6 +297,7 @@ void P_PrecipitationEffects(void);
 void P_RemoveMobj(mobj_t *th);
 void P_RemoveSavegameMobj(mobj_t *th);
 boolean P_SetMobjState(mobj_t *mobj, statenum_t state);
+UINT8 P_SetupSkinAnimation(mobj_t *mobj, state_t *st);
 void P_RunShields(void);
 void P_RunOverlays(void);
 void P_HandleMinecartSegments(mobj_t *mobj);

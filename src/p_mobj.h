@@ -290,6 +290,20 @@ typedef struct blocknode_s
 	struct blocknode_s *bnext;  // next block this actor is in
 } blocknode_t;
 
+// Animator
+typedef struct animator_s
+{
+	UINT16 animation; // animation ID (must be non-zero)
+	UINT16 subanimation; // current entry in the animation
+	UINT16 frame; // current frame in the subanimation
+	fixed_t timer; // frame timer
+	fixed_t frame_duration; // duration of the current frame
+	fixed_t speed_mul; // how fast the animation is played back, multiplied by the subanimation speed
+	UINT8 direction; // forwards, reverse, or oscillate
+	UINT32 current_frame; // the current frame
+	UINT32 next_frame; // the next frame
+} animator_t;
+
 // Map Object definition.
 typedef struct mobj_s
 {
@@ -312,8 +326,10 @@ typedef struct mobj_s
 	angle_t spriteroll, old_spriteroll, old_spriteroll2;
 	spritenum_t sprite; // used to find patch_t and flip value
 	UINT32 frame; // frame number, plus bits see p_pspr.h
-	UINT16 sprite2; // player sprites
 	UINT16 anim_duration; // for FF_ANIMATE states
+
+	animator_t animator;
+	UINT8 skinspriteset; // player sprites
 
 	UINT32 renderflags; // render flags
 	INT32 blendmode; // blend mode
@@ -456,8 +472,10 @@ typedef struct precipmobj_s
 	angle_t spriteroll, old_spriteroll, old_spriteroll2;
 	spritenum_t sprite; // used to find patch_t and flip value
 	UINT32 frame; // frame number, plus bits see p_pspr.h
-	UINT16 sprite2; // player sprites
 	UINT16 anim_duration; // for FF_ANIMATE states
+
+	animator_t animator;
+	UINT8 skinspriteset; // player sprites
 
 	UINT32 renderflags; // render flags
 	INT32 blendmode; // blend mode

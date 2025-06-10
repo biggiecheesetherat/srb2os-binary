@@ -22,7 +22,7 @@
 #include "z_zone.h"
 #include "m_menu.h" // character select
 #include "m_misc.h"
-#include "info.h" // spr2names
+#include "info.h"
 #include "i_video.h" // rendermode
 #include "i_system.h"
 #include "r_fps.h"
@@ -36,6 +36,7 @@
 #include "r_splats.h"
 #include "p_tick.h"
 #include "p_local.h"
+#include "p_animation.h"
 #include "p_slopes.h"
 #include "netcode/d_netfil.h" // blargh. for nameonly().
 #include "m_cheat.h" // objectplace
@@ -78,6 +79,8 @@ spriteinfo_t spriteinfo[NUMSPRITES];
 // variables used to look up and range check thing_t sprites patches
 spritedef_t *sprites;
 size_t numsprites;
+
+bitarray_t *missing_sprites;
 
 static spriteframe_t sprtemp[MAXFRAMENUM];
 static size_t maxframe;
@@ -763,6 +766,7 @@ void R_InitSprites(void)
 		I_Error("R_AddSpriteDefs: no sprites in namelist\n");
 
 	sprites = static_cast<spritedef_t*>(Z_Calloc(numsprites * sizeof (*sprites), PU_STATIC, NULL));
+	missing_sprites = static_cast<bitarray_t*>(Z_Calloc(BIT_ARRAY_SIZE(NUMSPRITEFREESLOTS), PU_STATIC, NULL));
 
 	// find sprites in each -file added pwad
 	for (i = 0; i < numwadfiles; i++)
@@ -957,7 +961,7 @@ UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 trans
 {
 	INT32 skinnum = TC_DEFAULT;
 
-	boolean is_player = mobj->skin && mobj->sprite == SPR_PLAY;
+	boolean is_player = mobj->skin && P_IsSkinSprite(static_cast<skin_t*>(mobj->skin), mobj->sprite);
 	if (is_player) // This thing is a player!
 		skinnum = ((skin_t*)mobj->skin)->skinnum;
 
@@ -996,8 +1000,6 @@ UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 trans
 	}
 	else if (color != SKINCOLOR_NONE)
 		return R_GetTranslationColormap(skinnum, color, GTC_CACHE);
-	else if (mobj->sprite == SPR_PLAY) // Looks like a player, but doesn't have a color? Get rid of green sonic syndrome.
-		return R_GetTranslationColormap(TC_DEFAULT, SKINCOLOR_BLUE, GTC_CACHE);
 
 	return NULL;
 }
@@ -1825,41 +1827,33 @@ static void R_ProjectSprite(mobj_t *thing)
 	frame = thing->frame & FF_FRAMEMASK;
 
 	//Fab : 02-08-98: 'skin' override spritedef currently used for skin
-	if (thing->skin && thing->sprite == SPR_PLAY)
-	{
-		sprdef = P_GetSkinSpritedef(static_cast<skin_t*>(thing->skin), thing->sprite2);
-		sprinfo = P_GetSkinSpriteInfo(static_cast<skin_t*>(thing->skin), thing->sprite2);
+	// Lactozilla: No longer needed. Skins now use sprites[] and spriteinfo[]
+	sprdef = &sprites[thing->sprite];
+	sprinfo = &spriteinfo[thing->sprite];
 
-		if (frame >= sprdef->numframes)
-		{
-			CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid skins[\"%s\"].sprites[SPR2_%s] %sframe %s\n"), ((skin_t *)thing->skin)->name, spr2names[thing->sprite2 & SPR2F_MASK], (thing->sprite2 & SPR2F_SUPER) ? "super ": "", sizeu5(frame));
-			thing->sprite = states[S_UNKNOWN].sprite;
-			thing->frame = states[S_UNKNOWN].frame;
-			sprdef = &sprites[thing->sprite];
-			sprinfo = &spriteinfo[thing->sprite];
-			frame = thing->frame&FF_FRAMEMASK;
-		}
-	}
-	else
+	if (frame >= sprdef->numframes)
 	{
-		sprdef = &sprites[thing->sprite];
-		sprinfo = &spriteinfo[thing->sprite];
-
-		if (frame >= sprdef->numframes)
+		if (!in_bit_array(missing_sprites, thing->sprite))
 		{
-			CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
-				sizeu1(frame), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
-			if (thing->sprite == thing->state->sprite && thing->frame == thing->state->frame)
+			set_bit_array(missing_sprites, thing->sprite);
+
+			if (thing->animator.animation)
 			{
-				thing->state->sprite = states[S_UNKNOWN].sprite;
-				thing->state->frame = states[S_UNKNOWN].frame;
+				CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid sprite frame %s/%s for animation %s subanimation %s\n"),
+					sizeu1(frame), sizeu2(sprdef->numframes),
+					P_GetAnimationNameByID(thing->animator.animation),
+					P_GetSubanimationNameByID(thing->animator.animation, thing->animator.subanimation));
 			}
-			thing->sprite = states[S_UNKNOWN].sprite;
-			thing->frame = states[S_UNKNOWN].frame;
-			sprdef = &sprites[thing->sprite];
-			sprinfo = &spriteinfo[thing->sprite];
-			frame = thing->frame&FF_FRAMEMASK;
+			else
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("R_ProjectSprite: invalid sprite frame %s/%s for %s\n"),
+					sizeu1(frame), sizeu2(sprdef->numframes), sprnames[thing->sprite]);
+			}
 		}
+
+		sprdef = &sprites[states[S_UNKNOWN].sprite];
+		sprinfo = &spriteinfo[states[S_UNKNOWN].sprite];
+		frame = states[S_UNKNOWN].frame&FF_FRAMEMASK;
 	}
 
 	sprframe = &sprdef->spriteframes[frame];

@@ -404,6 +404,42 @@ void readPlayer(MYFILE *f, INT32 num)
 	Z_Free(s);
 }
 
+spritenum_t DEH_FindSpriteByName(const char *name)
+{
+	// Search freeslots first
+	for (spritenum_t i = SPR_FIRSTFREESLOT; i <= SPR_LASTFREESLOT; i++)
+	{
+		if (in_bit_array(used_spr, i - SPR_FIRSTFREESLOT) && stricmp(sprnames[i], name) == 0)
+			return i;
+	}
+
+	// Now regular sprites
+	for (spritenum_t i = SPR_NULL + 1; i < SPR_FIRSTFREESLOT; i++)
+	{
+		if (stricmp(sprnames[i], name) == 0)
+			return i;
+	}
+
+	return NUMSPRITES;
+}
+
+spritenum_t DEH_AddSpriteName(const char *name)
+{
+	for (spritenum_t i = SPR_FIRSTFREESLOT; i <= SPR_LASTFREESLOT; i++)
+	{
+		if (in_bit_array(used_spr, i - SPR_FIRSTFREESLOT))
+			continue; // Already allocated, next.
+		// Found a free slot!
+		strcpy(sprnames[i], name);
+		set_bit_array(used_spr, i - SPR_FIRSTFREESLOT); // Okay, this sprite slot has been named now.
+		// Lua needs to update the value in _G if it exists
+		LUA_UpdateSprName(name, i);
+		return i;
+	}
+
+	return NUMSPRITES;
+}
+
 // TODO: Figure out how to do undolines for this....
 // TODO: Warnings for running out of freeslots
 void readfreeslots(MYFILE *f)
@@ -450,17 +486,7 @@ void readfreeslots(MYFILE *f)
 				if (strlen(word) > MAXSPRITENAME)
 					I_Error("Sprite name is longer than %d characters\n", MAXSPRITENAME);
 
-				for (i = SPR_FIRSTFREESLOT; i <= SPR_LASTFREESLOT; i++)
-				{
-					if (in_bit_array(used_spr, i - SPR_FIRSTFREESLOT))
-						continue; // Already allocated, next.
-					// Found a free slot!
-					strcpy(sprnames[i], word);
-					set_bit_array(used_spr, i - SPR_FIRSTFREESLOT); // Okay, this sprite slot has been named now.
-					// Lua needs to update the value in _G if it exists
-					LUA_UpdateSprName(word, i);
-					break;
-				}
+				DEH_AddSpriteName(word);
 			}
 			else if (fastcmp(type, "S"))
 			{
@@ -490,23 +516,6 @@ void readfreeslots(MYFILE *f)
 						break;
 					}
 			}
-			else if (fastcmp(type, "SPR2"))
-			{
-				// Search if we already have an SPR2 by that name...
-				for (i = SPR2_FIRSTFREESLOT; i < (int)free_spr2; i++)
-					if (memcmp(spr2names[i],word,4) == 0)
-						break;
-				// We found it? (Two mods using the same SPR2 name?) Then don't allocate another one.
-				if (i < (int)free_spr2)
-					continue;
-				// Copy in the spr2 name and increment free_spr2.
-				if (free_spr2 < NUMPLAYERSPRITES) {
-					strncpy(spr2names[free_spr2],word,4);
-					spr2defaults[free_spr2] = 0;
-					spr2names[free_spr2++][4] = 0;
-				} else
-					deh_warning("Ran out of free SPR2 slots!\n");
-			}
 			else if (fastcmp(type, "TOL"))
 			{
 				// Search if we already have a typeoflevel by that name...
@@ -533,8 +542,6 @@ void readfreeslots(MYFILE *f)
 	} while (!myfeof(f)); // finish when the line is empty
 
 	Z_Free(s);
-
-	R_RefreshSprite2();
 }
 
 void readthing(MYFILE *f, INT32 num)
@@ -941,7 +948,7 @@ static void readspriteframe(MYFILE *f, spriteinfo_t *sprinfo, UINT8 frame)
 	Z_Free(s);
 }
 
-void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
+void readspriteinfo(MYFILE *f, INT32 num)
 {
 	char *s = Z_Malloc(MAXLINELEN, PU_STATIC, NULL);
 	char *word, *word2;
@@ -1009,88 +1016,26 @@ void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
 
 			if (fastcmp(word, "LIGHTTYPE"))
 			{
-				if (sprite2)
-					deh_warning("Sprite2 %s: invalid word '%s'", spr2names[num], word);
-				else
-				{
-					INT32 oldvar;
-					for (oldvar = 0; t_lspr[num] != &lspr[oldvar]; oldvar++)
-						;
-					t_lspr[num] = &lspr[value];
-				}
+				INT32 oldvar;
+				for (oldvar = 0; t_lspr[num] != &lspr[oldvar]; oldvar++)
+					;
+				t_lspr[num] = &lspr[value];
 			}
 			else
 #endif
-			if (fastcmp(word, "SKIN"))
-			{
-				INT32 skinnum = -1;
-				if (!sprite2)
-				{
-					deh_warning("Sprite %s: %s keyword found outside of SPRITE2INFO block, ignoring", spr2names[num], word);
-					continue;
-				}
-
-				// make lowercase
-				strlwr(word2);
-				skinnum = R_SkinAvailable(word2);
-				if (skinnum == -1)
-				{
-					deh_warning("Sprite2 %s: unknown skin %s", spr2names[num], word2);
-					break;
-				}
-
-				if (skinnumbers == NULL)
-					skinnumbers = Z_Malloc(sizeof(UINT8) * numskins, PU_STATIC, NULL);
-				skinnumbers[foundskins] = (UINT8)skinnum;
-				foundskins++;
-			}
-			else if (fastcmp(word, "DEFAULT"))
-			{
-				if (!sprite2)
-				{
-					deh_warning("Sprite %s: %s keyword found outside of SPRITE2INFO block, ignoring", spr2names[num], word);
-					continue;
-				}
-				if (num < (INT32)free_spr2 && num >= (INT32)SPR2_FIRSTFREESLOT)
-					spr2defaults[num] = get_number(word2);
-				else
-				{
-					deh_warning("Sprite2 %s: out of range (%d - %d), ignoring", spr2names[num], SPR2_FIRSTFREESLOT, free_spr2-1);
-					continue;
-				}
-			}
-			else if (fastcmp(word, "FRAME"))
+			if (fastcmp(word, "FRAME"))
 			{
 				UINT8 frame = R_Char2Frame(word2[0]);
 				// frame number too high
 				if (frame >= 64)
 				{
-					if (sprite2)
-						deh_warning("Sprite2 %s: invalid frame %s", spr2names[num], word2);
-					else
-						deh_warning("Sprite %s: invalid frame %s", sprnames[num], word2);
+					deh_warning("Sprite %s: invalid frame %s", sprnames[num], word2);
 					break;
 				}
 
 				// read sprite frame and store it in the spriteinfo_t struct
 				readspriteframe(f, info, frame);
-				if (sprite2)
-				{
-					INT32 i;
-					if (!foundskins)
-					{
-						deh_warning("Sprite2 %s: no skins specified", spr2names[num]);
-						break;
-					}
-					for (i = 0; i < foundskins; i++)
-					{
-						skin_t *skin = skins[skinnumbers[i]];
-						spriteinfo_t *sprinfo = skin->sprinfo;
-						M_Memcpy(&sprinfo[num], info, sizeof(spriteinfo_t));
-					}
-				}
-				else
-					M_Memcpy(&spriteinfo[num], info, sizeof(spriteinfo_t));
+				M_Memcpy(&spriteinfo[num], info, sizeof(spriteinfo_t));
 			}
 			else
 			{
@@ -1105,49 +1050,6 @@ void readspriteinfo(MYFILE *f, INT32 num, boolean sprite2)
 	Z_Free(info);
 	if (skinnumbers)
 		Z_Free(skinnumbers);
-}
-
-void readsprite2(MYFILE *f, INT32 num)
-{
-	char *s = Z_Malloc(MAXLINELEN, PU_STATIC, NULL);
-	char *word, *word2;
-	char *tmp;
-
-	do
-	{
-		if (myfgets(s, MAXLINELEN, f))
-		{
-			if (s[0] == '\n')
-				break;
-
-			tmp = strchr(s, '#');
-			if (tmp)
-				*tmp = '\0';
-			if (s == tmp)
-				continue; // Skip comment lines, but don't break.
-
-			word = strtok(s, " ");
-			if (word)
-				strupr(word);
-			else
-				break;
-
-			word2 = strtok(NULL, " = ");
-			if (word2)
-				strupr(word2);
-			else
-				break;
-			if (word2[strlen(word2)-1] == '\n')
-				word2[strlen(word2)-1] = '\0';
-
-			if (fastcmp(word, "DEFAULT"))
-				spr2defaults[num] = get_number(word2);
-			else
-				deh_warning("Sprite2 %s: unknown word '%s'", spr2names[num], word);
-		}
-	} while (!myfeof(f)); // finish when the line is empty
-
-	Z_Free(s);
 }
 
 void readgametype(MYFILE *f, char *gtname)
@@ -4237,20 +4139,6 @@ spritenum_t get_sprite(const char *word)
 		return i;
 	deh_warning("Couldn't find sprite named 'SPR_%s'",word);
 	return SPR_NULL;
-}
-
-playersprite_t get_sprite2(const char *word)
-{ // Returns the value of SPR2_ enumerations
-	playersprite_t i;
-	if (*word >= '0' && *word <= '9')
-		return atoi(word);
-	if (fastncmp("SPR2_",word,5))
-		word += 5; // take off the SPR2_
-	for (i = 0; i < NUMPLAYERSPRITES; i++)
-		if (!spr2names[i][4] && memcmp(word,spr2names[i],4)==0)
-			return i;
-	deh_warning("Couldn't find sprite named 'SPR2_%s'",word);
-	return SPR2_STND;
 }
 
 sfxenum_t get_sfx(const char *word)

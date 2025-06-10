@@ -1566,7 +1566,12 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 // Misc touchables //
 // *************** //
 		case MT_STARPOST:
-			P_TouchStarPost(special, player, special->spawnpoint && special->spawnpoint->args[1]);
+			if (P_TouchStarPost(special, player, special->spawnpoint && special->spawnpoint->args[1]))
+			{
+				// fling the sphere harder the faster the player moves!
+				special->extravalue2 = max(special->info->speed,
+					R_PointToAngle2(0, 0, FixedMul(mobjinfo[MT_STARPOST_SPHERE].speed, special->scale), player->speed));
+			}
 			return;
 
 		case MT_FAKEMOBILE:
@@ -1935,14 +1940,14 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
   * \param player The player that should receive the checkpoint
   * \param snaptopost If true, the respawn point will use the star post's position, otherwise player x/y and star post z
   */
-void P_TouchStarPost(mobj_t *post, player_t *player, boolean snaptopost)
+boolean P_TouchStarPost(mobj_t *post, player_t *player, boolean snaptopost)
 {
 	size_t i;
 	mobj_t *toucher = player->mo;
 	mobj_t *checkbase = snaptopost ? post : toucher;
 
 	if (player->bot && player->bot != BOT_MPAI)
-		return;
+		return false;
 	// In circuit, player must have touched all previous starposts
 	if (circuitmap
 		&& post->health - player->starpostnum > 1)
@@ -1951,18 +1956,18 @@ void P_TouchStarPost(mobj_t *post, player_t *player, boolean snaptopost)
 		if (!player->tossdelay)
 			S_StartSound(toucher, sfx_lose);
 		player->tossdelay = 3;
-		return;
+		return false;
 	}
 
 	// With the parameter + angle setup, we can go up to 1365 star posts. Who needs that many?
 	if (post->health > 1365)
 	{
 		CONS_Debug(DBG_GAMELOGIC, "Bad Starpost Number!\n");
-		return;
+		return false;
 	}
 
 	if (player->starpostnum >= post->health)
-		return; // Already hit this post
+		return false; // Already hit this post
 
 	if (cv_coopstarposts.value && G_GametypeUsesCoopStarposts() && (netgame || multiplayer))
 	{
@@ -2033,6 +2038,8 @@ void P_TouchStarPost(mobj_t *post, player_t *player, boolean snaptopost)
 			P_SetMobjState(mo2, mo2->info->painstate);
 		}
 	}
+
+	return true;
 }
 
 /** Prints death messages relating to a dying or hit player.

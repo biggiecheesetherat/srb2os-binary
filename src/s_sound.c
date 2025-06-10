@@ -754,6 +754,30 @@ void S_StartSound(const void *origin, sfxenum_t sfx_id)
 		S_StartSoundAtVolume(origin, sfx_id, 255);
 }
 
+void S_StartSoundIfVisible(const void *origin_p, sfxenum_t sfx_id)
+{
+	const mobj_t *origin = (const mobj_t *)origin_p;
+	mobj_t *listenmobj = NULL, *listenmobj2 = NULL;
+
+	// not much point checking visibility if we won't hear anything anyway
+	if (S_SoundDisabled() || (sfx_id == sfx_None))
+		return;
+
+	if (!origin) // ??? why did you even use this function LOL
+	{
+		S_StartSound(origin, sfx_id);
+		return;
+	}
+
+	listenmobj = players[displayplayer].awayviewtics ? players[displayplayer].awayviewmobj : players[displayplayer].mo;
+	if (splitscreen)
+		listenmobj2 = players[secondarydisplayplayer].awayviewtics ? players[secondarydisplayplayer].awayviewmobj : players[secondarydisplayplayer].mo;
+
+	if ((listenmobj && P_CheckSight(listenmobj, (mobj_t *)origin))
+		|| (listenmobj2 && P_CheckSight(listenmobj2, (mobj_t *)origin)))
+			S_StartSound(origin, sfx_id);
+}
+
 void S_StopSound(void *origin)
 {
 	INT32 cnum;

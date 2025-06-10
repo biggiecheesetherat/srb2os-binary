@@ -157,6 +157,8 @@ char sprnames[NUMSPRITES + 1][MAXSPRITENAME + 1] =
 	"WSPK", // Wall spike
 	"WSPB", // Wall spike base
 	"STPT", // Starpost
+	"STPS", // Starpost sphere
+	"STPA", // Starpost arrow
 	"BMNE", // Big floating mine
 	"PUMI", // Rollout Rock
 

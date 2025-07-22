@@ -1450,8 +1450,8 @@ void HWR_DrawFixedFill(fixed_t x, fixed_t y, fixed_t w, fixed_t h, INT32 color)
 
 	if (!(color & V_NOSCALESTART))
 	{
-		/*
-		if (x == 0 && y == 0 && w == BASEVIDWIDTH && h == BASEVIDHEIGHT)
+		
+		if (x == 0 && y == 0 && w == (BASEVIDWIDTH<<FRACBITS) && h == (BASEVIDHEIGHT<<FRACBITS))
 		{
 			RGBA_t rgbaColour = palette[color&0xFF];
 			FRGBAFloat clearColour;
@@ -1462,7 +1462,7 @@ void HWR_DrawFixedFill(fixed_t x, fixed_t y, fixed_t w, fixed_t h, INT32 color)
 			HWD.pfnClearBuffer(true, false, &clearColour);
 			return;
 		}
-		*/
+		
 		
 		fx *= vid.dup;
 		fy *= vid.dup;

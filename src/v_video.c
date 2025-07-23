@@ -1212,13 +1212,11 @@ void V_DrawFixedFill(fixed_t x, fixed_t y, fixed_t w, fixed_t h, INT32 c)
 	}
 	else
 	{
-		
 		if (x == 0 && y == 0 && w == (BASEVIDWIDTH<<FRACBITS) && h == (BASEVIDHEIGHT<<FRACBITS))
 		{ // Clear the entire screen, from dest to deststop. Yes, this really works.
 			memset(screens[0], (c&255), vid.width * vid.height * vid.bpp);
 			return;
 		}
-		
 		
 		x *= vid.dup;
 		y *= vid.dup;

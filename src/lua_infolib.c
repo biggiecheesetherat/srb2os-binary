@@ -1903,6 +1903,168 @@ static int colorramp_len(lua_State *L)
 	return 1;
 }
 
+//////////////////////
+// UNLOCKABLES INFO //
+//////////////////////
+
+enum emblem_e
+{
+	emblem_type,
+	emblem_tag,
+	emblem_level,
+	emblem_sprite,
+	emblem_color,
+	emblem_var,
+	emblem_stringvar,
+	emblem_hint,
+};
+
+const char* const emblem_opt[] = {
+	"type",
+	"tag",
+	"level",
+	"sprite",
+	"color",
+	"var",
+	"stringvar",
+	"hint",
+	NULL,
+};
+
+static int emblem_fields_ref = LUA_NOREF;
+
+static int emblem_get(lua_State* L)
+{
+	emblem_t* emblem = *((emblem_t**)luaL_checkudata(L, 1, META_EMBLEM));
+	enum emblem_e field = Lua_optoption(L, 2, emblem_opt, emblem_fields_ref);
+
+	I_Assert(emblem != NULL);
+
+	switch (field)
+	{
+	case emblem_type:
+		lua_pushinteger(L, emblem->type);
+		return 1;
+	case emblem_tag:
+		lua_pushinteger(L, emblem->tag);
+		return 1;
+	case emblem_level:
+		lua_pushinteger(L, emblem->level);
+		return 1;
+	case emblem_sprite:
+		lua_pushinteger(L, emblem->sprite);
+		return 1;
+	case emblem_color:
+		lua_pushinteger(L, emblem->color);
+		return 1;
+	case emblem_var:
+		lua_pushinteger(L, emblem->var);
+		return 1;
+	case emblem_stringvar:
+		lua_pushstring(L, emblem->stringVar);
+		return 1;
+	case emblem_hint:
+		lua_pushstring(L, emblem->hint);
+		return 1;
+	}
+
+	return 0;
+}
+
+// Arbitrary emblemslocations[] table index -> emblem_t *
+static int lib_getEmblems(lua_State* L)
+{
+	UINT32 i;
+	lua_remove(L, 1);
+
+	i = luaL_checkinteger(L, 1);
+	if (i >= numemblems)
+		return luaL_error(L, "emblemslocations[] index %d out of range (0 - %d)", i, numemblems - 1);
+	LUA_PushUserdata(L, &emblemlocations[i], META_EMBLEM);
+	return 1;
+}
+
+// #emblemslocations -> numemblems
+static int lib_lenEmblems(lua_State* L)
+{
+	lua_pushinteger(L, numemblems);
+	return 1;
+}
+
+enum extraemblem_e
+{
+	extraemblem_name,
+	extraemblem_description,
+	extraemblem_conditionset,
+	extraemblem_showconditionset,
+	extraemblem_sprite,
+	extraemblem_color,
+};
+
+const char* const extraemblem_opt[] = {
+	"name",
+	"description",
+	"conditionset",
+	"showconditionset",
+	"sprite",
+	"color",
+	NULL,
+};
+
+static int extraemblem_fields_ref = LUA_NOREF;
+
+static int extraemblem_get(lua_State* L)
+{
+	extraemblem_t* extraemblem = *((extraemblem_t**)luaL_checkudata(L, 1, META_EXTRAEMBLEM));
+	enum extraemblem_e field = Lua_optoption(L, 2, extraemblem_opt, extraemblem_fields_ref);
+
+	I_Assert(extraemblem != NULL);
+
+	switch (field)
+	{
+	case extraemblem_name:
+		lua_pushstring(L, extraemblem->name);
+		return 1;
+	case extraemblem_description:
+		lua_pushstring(L, extraemblem->description);
+		return 1;
+	case extraemblem_conditionset:
+		lua_pushinteger(L, extraemblem->conditionset);
+		return 1;
+	case extraemblem_showconditionset:
+		lua_pushinteger(L, extraemblem->showconditionset);
+		return 1;
+	case extraemblem_sprite:
+		lua_pushinteger(L, extraemblem->sprite);
+		return 1;
+	case extraemblem_color:
+		lua_pushinteger(L, extraemblem->color);
+		return 1;
+	}
+
+	return 0;
+}
+
+// Arbitrary extraemblems[] table index -> extraemblem_t *
+static int lib_getExtraEmblems(lua_State* L)
+{
+	UINT32 i;
+	lua_remove(L, 1);
+
+	i = luaL_checkinteger(L, 1);
+	if (i >= numextraemblems)
+		return luaL_error(L, "extraemblems[] index %d out of range (0 - %d)", i, numextraemblems - 1);
+	LUA_PushUserdata(L, &extraemblems[i], META_EXTRAEMBLEM);
+	return 1;
+}
+
+// #extraemblems -> numextraemblems
+static int lib_lenExtraEmblems(lua_State* L)
+{
+	lua_pushinteger(L, numextraemblems);
+	return 1;
+}
+
 //////////////////////////////
 //
 // Now push all these functions into the Lua state!
@@ -1928,7 +2090,16 @@ int LUA_InfoLib(lua_State *L)
 	LUA_RegisterUserdataMetatable(L, META_FRAMEPIVOT, framepivot_get, framepivot_set, framepivot_num);
 	LUA_RegisterUserdataMetatable(L, META_LUABANKS, lib_getluabanks, lib_setluabanks, lib_luabankslen);
 
+	LUA_RegisterUserdataMetatable(L, META_EMBLEM, emblem_get, NULL, NULL);
+	LUA_RegisterUserdataMetatable(L, META_EXTRAEMBLEM, extraemblem_get, NULL, NULL);
+
 	mobjinfo_fields_ref = Lua_CreateFieldTable(L, mobjinfo_opt);
+
+	emblem_fields_ref =	Lua_CreateFieldTable(L, emblem_opt);
+	extraemblem_fields_ref = Lua_CreateFieldTable(L, extraemblem_opt);
+
+	LUA_RegisterGlobalUserdata(L, "emblemslocations", lib_getEmblems, NULL, lib_lenEmblems);
+	LUA_RegisterGlobalUserdata(L, "extraemblems", lib_getExtraEmblems, NULL, lib_lenExtraEmblems);
 
 	LUA_RegisterGlobalUserdata(L, "sprnames", lib_getSprname, NULL, lib_sprnamelen);
 	LUA_RegisterGlobalUserdata(L, "spr2names", lib_getSpr2name, NULL, lib_spr2namelen);

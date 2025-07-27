@@ -3980,7 +3980,7 @@ static int lib_gUnlockCondition(lua_State* L)
 	int id = luaL_checkinteger(L, 1) - 1;
 	boolean global = luaL_checkboolean(L, 2);
 
-	if (id <= 0 || id > MAXLUACONDITIONS)
+	if (id < 0 || id >= MAXLUACONDITIONS)
 	{
 		luaL_error(L, "Lua condition %d out of range (1 - %d)", id + 1, MAXLUACONDITIONS);
 		return 0;

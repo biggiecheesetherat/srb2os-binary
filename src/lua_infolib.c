@@ -1936,7 +1936,7 @@ static int emblem_fields_ref = LUA_NOREF;
 static int emblem_get(lua_State* L)
 {
 	emblem_t* emblem = *((emblem_t**)luaL_checkudata(L, 1, META_EMBLEM));
-	enum emblem_e field = Lua_optoption(L, 2, emblem_opt, emblem_fields_ref);
+	enum emblem_e field = Lua_optoption(L, 2, emblem_type, emblem_fields_ref);
 
 	I_Assert(emblem != NULL);
 
@@ -1974,11 +1974,11 @@ static int emblem_get(lua_State* L)
 // Arbitrary emblemslocations[] table index -> emblem_t *
 static int lib_getEmblems(lua_State* L)
 {
-	UINT32 i;
+	INT32 i;
 	lua_remove(L, 1);
 
 	i = luaL_checkinteger(L, 1);
-	if (i >= numemblems)
+	if (i >= numemblems || i < 0)
 		return luaL_error(L, "emblemslocations[] index %d out of range (0 - %d)", i, numemblems - 1);
 	LUA_PushUserdata(L, &emblemlocations[i], META_EMBLEM);
 	return 1;
@@ -2016,7 +2016,7 @@ static int extraemblem_fields_ref = LUA_NOREF;
 static int extraemblem_get(lua_State* L)
 {
 	extraemblem_t* extraemblem = *((extraemblem_t**)luaL_checkudata(L, 1, META_EXTRAEMBLEM));
-	enum extraemblem_e field = Lua_optoption(L, 2, extraemblem_opt, extraemblem_fields_ref);
+	enum extraemblem_e field = Lua_optoption(L, 2, extraemblem_name, extraemblem_fields_ref);
 
 	I_Assert(extraemblem != NULL);
 
@@ -2048,11 +2048,11 @@ static int extraemblem_get(lua_State* L)
 // Arbitrary extraemblems[] table index -> extraemblem_t *
 static int lib_getExtraEmblems(lua_State* L)
 {
-	UINT32 i;
+	INT32 i;
 	lua_remove(L, 1);
 
 	i = luaL_checkinteger(L, 1);
-	if (i >= numextraemblems)
+	if (i >= numextraemblems || i < 0)
 		return luaL_error(L, "extraemblems[] index %d out of range (0 - %d)", i, numextraemblems - 1);
 	LUA_PushUserdata(L, &extraemblems[i], META_EXTRAEMBLEM);
 	return 1;

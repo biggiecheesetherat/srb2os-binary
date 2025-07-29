@@ -1936,7 +1936,7 @@ static int emblem_fields_ref = LUA_NOREF;
 static int emblem_get(lua_State* L)
 {
 	emblem_t* emblem = *((emblem_t**)luaL_checkudata(L, 1, META_EMBLEM));
-	enum emblem_e field = Lua_optoption(L, 2, emblem_type, emblem_fields_ref);
+	enum emblem_e field = Lua_optoption(L, 2, NULL, emblem_fields_ref);
 
 	I_Assert(emblem != NULL);
 
@@ -1966,6 +1966,8 @@ static int emblem_get(lua_State* L)
 	case emblem_hint:
 		lua_pushstring(L, emblem->hint);
 		return 1;
+	default:
+		return luaL_error(L, "Field does not exist in emblem_t");
 	}
 
 	return 0;
@@ -2016,7 +2018,7 @@ static int extraemblem_fields_ref = LUA_NOREF;
 static int extraemblem_get(lua_State* L)
 {
 	extraemblem_t* extraemblem = *((extraemblem_t**)luaL_checkudata(L, 1, META_EXTRAEMBLEM));
-	enum extraemblem_e field = Lua_optoption(L, 2, extraemblem_name, extraemblem_fields_ref);
+	enum extraemblem_e field = Lua_optoption(L, 2, NULL, extraemblem_fields_ref);
 
 	I_Assert(extraemblem != NULL);
 
@@ -2040,6 +2042,8 @@ static int extraemblem_get(lua_State* L)
 	case extraemblem_color:
 		lua_pushinteger(L, extraemblem->color);
 		return 1;
+	default:
+		return luaL_error(L, "Field does not exist in extraemblem_t");
 	}
 
 	return 0;
@@ -2093,14 +2097,12 @@ int LUA_InfoLib(lua_State *L)
 	LUA_RegisterUserdataMetatable(L, META_EMBLEM, emblem_get, NULL, NULL);
 	LUA_RegisterUserdataMetatable(L, META_EXTRAEMBLEM, extraemblem_get, NULL, NULL);
 
-	mobjinfo_fields_ref = Lua_CreateFieldTable(L, mobjinfo_opt);
-
 	emblem_fields_ref =	Lua_CreateFieldTable(L, emblem_opt);
 	extraemblem_fields_ref = Lua_CreateFieldTable(L, extraemblem_opt);
+	mobjinfo_fields_ref = Lua_CreateFieldTable(L, mobjinfo_opt);
 
 	LUA_RegisterGlobalUserdata(L, "emblemslocations", lib_getEmblems, NULL, lib_lenEmblems);
 	LUA_RegisterGlobalUserdata(L, "extraemblems", lib_getExtraEmblems, NULL, lib_lenExtraEmblems);
-
 	LUA_RegisterGlobalUserdata(L, "sprnames", lib_getSprname, NULL, lib_sprnamelen);
 	LUA_RegisterGlobalUserdata(L, "spr2names", lib_getSpr2name, NULL, lib_spr2namelen);
 	LUA_RegisterGlobalUserdata(L, "spr2defaults", lib_getSpr2default, lib_setSpr2default, lib_spr2namelen);

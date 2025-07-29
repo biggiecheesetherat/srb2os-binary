@@ -35,7 +35,6 @@ extern boolean ignoregameinputs;
 
 #define META_EMBLEM "EMBLEM_T*"
 #define META_EXTRAEMBLEM "EXTRAEMBLEM_T*"
-#define META_UNLOCKABLE "UNLOCKABLE_T*"
 
 #define META_TAGLIST "TAGLIST"
 

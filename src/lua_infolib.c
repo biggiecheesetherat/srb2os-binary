@@ -1931,12 +1931,10 @@ const char* const emblem_opt[] = {
 	NULL,
 };
 
-static int emblem_fields_ref = LUA_NOREF;
-
 static int emblem_get(lua_State* L)
 {
 	emblem_t* emblem = *((emblem_t**)luaL_checkudata(L, 1, META_EMBLEM));
-	enum emblem_e field = Lua_optoption(L, 2, NULL, emblem_fields_ref);
+	enum emblem_e field = luaL_checkoption(L, 2, NULL, emblem_opt);
 
 	I_Assert(emblem != NULL);
 
@@ -2013,12 +2011,10 @@ const char* const extraemblem_opt[] = {
 	NULL,
 };
 
-static int extraemblem_fields_ref = LUA_NOREF;
-
 static int extraemblem_get(lua_State* L)
 {
 	extraemblem_t* extraemblem = *((extraemblem_t**)luaL_checkudata(L, 1, META_EXTRAEMBLEM));
-	enum extraemblem_e field = Lua_optoption(L, 2, NULL, extraemblem_fields_ref);
+	enum extraemblem_e field = luaL_checkoption(L, 2, NULL, extraemblem_opt);
 
 	I_Assert(extraemblem != NULL);
 
@@ -2093,12 +2089,9 @@ int LUA_InfoLib(lua_State *L)
 	LUA_RegisterUserdataMetatable(L, META_PIVOTLIST, pivotlist_get, pivotlist_set, pivotlist_num);
 	LUA_RegisterUserdataMetatable(L, META_FRAMEPIVOT, framepivot_get, framepivot_set, framepivot_num);
 	LUA_RegisterUserdataMetatable(L, META_LUABANKS, lib_getluabanks, lib_setluabanks, lib_luabankslen);
-
 	LUA_RegisterUserdataMetatable(L, META_EMBLEM, emblem_get, NULL, NULL);
 	LUA_RegisterUserdataMetatable(L, META_EXTRAEMBLEM, extraemblem_get, NULL, NULL);
 
-	emblem_fields_ref =	Lua_CreateFieldTable(L, emblem_opt);
-	extraemblem_fields_ref = Lua_CreateFieldTable(L, extraemblem_opt);
 	mobjinfo_fields_ref = Lua_CreateFieldTable(L, mobjinfo_opt);
 
 	LUA_RegisterGlobalUserdata(L, "emblemslocations", lib_getEmblems, NULL, lib_lenEmblems);

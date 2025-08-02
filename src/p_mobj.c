@@ -2421,6 +2421,16 @@ boolean P_ZMovement(mobj_t *mo)
 		}
 
 		// hit the floor
+
+		UINT8 shouldForce = LUA_HookMobjHitFloor(mo);
+
+		if (P_MobjWasRemoved(mo))
+			return false; // mobj was removed
+		else if (shouldForce == 1)
+			return false;
+		else if (shouldForce == 2)
+			return true;
+
 		if (mo->type == MT_FIREBALL) // special case for the fireball
 			mom.z = P_MobjFlip(mo)*FixedMul(5*FRACUNIT, mo->scale);
 		else if (mo->type == MT_SPINFIRE) // elemental shield fire is another exception here
@@ -2589,6 +2599,15 @@ boolean P_ZMovement(mobj_t *mo)
 			mo->z = mo->floorz;
 		else
 			mo->z = mo->ceilingz - mo->height;
+
+		UINT8 shouldForce = LUA_HookMobjHitCeiling(mo);
+
+		if (P_MobjWasRemoved(mo))
+			return false; // mobj was removed
+		else if (shouldForce == 1)
+			return false;
+		else if (shouldForce == 2)
+			return true;
 
 		if (mo->type == MT_SPINFIRE)
 			;

@@ -2132,7 +2132,11 @@ static void P_AdjustMobjFloorZ_PolyObjs(mobj_t *mo, subsector_t *subsec)
 	}
 }
 
-void P_RingZMovement(mobj_t *mo)
+//
+// P_RingZMovement
+// Returns false if the mobj was removed, true otherwise.
+//
+boolean P_RingZMovement(mobj_t *mo)
 {
 	I_Assert(mo != NULL);
 	I_Assert(!P_MobjWasRemoved(mo));
@@ -2157,14 +2161,42 @@ void P_RingZMovement(mobj_t *mo)
 	{
 		mo->z = mo->floorz;
 
+		UINT8 shouldForce;
+		if (mo->eflags & MFE_VERTICALFLIP)
+			shouldForce = LUA_HookMobjHitCeiling(mo);
+		else
+			shouldForce = LUA_HookMobjHitFloor(mo);
+
+		if (P_MobjWasRemoved(mo))
+			return false; // mobj was removed
+		else if (shouldForce == 1)
+			return false;
+		else if (shouldForce == 2)
+			return true;
+
 		mo->momz = 0;
 	}
 	else if (mo->z + mo->height > mo->ceilingz && !(mo->flags & MF_NOCLIPHEIGHT))
 	{
 		mo->z = mo->ceilingz - mo->height;
 
+		UINT8 shouldForce;
+		if (mo->eflags & MFE_VERTICALFLIP)
+			shouldForce = LUA_HookMobjHitFloor(mo);
+		else
+			shouldForce = LUA_HookMobjHitCeiling(mo);
+
+		if (P_MobjWasRemoved(mo))
+			return false; // mobj was removed
+		else if (shouldForce == 1)
+			return false;
+		else if (shouldForce == 2)
+			return true;
+
 		mo->momz = 0;
 	}
+
+	return true;
 }
 
 boolean P_CheckDeathPitCollide(mobj_t *mo)
@@ -2861,6 +2893,10 @@ void P_PlayerZMovement(mobj_t *mo)
 
 			if (clipmomz)
 				mo->momz = (tmfloorthing ? tmfloorthing->momz : 0);
+
+			// Player mobjs can't be removed via Lua, so just check if the return value is non-zero
+			if (LUA_HookMobjHitFloor(mo))
+				return;
 		}
 		else if (tmfloorthing)
 			mo->momz = tmfloorthing->momz;
@@ -2921,6 +2957,10 @@ nightsdone:
 
 			if (!mo->player->climbing)
 				mo->momz = 0;
+
+			// Player mobjs can't be removed via Lua, so just check if the return value is non-zero
+			if (LUA_HookMobjHitCeiling(mo))
+				return;
 		}
 	}
 }
@@ -3024,6 +3064,15 @@ boolean P_SceneryZMovement(mobj_t *mo)
 		else
 			mo->z = mo->floorz;
 
+		UINT8 shouldForce = LUA_HookMobjHitFloor(mo);
+
+		if (P_MobjWasRemoved(mo))
+			return false; // mobj was removed
+		else if (shouldForce == 1)
+			return false;
+		else if (shouldForce == 2)
+			return true;
+
 		if (P_MobjFlip(mo)*mo->momz < 0) // falling
 		{
 			mo->eflags |= MFE_JUSTHITFLOOR; // Spin Attack
@@ -3050,6 +3099,15 @@ boolean P_SceneryZMovement(mobj_t *mo)
 			mo->z = mo->floorz;
 		else
 			mo->z = mo->ceilingz - mo->height;
+		
+		UINT8 shouldForce = LUA_HookMobjHitCeiling(mo);
+
+		if (P_MobjWasRemoved(mo))
+			return false; // mobj was removed
+		else if (shouldForce == 1)
+			return false;
+		else if (shouldForce == 2)
+			return true;
 
 		if (P_MobjFlip(mo)*mo->momz > 0) // hit the ceiling
 			mo->momz = 0;

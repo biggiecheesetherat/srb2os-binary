@@ -4026,7 +4026,8 @@ static void P_RingThinker(mobj_t *mobj)
 	// BUT CheckPosition only if wasn't done before.
 	if (mobj->momz)
 	{
-		P_RingZMovement(mobj);
+		if (!P_RingZMovement(mobj))
+			return; // mobj was removed
 		P_CheckPosition(mobj, mobj->x, mobj->y); // Need this to pick up objects!
 
 		if (P_MobjWasRemoved(mobj))

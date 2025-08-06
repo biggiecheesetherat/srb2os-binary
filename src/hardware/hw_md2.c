@@ -1333,15 +1333,13 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 				lightlevel = 128 + (sector->lightlevel>>1);
 			else if (!R_ThingIsFullBright(spr->mobj))
 				lightlevel = max(min(255, sector->lightlevel), 0);
-			else if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
+			if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
 			{
 				if (sector->extra_colormap)
 					colormap = sector->extra_colormap;
-			}
-			
-			HWR_Lighting(&Surf, lightlevel, colormap);
+			}			
 		}
-
+		HWR_Lighting(&Surf, lightlevel, colormap);
 			
 	}
 	else

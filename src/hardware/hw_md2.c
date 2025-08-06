@@ -1308,8 +1308,7 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		UINT8 lightlevel = 255;
 		extracolormap_t *colormap = NULL;
 
-		if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
-		{
+
 			if (sector->numlights)
 			{
 				INT32 light;
@@ -1322,9 +1321,11 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 					lightlevel = 128 + (*sector->lightlist[light].lightlevel>>1);
 				else if (!R_ThingIsFullBright(spr->mobj))
 					lightlevel = max(min(255, *sector->lightlist[light].lightlevel), 0);
-
-				if (*sector->lightlist[light].extra_colormap)
-					colormap = *sector->lightlist[light].extra_colormap;
+				if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
+				{
+					if (*sector->lightlist[light].extra_colormap)
+						colormap = *sector->lightlist[light].extra_colormap;
+				}
 			}
 			else
 			{
@@ -1334,9 +1335,11 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 					lightlevel = 128 + (sector->lightlevel>>1);
 				else if (!R_ThingIsFullBright(spr->mobj))
 					lightlevel = max(min(255, sector->lightlevel), 0);
-
-				if (sector->extra_colormap)
-					colormap = sector->extra_colormap;
+				if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
+				{
+					if (sector->extra_colormap)
+						colormap = sector->extra_colormap;
+				}
 			}
 		}
 

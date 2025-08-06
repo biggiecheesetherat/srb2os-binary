@@ -1652,6 +1652,8 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			{
 				fixed_t camAngleDiff = AngleFixed(viewangle) - FLOAT_TO_FIXED(p.angley); // dumb reconversion back, I know
 
+				anglef *= flip ? -1 : 1; // Adjust for flipping
+
 				p.rollangle = FIXED_TO_FLOAT(anglef);
 				p.roll = true;
 

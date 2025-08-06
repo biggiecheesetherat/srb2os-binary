@@ -1308,36 +1308,39 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		UINT8 lightlevel = 255;
 		extracolormap_t *colormap = NULL;
 
-		if (sector->numlights)
+		if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
 		{
-			INT32 light;
+			if (sector->numlights)
+			{
+				INT32 light;
 
-			light = P_GetSectorLightNumAt(sector, spr->mobj->x, spr->mobj->y, spr->mobj->z + spr->mobj->height);
+				light = P_GetSectorLightNumAt(sector, spr->mobj->x, spr->mobj->y, spr->mobj->z + spr->mobj->height);
 
-			if (R_ThingIsFullDark(spr->mobj))
-				lightlevel = 0;
-			else if (R_ThingIsSemiBright(spr->mobj))
-				lightlevel = 128 + (*sector->lightlist[light].lightlevel>>1);
-			else if (!R_ThingIsFullBright(spr->mobj))
-				lightlevel = max(min(255, *sector->lightlist[light].lightlevel), 0);
+				if (R_ThingIsFullDark(spr->mobj))
+					lightlevel = 0;
+				else if (R_ThingIsSemiBright(spr->mobj))
+					lightlevel = 128 + (*sector->lightlist[light].lightlevel>>1);
+				else if (!R_ThingIsFullBright(spr->mobj))
+					lightlevel = max(min(255, *sector->lightlist[light].lightlevel), 0);
 
-			if (*sector->lightlist[light].extra_colormap)
-				colormap = *sector->lightlist[light].extra_colormap;
+				if (*sector->lightlist[light].extra_colormap)
+					colormap = *sector->lightlist[light].extra_colormap;
+			}
+			else
+			{
+				if (R_ThingIsFullDark(spr->mobj))
+					lightlevel = 0;
+				else if (R_ThingIsSemiBright(spr->mobj))
+					lightlevel = 128 + (sector->lightlevel>>1);
+				else if (!R_ThingIsFullBright(spr->mobj))
+					lightlevel = max(min(255, sector->lightlevel), 0);
+
+				if (sector->extra_colormap)
+					colormap = sector->extra_colormap;
+			}
 		}
-		else
-		{
-			if (R_ThingIsFullDark(spr->mobj))
-				lightlevel = 0;
-			else if (R_ThingIsSemiBright(spr->mobj))
-				lightlevel = 128 + (sector->lightlevel>>1);
-			else if (!R_ThingIsFullBright(spr->mobj))
-				lightlevel = max(min(255, sector->lightlevel), 0);
 
-			if (sector->extra_colormap)
-				colormap = sector->extra_colormap;
-		}
-
-		HWR_Lighting(&Surf, lightlevel, colormap);
+			HWR_Lighting(&Surf, lightlevel, colormap);
 	}
 	else
 		Surf.PolyColor.rgba = 0xFFFFFFFF;

@@ -3213,7 +3213,7 @@ static int lib_rTextureNameForNum(lua_State *L)
 }
 
 // Not a real function.
-static int lib_rGetTextureWidth(lua_State *L)
+static int lib_rGetTextureDimensions(lua_State *L)
 {
 	INT32 num = -1;
 	if (lua_isnoneornil(L, 1))
@@ -3240,38 +3240,8 @@ static int lib_rGetTextureWidth(lua_State *L)
 	//HUDSAFE
 
 	lua_pushinteger(L, textures[num]->width);
-	return 1;
-}
-
-// Not a real function.
-static int lib_rGetTextureHeight(lua_State *L)
-{
-	INT32 num = -1;
-	if (lua_isnoneornil(L, 1))
-		return luaL_error(L, "argument #1 not given (expected number or string)");
-	else if (lua_type(L, 1) == LUA_TNUMBER)
-	{
-		num = (INT32)luaL_checkinteger(L, 1);
-		if (num < 1 || num >= numtextures)
-			return luaL_error(L, "texture %d (argument #1) out of range (1 - %d)", num, numtextures-1);
-	}
-	else
-	{
-		const char *name = luaL_checkstring(L, 1);
-		num = R_CheckTextureNumForName(name, TEXTURETYPE_TEXTURE);
-
-		// Didn't find it, so look for a flat
-		if (num == -1)
-		{
-			num = R_CheckTextureNumForName(name, TEXTURETYPE_FLAT);
-			if (num == -1)
-				return luaL_error(L, "texture %s (argument #1) is not loaded", name);
-		}
-	}
-	//HUDSAFE
-
 	lua_pushinteger(L, textures[num]->height);
-	return 1;
+	return 2;
 }
 
 // R_DRAW
@@ -4779,8 +4749,7 @@ static luaL_Reg lib[] = {
 	{"R_TextureNumForName",lib_rTextureNumForName},
 	{"R_CheckTextureNameForNum", lib_rCheckTextureNameForNum},
 	{"R_TextureNameForNum", lib_rTextureNameForNum},
-	{"R_GetTextureWidth", lib_rGetTextureWidth},
-	{"R_GetTextureHeight", lib_rGetTextureHeight},
+	{"R_GetTextureDimensions", lib_rGetTextureDimensions},
 
 	// r_draw
 	{"R_GetColorByName", lib_rGetColorByName},

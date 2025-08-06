@@ -1687,6 +1687,16 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			float ox = xs * FIXED_TO_FLOAT(interp.spritexoffset);
 			float oy = ys * FIXED_TO_FLOAT(interp.spriteyoffset);
 
+			SINT8 flipoffset = 1;
+
+			if ((spr->mobj->renderflags & RF_FLIPOFFSETS) && flip)
+			{
+				flipoffset = -1;
+			}
+
+			ox *= flipoffset;
+			oy *= flipoffset;
+
 			// offset perpendicular to the camera angle
 			p.x -= ox * gl_viewsin;
 			p.y += ox * gl_viewcos;

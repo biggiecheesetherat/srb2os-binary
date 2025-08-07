@@ -1356,7 +1356,7 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		spriteframe_t *sprframe;
 		INT32 mod;
 		interpmobjstate_t interp;
-		fixed_t spritexoffset,spriteyoffset;
+		fixed_t spritexscale,spriteyscale;
 
 		if (R_UsingFrameInterpolation() && !paused)
 		{

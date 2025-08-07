@@ -1681,7 +1681,8 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		{
 			float this_scale = FIXED_TO_FLOAT(interp.scale);
 
-			spritexscale = interp.spritexscale; spriteyscale = interp.spriteyscale;
+			spritexscale = interp.spritexscale;
+			spriteyscale = interp.spriteyscale;
 			float xs = this_scale * FIXED_TO_FLOAT(spritexscale);
 			float ys = this_scale * FIXED_TO_FLOAT(spriteyscale);
 

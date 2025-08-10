@@ -1675,17 +1675,16 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 
 		if (HWR_UseShader())
 			HWD.pfnSetShader(HWR_GetShaderFromTarget(SHADER_MODEL));
-
+		
 		{
 			float this_scale = FIXED_TO_FLOAT(interp.scale);
-
 
 			float xs = this_scale * FIXED_TO_FLOAT(interp.spritexscale);
 			float ys = this_scale * FIXED_TO_FLOAT(interp.spriteyscale);
 
 			float ox = xs * FIXED_TO_FLOAT(interp.spritexoffset);
 			float oy = ys * FIXED_TO_FLOAT(interp.spriteyoffset);
-			
+
 			// offset perpendicular to the camera angle
 			p.x -= ox * gl_viewsin;
 			p.y += ox * gl_viewcos;

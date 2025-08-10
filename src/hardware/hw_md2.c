@@ -1356,7 +1356,6 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		spriteframe_t *sprframe;
 		INT32 mod;
 		interpmobjstate_t interp;
-		fixed_t spritexscale,spriteyscale;
 
 		if (R_UsingFrameInterpolation() && !paused)
 		{
@@ -1677,26 +1676,16 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		if (HWR_UseShader())
 			HWD.pfnSetShader(HWR_GetShaderFromTarget(SHADER_MODEL));
 
-		// Sprite scaling and offsets
 		{
 			float this_scale = FIXED_TO_FLOAT(interp.scale);
 
-			spritexscale = interp.spritexscale;
-			spriteyscale = interp.spriteyscale;
-			float xs = this_scale * FIXED_TO_FLOAT(spritexscale);
-			float ys = this_scale * FIXED_TO_FLOAT(spriteyscale);
 
-			// (I feel like this fix could be done better)
-			if (spr->mobj->skin && ((skin_t *)spr->mobj->skin)->flags & SF_HIRES)
-			{
-				fixed_t highresscale = ((skin_t *)spr->mobj->skin)->highresscale;
-				spritexscale = FixedMul(spritexscale, highresscale);
-				spriteyscale = FixedMul(spriteyscale, highresscale);
-			}
+			float xs = this_scale * FIXED_TO_FLOAT(interp.spritexscale);
+			float ys = this_scale * FIXED_TO_FLOAT(interp.spriteyscale);
+
+			float ox = xs * FIXED_TO_FLOAT(interp.spritexoffset);
+			float oy = ys * FIXED_TO_FLOAT(interp.spriteyoffset);
 			
-			float ox = (this_scale * FIXED_TO_FLOAT(spritexscale)) * FIXED_TO_FLOAT(interp.spritexoffset);
-			float oy = (this_scale * FIXED_TO_FLOAT(spriteyscale)) * FIXED_TO_FLOAT(interp.spriteyoffset);
-
 			// offset perpendicular to the camera angle
 			p.x -= ox * gl_viewsin;
 			p.y += ox * gl_viewcos;

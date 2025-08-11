@@ -4420,7 +4420,30 @@ static int GetNextMapNameOrNumber(lua_State *L, int idx)
 		return mapnum;
 	}
 	else
-		return luaL_checkinteger(L, idx);
+	{
+		lua_Integer val = luaL_checkinteger(L, idx);
+		if (val == 1100)
+		{
+			LUA_Deprecated(L, "1100", "SCENE_TITLE");
+			return NEXTMAP_TITLE;
+		}
+		else if (val == 1101)
+		{
+			LUA_Deprecated(L, "1101", "SCENE_EVALUATION");
+			return NEXTMAP_EVALUATION;
+		}
+		else if (val == 1102)
+		{
+			LUA_Deprecated(L, "1102", "SCENE_CREDITS");
+			return NEXTMAP_CREDITS;
+		}
+		else if (val == 1103)
+		{
+			LUA_Deprecated(L, "1103", "SCENE_ENDING");
+			return NEXTMAP_ENDING;
+		}
+		return val;
+	}
 }
 
 static int Lcheckmapnumber (lua_State *L, int idx, const char *fun)

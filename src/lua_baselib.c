@@ -4504,17 +4504,7 @@ static int lib_gBuildMapTitle(lua_State *L)
 
 static int lib_gIsGameEndMap(lua_State *L)
 {
-	INT32 map = luaL_checkinteger(L, 1);
-	if (map < 1 || map > numgamemaps)
-	{
-		return luaL_error(L,
-				"map number %d out of range (1 - %d)",
-				map,
-				numgamemaps
-		);
-	}
-
-	lua_pushboolean(L, G_IsGameEndMap(map));
+	lua_pushboolean(L, G_IsGameEndMap(luaL_checkinteger(L, 1)));
 	return 1;
 }
 

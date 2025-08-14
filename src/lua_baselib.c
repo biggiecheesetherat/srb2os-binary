@@ -4502,6 +4502,22 @@ static int lib_gBuildMapTitle(lua_State *L)
 	return 1;
 }
 
+static int lib_gIsGameEndMap(lua_State *L)
+{
+	INT32 map = luaL_checkinteger(L, 1);
+	if (map < 1 || map > numgamemaps)
+	{
+		return luaL_error(L,
+				"map number %d out of range (1 - %d)",
+				map,
+				numgamemaps
+		);
+	}
+
+	lua_pushboolean(L, G_IsGameEndMap(map));
+	return 1;
+}
+
 static void
 Lpushdim (lua_State *L, int c, struct searchdim *v)
 {
@@ -5168,6 +5184,7 @@ static luaL_Reg lib[] = {
 	{"G_SetUsedCheats", lib_gSetUsedCheats},
 	{"G_BuildMapName",lib_gBuildMapName},
 	{"G_BuildMapTitle",lib_gBuildMapTitle},
+	{"G_IsGameEndMap",lib_gIsGameEndMap},
 	{"G_FindMap",lib_gFindMap},
 	{"G_FindMapByNameOrCode",lib_gFindMapByNameOrCode},
 	{"G_GetMapThumbnail",lib_gGetMapThumbnail},

@@ -899,7 +899,7 @@ static int sector_get(lua_State *L)
 		return 1;
 	case sector_thinglist: // thinglist
 		lua_pushcfunction(L, lib_iterateSectorThinglist);
-		LUA_PushUserdata(L, sector->touching_thinglist ? sector->touching_thinglist->m_thing : NULL, META_MOBJ);
+		LUA_PushUserdata(L, sector->thinglist, META_MOBJ);
 		lua_pushcclosure(L, sector_iterate, 2); // push lib_iterateSectorThinglist and sector->thinglist as upvalues for the function
 		return 1;
 	case sector_touching_thinglist: // touching_thinglist

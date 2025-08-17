@@ -658,7 +658,7 @@ static int mobj_set(lua_State *L)
 		}
 		break;
 	case mobj_touching_sectorlist:
-		return UNIMPLEMENTED;
+		return NOSETPOS;
 	case mobj_subsector:
 		return NOSETPOS;
 	case mobj_floorz:

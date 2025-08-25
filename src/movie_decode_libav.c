@@ -77,6 +77,8 @@ static void *GetBufferSlot(const moviebuffer_t *buffer, INT32 index)
 {
 	if (index < 0)
 		return NULL;
+	if (index >= buffer->size)
+		I_Error("libav: buffer index out of bounds");
 
 	index = (buffer->start + index) % buffer->capacity;
 	return &((UINT8*)buffer->data)[index * buffer->slotsize];
@@ -89,6 +91,9 @@ static void *PeekBuffer(const moviebuffer_t *buffer)
 
 static void *EnqueueBuffer(moviebuffer_t *buffer)
 {
+	if (buffer->size == buffer->capacity)
+		I_Error("libav: buffer is full");
+
 	buffer->size++;
 	return GetBufferSlot(buffer, buffer->size - 1);
 }

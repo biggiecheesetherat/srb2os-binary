@@ -492,16 +492,17 @@ static void InitialiseDecodeWorker(movie_t *movie)
 {
 	moviedecodeworker_t *worker = &movie->decodeworker;
 	moviestream_t *vstream = &movie->videostream;
+	moviestream_t *astream = &movie->audiostream;
 
 	worker->usepatches = movie->usepatches;
 	worker->usedithering = movie->usedithering;
 	worker->videostream.index = vstream->index;
-	worker->audiostream.index = movie->audiostream.index;
+	worker->audiostream.index = astream->index;
 	worker->videostream.codeccontext = InitialiseDecoding(vstream->stream);
-	worker->audiostream.codeccontext = InitialiseDecoding(movie->audiostream.stream);
+	worker->audiostream.codeccontext = InitialiseDecoding(astream->stream);
 	CloneBuffer(&worker->videostream.framequeue, &vstream->buffer);
 	CloneBuffer(&worker->videostream.framepool, &vstream->buffer);
-	CloneBuffer(&worker->audiostream.framequeue, &movie->audiostream.buffer);
+	CloneBuffer(&worker->audiostream.framequeue, &astream->buffer);
 	InitialiseImages(worker);
 	InitialisePacketQueue(worker);
 	InitialiseVideoConversion(worker);
@@ -514,7 +515,9 @@ static void InitialiseDecodeWorker(movie_t *movie)
 
 static void FlushVideoFrameBuffers(movie_t *movie)
 {
-	DequeueWholeBufferIntoBuffer(&workerstream->framepool, &stream->buffer);
+	moviedecodeworkerstream_t *workerstream = &movie->decodeworker.videostream;
+
+	DequeueWholeBufferIntoBuffer(&workerstream->framepool, &movie->videostream.buffer);
 	DequeueWholeBufferIntoBuffer(&workerstream->framepool, &workerstream->framequeue);
 }
 

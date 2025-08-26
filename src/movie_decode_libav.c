@@ -120,7 +120,7 @@ static void GrowBuffer(moviebuffer_t *buffer)
 	}
 }
 
-static void *EnqueueBuffer(moviebuffer_t *buffer)
+static void *EnqueueBuffer(moviebuffer_t *buffer, void *srcslot)
 {
 	if (buffer->size == buffer->capacity)
 	{
@@ -131,7 +131,12 @@ static void *EnqueueBuffer(moviebuffer_t *buffer)
 	}
 
 	buffer->size++;
-	return GetBufferSlot(buffer, buffer->size - 1);
+	void *slot = GetBufferSlot(buffer, buffer->size - 1);
+
+	if (srcslot)
+		memcpy(slot, srcslot, buffer->slotsize);
+
+	return slot;
 }
 
 static void ShrinkBuffer(moviebuffer_t *buffer)
@@ -179,7 +184,7 @@ static void DequeueBuffer(moviebuffer_t *buffer, void *dstslot)
 
 static void *DequeueBufferIntoBuffer(moviebuffer_t *dst, moviebuffer_t *src)
 {
-	void *dstslot = EnqueueBuffer(dst);
+	void *dstslot = EnqueueBuffer(dst, NULL);
 	DequeueBuffer(src, dstslot);
 	return dstslot;
 }
@@ -383,19 +388,21 @@ static void InitialiseImages(moviedecodeworker_t *worker)
 {
 	for (INT32 i = 0; i < worker->videostream.framepool.capacity; i++)
 	{
-		movievideoframe_t *frame = EnqueueBuffer(&worker->videostream.framepool);
+		movievideoframe_t frame;
 
 		if (worker->usepatches)
 		{
 			INT32 size = worker->videostream.codeccontext->width * (sizeof(UINT32) + GetBytesPerPatchColumn(worker));
-			frame->image.patch = malloc(size);
-			if (!frame->image.patch)
+			frame.image.patch = malloc(size);
+			if (!frame.image.patch)
 				I_Error("libav: cannot allocate patch data");
 		}
 		else
 		{
-			AllocateAVImage(worker, &frame->image.rgba, AV_PIX_FMT_RGBA, 1);
+			AllocateAVImage(worker, &frame.image.rgba, AV_PIX_FMT_RGBA, 1);
 		}
+
+		EnqueueBuffer(&worker->videostream.framepool, &frame);
 	}
 
 	AllocateAVImage(worker, &worker->yuv444image, AV_PIX_FMT_YUV444P, 32); // 32-byte alignment, for SSE/AVX
@@ -428,8 +435,7 @@ static void InitialisePacketQueue(moviedecodeworker_t *worker)
 		if (!packet)
 			I_Error("libav: cannot allocate packet");
 
-		AVPacket **packetslot = EnqueueBuffer(&worker->packetpool);
-		*packetslot = packet;
+		EnqueueBuffer(&worker->packetpool, &packet);
 	}
 }
 
@@ -820,10 +826,7 @@ static void ParseAudioFrame(moviedecodeworker_t *worker)
 	frame.numsamples = numoutputsamples;
 
 	I_lock_mutex(&worker->mutex);
-	{
-		movieaudioframe_t *queueframe = EnqueueBuffer(&worker->audiostream.framequeue);
-		memcpy(queueframe, &frame, sizeof(frame));
-	}
+	EnqueueBuffer(&worker->audiostream.framequeue, &frame);
 	I_unlock_mutex(worker->mutex);
 }
 

@@ -1224,7 +1224,8 @@ movie_t *MovieDecode_Play(const char *name, boolean usepatches, boolean usedithe
 	InitialiseAudioBuffer(movie);
 	InitialiseDecodeWorker(movie);
 
-	I_spawn_thread("decode-movie", (I_thread_fn)DecoderThread, &movie->decodeworker);
+	if (!I_spawn_thread("decode-movie", (I_thread_fn)DecoderThread, &movie->decodeworker))
+		I_Error("libav: cannot spawn decode worker thread");
 
 	return movie;
 }
@@ -1307,7 +1308,8 @@ void MovieDecode_SetImageFormat(movie_t *movie, boolean usepatches)
 	worker->usepatches = usepatches;
 
 	InitialiseImages(worker);
-	I_spawn_thread("decode-movie", (I_thread_fn)DecoderThread, worker);
+	if (!I_spawn_thread("decode-movie", (I_thread_fn)DecoderThread, worker))
+		I_Error("libav: cannot spawn decode worker thread");
 }
 
 INT64 MovieDecode_GetDuration(movie_t *movie)

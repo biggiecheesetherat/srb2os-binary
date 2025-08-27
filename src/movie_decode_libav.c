@@ -13,7 +13,6 @@
 #include "byteptr.h"
 #include "doomdef.h"
 #include "doomtype.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/imgutils.h"
 #include "s_sound.h"
 #include "v_video.h"
@@ -476,14 +475,18 @@ static void InitialiseVideoConversion(moviedecodeworker_t *worker)
 static void InitialiseAudioConversion(moviedecodeworker_t *worker)
 {
 	AVCodecContext *audiocodeccontext = worker->audiostream.codeccontext;
-	worker->resamplingcontext = swr_alloc_set_opts(
-		NULL,
-		audiocodeccontext->channel_layout, AV_SAMPLE_FMT_S16, SAMPLE_RATE,
-		audiocodeccontext->channel_layout, audiocodeccontext->sample_fmt, audiocodeccontext->sample_rate,
+
+	if (swr_alloc_set_opts2(
+		&worker->resamplingcontext,
+		&audiocodeccontext->ch_layout, AV_SAMPLE_FMT_S16, SAMPLE_RATE,
+		&audiocodeccontext->ch_layout, audiocodeccontext->sample_fmt, audiocodeccontext->sample_rate,
 		0, NULL
-	);
+	))
+		I_Error("libav: cannot allocate resampling context");
+
 	if (!worker->resamplingcontext)
 		I_Error("libav: cannot allocate resampling context");
+
 	if (swr_init(worker->resamplingcontext))
 		I_Error("libav: cannot initialise resampling context");
 }
@@ -750,7 +753,7 @@ static void ParseVideoFrame(moviedecodeworker_t *worker)
 	worker->nextframeid++;
 
 	frame->pts = worker->frame->pts;
-	frame->duration = worker->frame->pkt_duration;
+	frame->duration = worker->frame->duration;
 
 	if (worker->usedithering)
 	{
@@ -810,7 +813,7 @@ static void ParseAudioFrame(moviedecodeworker_t *worker)
 
 	if (!av_samples_alloc(
 		frame.samples, NULL,
-		worker->frame->channels, maxsamples,
+		worker->frame->ch_layout.nb_channels, maxsamples,
 		AV_SAMPLE_FMT_S16, 1
 	))
 		I_Error("libav: cannot allocate samples");
@@ -1359,7 +1362,7 @@ void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size)
 	// Here, if using packed audio, the sample size includes both channels
 	INT32 samplesize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
 	if (!av_sample_fmt_is_planar(AV_SAMPLE_FMT_S16))
-		samplesize *= codeccontext->channels;
+		samplesize *= codeccontext->ch_layout.nb_channels;
 	INT64 numsamples = size / samplesize;
 
 	INT32 startbufferindex = FindAudioBufferIndexForPosition(movie, movie->audioposition);

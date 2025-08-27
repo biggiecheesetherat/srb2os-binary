@@ -476,14 +476,17 @@ static void InitialiseVideoConversion(moviedecodeworker_t *worker)
 static void InitialiseAudioConversion(moviedecodeworker_t *worker)
 {
 	AVCodecContext *audiocodeccontext = worker->audiostream.codeccontext;
+
 	worker->resamplingcontext = swr_alloc_set_opts(
 		NULL,
 		audiocodeccontext->channel_layout, AV_SAMPLE_FMT_S16, SAMPLE_RATE,
 		audiocodeccontext->channel_layout, audiocodeccontext->sample_fmt, audiocodeccontext->sample_rate,
 		0, NULL
 	);
+
 	if (!worker->resamplingcontext)
 		I_Error("libav: cannot allocate resampling context");
+
 	if (swr_init(worker->resamplingcontext))
 		I_Error("libav: cannot initialise resampling context");
 }

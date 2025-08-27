@@ -388,17 +388,17 @@ int LUA_PushGlobals(lua_State *L, const char *word)
 		return 1;
 	// local player variables, by popular request
 	} else if (fastcmp(word,"consoleplayer")) { // player controlling console (aka local player 1)
-		if (!addedtogame || consoleplayer < 0 || !playeringame[consoleplayer])
+		if (!addedtogame || consoleplayer < 0 || !players[consoleplayer].ingame)
 			return 0;
 		LUA_PushUserdata(L, &players[consoleplayer], META_PLAYER);
 		return 1;
 	} else if (fastcmp(word,"displayplayer")) { // player visible on screen (aka display player 1)
-		if (displayplayer < 0 || !playeringame[displayplayer])
+		if (displayplayer < 0 || !players[displayplayer].ingame)
 			return 0;
 		LUA_PushUserdata(L, &players[displayplayer], META_PLAYER);
 		return 1;
 	} else if (fastcmp(word,"secondarydisplayplayer")) { // local/display player 2, for splitscreen
-		if (!splitscreen || secondarydisplayplayer < 0 || !playeringame[secondarydisplayplayer])
+		if (!splitscreen || secondarydisplayplayer < 0 || !players[secondarydisplayplayer].ingame)
 			return 0;
 		LUA_PushUserdata(L, &players[secondarydisplayplayer], META_PLAYER);
 		return 1;
@@ -410,7 +410,7 @@ int LUA_PushGlobals(lua_State *L, const char *word)
 		return 1;
 	// end local player variables
 	} else if (fastcmp(word,"server")) {
-		if ((!multiplayer || !netgame) && !playeringame[serverplayer])
+		if ((!multiplayer || !netgame) && !players[serverplayer].ingame)
 			return 0;
 		LUA_PushUserdata(L, &players[serverplayer], META_PLAYER);
 		return 1;

@@ -914,7 +914,7 @@ void LUA_Archive(save_t *save_p)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i] && i > 0) // dedicated servers...
+		if (!players[i].ingame && i > 0) // dedicated servers...
 			continue;
 		// all players in game will be archived, even if they just add a 0.
 		ArchiveExtVars(save_p, &players[i], "player");
@@ -954,7 +954,7 @@ void LUA_UnArchive(save_t *save_p)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i] && i > 0) // dedicated servers...
+		if (!players[i].ingame && i > 0) // dedicated servers...
 			continue;
 		UnArchiveExtVars(save_p, &players[i]);
 	}

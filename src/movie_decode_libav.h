@@ -21,6 +21,7 @@
 #include "libswscale/swscale.h"
 #include "libswresample/swresample.h"
 #include "v_video.h"
+#include "w_wad.h"
 
 typedef struct {
 	INT32 datasize;
@@ -116,6 +117,7 @@ typedef struct movie
 	moviestream_t videostream;
 	moviestream_t audiostream;
 
+	lumpnum_t lumpnum;
 	UINT8 *lumpdata;
 	size_t lumpsize;
 	size_t lumpposition;

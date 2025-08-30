@@ -474,6 +474,9 @@ static void InitialiseVideoConversion(moviedecodeworker_t *worker)
 
 static void InitialiseAudioConversion(moviedecodeworker_t *worker)
 {
+	if (worker->audiostream.index < 0)
+		return;
+
 	AVCodecContext *audiocodeccontext = worker->audiostream.codeccontext;
 
 	if (swr_alloc_set_opts2(
@@ -650,6 +653,9 @@ static void SendPacket(moviedecodeworker_t *worker)
 
 static boolean ReceiveFrame(moviedecodeworker_t *worker, moviedecodeworkerstream_t *stream)
 {
+	if (stream->index < 0)
+		return;
+
 	int error = avcodec_receive_frame(stream->codeccontext, worker->frame);
 
 	if (error == 0) // Frame received successfully
@@ -845,6 +851,9 @@ static void FlushDecodeWorker(moviedecodeworker_t *worker)
 
 static void FlushStream(moviedecodeworker_t *worker, moviedecodeworkerstream_t *stream)
 {
+	if (!stream)
+		return;
+
 	// Flush the decoder
 	if (avcodec_send_packet(stream->codeccontext, NULL) < 0)
 		I_Error("libav: cannot flush decoder");
@@ -974,6 +983,9 @@ static void ClearOldVideoFrames(movie_t *movie)
 
 static void ClearOldAudioFrames(movie_t *movie)
 {
+	if (!movie->audiostream.stream)
+		return;
+
 	moviebuffer_t *buffer = &movie->audiostream.buffer;
 	INT64 limit = max(MSToAudioPTS(movie, movie->position - STREAM_BUFFER_TIME / 2), 0);
 
@@ -1376,6 +1388,10 @@ INT32 MovieDecode_GetPatchBytes(movie_t *movie)
 void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size)
 {
 	moviestream_t *stream = &movie->audiostream;
+
+	if (!stream->stream)
+		return;
+
 	moviebuffer_t *buffer = &stream->buffer;
 	AVCodecContext *codeccontext = movie->decodeworker.audiostream.codeccontext;
 	UINT8 *membytes = mem;

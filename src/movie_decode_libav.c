@@ -1020,20 +1020,42 @@ static void CacheMovieLump(movie_t *movie, const char *name)
 	if (lumpnum == LUMPERROR)
 		I_Error("libav: cannot find movie lump");
 
+	lumpinfo_t *lumpinfo = &wadfiles[WADFILENUM(lumpnum)]->lumpinfo[LUMPNUM(lumpnum)];
+
+	movie->lumpnum = lumpnum;
 	movie->lumpsize = W_LumpLength(lumpnum);
-	movie->lumpdata = malloc(movie->lumpsize);
-	if (!movie->lumpdata)
-		I_Error("libav: cannot allocate lump data");
-	W_ReadLump(lumpnum, movie->lumpdata);
+
+	// Only cache the content if the lump is compressed
+	// Otherwise we can simply read from the file directly,
+	// without having to store the entire lump in the memory
+	if (lumpinfo->compression != CM_NOCOMPRESSION)
+	{
+		movie->lumpdata = malloc(movie->lumpsize);
+		if (!movie->lumpdata)
+			I_Error("libav: cannot allocate lump data");
+
+		W_ReadLump(lumpnum, movie->lumpdata);
+	}
+	else
+	{
+		CONS_Alert(CONS_NOTICE, M_GetText("Caching a compressed movie lump (%s) is not recommended.\n"), lumpinfo->longname);
+	}
 }
 
 static int ReadStream(void *owner, uint8_t *buffer, int buffersize)
 {
 	movie_t *movie = owner;
+
 	size_t bs = buffersize;
 	buffersize = min(bs, movie->lumpsize - movie->lumpposition);
-	memcpy(buffer, &movie->lumpdata[movie->lumpposition], buffersize);
+
+	if (movie->lumpdata)
+		memcpy(buffer, &movie->lumpdata[movie->lumpposition], buffersize);
+	else
+		W_ReadLumpHeader(movie->lumpnum, buffer, buffersize, movie->lumpposition);
+
 	movie->lumpposition += buffersize;
+
 	return buffersize;
 }
 

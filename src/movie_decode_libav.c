@@ -498,6 +498,14 @@ static void InitialiseAudioConversion(moviedecodeworker_t *worker)
 
 	AVCodecContext *audiocodeccontext = worker->audiostream.codeccontext;
 
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_OLD_CHANNEL_LAYOUT
+	worker->resamplingcontext = swr_alloc_set_opts(
+		NULL,
+		audiocodeccontext->channel_layout, AV_SAMPLE_FMT_S16, SAMPLE_RATE,
+		audiocodeccontext->channel_layout, audiocodeccontext->sample_fmt, audiocodeccontext->sample_rate,
+		0, NULL
+	);
+#else
 	if (swr_alloc_set_opts2(
 		&worker->resamplingcontext,
 		&audiocodeccontext->ch_layout, AV_SAMPLE_FMT_S16, SAMPLE_RATE,
@@ -505,6 +513,8 @@ static void InitialiseAudioConversion(moviedecodeworker_t *worker)
 		0, NULL
 	))
 		I_Error("libav: cannot allocate resampling context");
+#endif
+		
 
 	if (!worker->resamplingcontext)
 		I_Error("libav: cannot allocate resampling context");
@@ -868,7 +878,12 @@ static void ParseVideoFrame(moviedecodeworker_t *worker)
 	worker->nextframeid++;
 
 	frame->pts = worker->frame->pts;
-	frame->duration = worker->frame->duration;
+	frame->duration = 
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_PKT_DURATION
+	worker->frame->pkt_duration;
+#else
+	worker->frame->duration;
+#endif
 
 	if (worker->usedithering)
 	{
@@ -928,7 +943,12 @@ static void ParseAudioFrame(moviedecodeworker_t *worker)
 
 	if (!av_samples_alloc(
 		frame.samples, NULL,
-		worker->frame->ch_layout.nb_channels, maxsamples,
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_OLD_CHANNEL_LAYOUT
+		worker->frame->channels,
+#else
+		worker->frame->ch_layout.nb_channels, 
+#endif
+		maxsamples,
 		AV_SAMPLE_FMT_S16, 1
 	))
 		I_Error("libav: cannot allocate samples");
@@ -1553,7 +1573,12 @@ void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size)
 	// Here, if using packed audio, the sample size includes both channels
 	INT32 samplesize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
 	if (!av_sample_fmt_is_planar(AV_SAMPLE_FMT_S16))
-		samplesize *= codeccontext->ch_layout.nb_channels;
+		samplesize *= 
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_OLD_CHANNEL_LAYOUT
+		codeccontext->channels;
+#else
+		codeccontext->ch_layout.nb_channels;
+#endif
 	INT64 numsamples = size / samplesize;
 
 	INT32 startbufferindex = FindAudioBufferIndexForPosition(movie, movie->audioposition);

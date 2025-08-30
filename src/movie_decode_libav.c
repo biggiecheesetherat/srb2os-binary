@@ -1030,6 +1030,8 @@ static void CacheMovieLump(movie_t *movie, const char *name)
 	// without having to store the entire lump in the memory
 	if (lumpinfo->compression != CM_NOCOMPRESSION)
 	{
+		CONS_Alert(CONS_NOTICE, M_GetText("Caching a compressed movie lump (%s) is not recommended.\n"), lumpinfo->longname);
+
 		movie->lumpdata = malloc(movie->lumpsize);
 		if (!movie->lumpdata)
 			I_Error("libav: cannot allocate lump data");

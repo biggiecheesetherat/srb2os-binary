@@ -281,7 +281,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			mobj_t *mobj = *((mobj_t **)lua_touserdata(gL, myindex));
 			if (!mobj)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_MOBJ);
 				P_WriteUINT32(save_p, mobj->mobjnum);
@@ -292,7 +295,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			player_t *player = *((player_t **)lua_touserdata(gL, myindex));
 			if (!player)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_PLAYER);
 				P_WriteUINT8(save_p, player - players);
@@ -303,7 +309,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			mapthing_t *mapthing = *((mapthing_t **)lua_touserdata(gL, myindex));
 			if (!mapthing)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_MAPTHING);
 				P_WriteUINT16(save_p, mapthing - mapthings);
@@ -314,7 +323,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			vertex_t *vertex = *((vertex_t **)lua_touserdata(gL, myindex));
 			if (!vertex)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_VERTEX);
 				P_WriteUINT16(save_p, vertex - vertexes);
@@ -325,7 +337,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			line_t *line = *((line_t **)lua_touserdata(gL, myindex));
 			if (!line)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_LINE);
 				P_WriteUINT16(save_p, line - lines);
@@ -336,7 +351,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			side_t *side = *((side_t **)lua_touserdata(gL, myindex));
 			if (!side)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_SIDE);
 				P_WriteUINT16(save_p, side - sides);
@@ -347,7 +365,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			subsector_t *subsector = *((subsector_t **)lua_touserdata(gL, myindex));
 			if (!subsector)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_SUBSECTOR);
 				P_WriteUINT16(save_p, subsector - subsectors);
@@ -358,7 +379,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			sector_t *sector = *((sector_t **)lua_touserdata(gL, myindex));
 			if (!sector)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_SECTOR);
 				P_WriteUINT16(save_p, sector - sectors);
@@ -369,7 +393,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			ffloor_t *rover = *((ffloor_t **)lua_touserdata(gL, myindex));
 			if (!rover)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				UINT16 i = P_GetFFloorID(rover);
 				if (i == UINT16_MAX) // invalid ID
@@ -387,7 +414,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			polyobj_t *polyobj = *((polyobj_t **)lua_touserdata(gL, myindex));
 			if (!polyobj)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_POLYOBJ);
 				P_WriteUINT16(save_p, polyobj-PolyObjects);
@@ -398,7 +428,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			pslope_t *slope = *((pslope_t **)lua_touserdata(gL, myindex));
 			if (!slope)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_SLOPE);
 				P_WriteUINT16(save_p, slope->id);
@@ -409,7 +442,10 @@ static UINT8 ArchiveValue(save_t *save_p, int TABLESINDEX, int USERDATAINDEX, in
 		{
 			mapheader_t *header = *((mapheader_t **)lua_touserdata(gL, myindex));
 			if (!header)
+			{
 				P_WriteUINT8(save_p, ARCH_NULL);
+				return 3;
+			}
 			else {
 				P_WriteUINT8(save_p, ARCH_MAPHEADER);
 				P_WriteUINT16(save_p, header - *mapheaderinfo);
@@ -587,6 +623,11 @@ static void ArchiveTables(save_t *save_p)
 				n++; // the table contained a new table we'll have to archive. :(
 			else if (e == 2) // invalid key type (function, thread, lightuserdata, or anything we don't recognise)
 				CONS_Alert(CONS_ERROR, "Index '%s' (%s) of table %d could not be archived!\n", lua_tostring(gL, -2), luaL_typename(gL, -2), i);
+			else if (e == 3) // nil key due to invalid userdata. NOT an error.
+			{
+				lua_pop(gL, 1);
+				continue;
+			}
 
 			// Write value
 			e = ArchiveValue(save_p, TABLESINDEX, USERDATAINDEX, -1);

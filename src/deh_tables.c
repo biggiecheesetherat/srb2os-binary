@@ -5711,6 +5711,7 @@ struct int_const_s const INT_CONST[] = {
 	{"KR_TIMEOUT",KR_TIMEOUT},
 	{"KR_BAN",KR_BAN},
 	{"KR_LEAVE",KR_LEAVE},
+	{"KR_IDLE",KR_IDLE},
 
 	// translation colormaps
 	{"TC_DEFAULT",TC_DEFAULT},

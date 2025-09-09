@@ -335,11 +335,11 @@ void P_GiveEmerald(boolean spawnObj)
 	{
 		// The Chaos Emerald begins to orbit us!
 		// Only visibly give it to ONE person!
-		UINT8 i, pnum = ((playeringame[consoleplayer]) && (!players[consoleplayer].spectator) && (players[consoleplayer].mo)) ? consoleplayer : 255;
+		UINT8 i, pnum = ((players[consoleplayer].ingame) && (!players[consoleplayer].spectator) && (players[consoleplayer].mo)) ? consoleplayer : 255;
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
 			mobj_t *emmo;
-			if (!playeringame[i])
+			if (!players[i].ingame)
 				continue;
 			if (players[i].spectator)
 				continue;
@@ -686,7 +686,7 @@ static void P_DeNightserizePlayer(player_t *player)
 	{
 		INT32 i;
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+			if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 				players[i].nightstime = 1; // force everyone else to fall too.
 		player->exiting = 3*TICRATE;
 
@@ -841,7 +841,7 @@ void P_NightserizePlayer(player_t *player, INT32 nighttime)
 		if (G_IsSpecialStage(gamemap))
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
-				if (playeringame[i]/* && players[i].powers[pw_carry] == CR_NIGHTSMODE*/)
+				if (players[i].ingame/* && players[i].powers[pw_carry] == CR_NIGHTSMODE*/)
 				{
 					total_spheres += players[i].spheres;
 					total_rings += players[i].rings;
@@ -850,7 +850,7 @@ void P_NightserizePlayer(player_t *player, INT32 nighttime)
 
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i] || !players[i].mo || players[i].spectator)
+			if (!players[i].ingame || !players[i].mo || players[i].spectator)
 				continue;
 
 			players[i].texttimer = (3 * TICRATE) - 10;
@@ -1351,7 +1351,7 @@ void P_GiveCoopLives(player_t *player, INT32 numlives, boolean sound)
 		INT32 i;
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i])
+			if (!players[i].ingame)
 				continue;
 
 			P_GivePlayerLives(&players[i], numlives);
@@ -1464,7 +1464,7 @@ void P_AddPlayerScore(player_t *player, UINT32 amount)
 		{ // Pseudo-shared score for multiplayer special stages.
 			INT32 i;
 			for (i = 0; i < MAXPLAYERS; i++)
-				if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+				if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 				{
 					oldscore = players[i].marescore;
 
@@ -6952,7 +6952,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 	if (G_IsSpecialStage(gamemap))
 	{ // In special stages, share rings. Everyone gives up theirs to the capsule player always, because we can't have any individualism here!
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] && (&players[i] != player) && players[i].spheres > 0)
+			if (players[i].ingame && (&players[i] != player) && players[i].spheres > 0)
 			{
 				player->spheres += players[i].spheres;
 				players[i].spheres = 0;
@@ -7053,7 +7053,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 				tictimer = -1;
 
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && !player->exiting && players[i].mare == player->mare)
+					if (players[i].ingame && !player->exiting && players[i].mare == player->mare)
 					{
 						players[i].bonustime = true;
 						players[i].texttimer = 4*TICRATE;
@@ -7070,7 +7070,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 
 					/*for (i = 0; i < MAXPLAYERS; i++)
 					{
-						if (!playeringame[i] || players[i].spectator || !players[i].mo || !players[i].mo->tracer)
+						if (!players[i].ingame || players[i].spectator || !players[i].mo || !players[i].mo->tracer)
 							continue;
 
 						emmo = P_SpawnMobj(players[i].mo->x, players[i].mo->y, players[i].mo->z + players[i].mo->info->height, MT_GOTEMERALD);
@@ -7098,7 +7098,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 					// Find the player with the lowest time remaining and award points based on that time instead.
 					lowest_time = player->finishedtime;
 					for (i = 0; i < MAXPLAYERS; i++)
-						if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+						if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 							if (players[i].finishedtime < lowest_time)
 								lowest_time = players[i].finishedtime;
 					P_AddPlayerScore(player, (lowest_time/TICRATE) * 100);
@@ -7131,7 +7131,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 					}
 				}
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && players[i].mare == player->mare)
+					if (players[i].ingame && players[i].mare == player->mare)
 						P_SetTarget(&players[i].capsule, NULL); // Remove capsule from everyone now that it is dead!
 				S_StartScreamSound(player->mo, sfx_ngdone);
 				P_SwitchSpheresBonusMode(true);
@@ -7254,7 +7254,7 @@ static void P_NiGHTSMovement(player_t *player)
 		boolean capsule = false;
 		// NiGHTS special stages have a pseudo-shared timer, so check if ANYONE is feeding the capsule.
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] /*&& players[i].powers[pw_carry] == CR_NIGHTSMODE*/
+			if (players[i].ingame /*&& players[i].powers[pw_carry] == CR_NIGHTSMODE*/
 			&& (players[i].capsule && players[i].capsule->reactiontime))
 				capsule = true;
 		if (!capsule && !P_IsPlayerInNightsTransformationState(player) && !player->exiting)
@@ -7868,7 +7868,7 @@ void P_BlackOw(player_t *player)
 	S_StartSoundFromMobj(player->mo, sfx_bkpoof); // Sound the BANG!
 
 	for (i = 0; i < MAXPLAYERS; i++)
-		if (playeringame[i] && P_AreMobjsClose2D(player->mo, players[i].mo, 1536*FRACUNIT))
+		if (players[i].ingame && P_AreMobjsClose2D(player->mo, players[i].mo, 1536*FRACUNIT))
 			P_FlashPal(&players[i], PAL_NUKE, 10);
 
 	P_NukeEnemies(player->mo, player->mo, 1536*FRACUNIT); // Search for all nearby enemies and nuke their pants off!
@@ -8231,7 +8231,7 @@ void P_MovePlayer(player_t *player)
 				if (player == &players[displayplayer]) // only play the sound for yourself landing
 					S_StartSoundFromEverywhere(sfx_s3k6a);
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i])
+					if (players[i].ingame)
 						players[i].exiting = (14*TICRATE)/5 + 1;
 			}
 			else {
@@ -9110,7 +9110,7 @@ static void P_NukeAllPlayers(player_t *player)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			continue;
 		if (players[i].spectator)
 			continue;
@@ -9571,7 +9571,7 @@ boolean P_GetLives(player_t *player)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			continue;
 
 		if (players[i].lives > livescheck)
@@ -9608,7 +9608,7 @@ static void P_ConsiderAllGone(void)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			continue;
 
 		if (players[i].playerstate != PST_DEAD && !players[i].spectator && players[i].mo && players[i].mo->health)
@@ -9688,7 +9688,7 @@ static void P_DeathThink(player_t *player)
 	{
 		for (j = 0; j < MAXPLAYERS; j++)
 		{
-			if (!playeringame[j])
+			if (!players[j].ingame)
 				continue;
 
 			if (players[j].lives > 1)
@@ -9749,7 +9749,7 @@ static void P_DeathThink(player_t *player)
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 				if (!players[i].exiting && players[i].lives)
 					break;
@@ -10005,7 +10005,7 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 					thiscam->angle = players[displayplayer].cmd.angleturn << 16;
 					thiscam->aiming = players[displayplayer].cmd.aiming << 16;
 				}
-			} 
+			}
 			else if (thiscam == &camera2)
 			{
 				// i dont think secondarydisplayplayer changes, so we should be fine.
@@ -10667,7 +10667,7 @@ boolean P_SpectatorJoinGame(player_t *player)
 
 		//find a team by num players, score, or random if all else fails.
 		for (z = 0; z < MAXPLAYERS; ++z)
-			if (playeringame[z])
+			if (players[z].ingame)
 			{
 				if (players[z].ctfteam == 1)
 					++numplayersred;
@@ -11870,7 +11870,7 @@ void P_PlayerThink(player_t *player)
 		// Check if all the players in the race have finished. If so, end the level.
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (playeringame[i])
+			if (players[i].ingame)
 			{
 				if (!players[i].exiting && players[i].lives > 0)
 					break;
@@ -11939,7 +11939,7 @@ void P_PlayerThink(player_t *player)
 
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i] || players[i].spectator || players[i].bot)
+				if (!players[i].ingame || players[i].spectator || players[i].bot)
 					continue;
 				if (players[i].lives <= 0)
 					continue;
@@ -11971,7 +11971,7 @@ void P_PlayerThink(player_t *player)
 
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i] || players[i].spectator || players[i].bot)
+				if (!players[i].ingame || players[i].spectator || players[i].bot)
 					continue;
 				if (players[i].quittime > 30 * TICRATE)
 					continue;

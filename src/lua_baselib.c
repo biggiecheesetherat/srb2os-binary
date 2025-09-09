@@ -4246,7 +4246,7 @@ static int lib_gAddPlayer(lua_State *L)
 
 	for (i = 1; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			break;
 	}
 
@@ -4260,7 +4260,7 @@ static int lib_gAddPlayer(lua_State *L)
 
 	CL_ClearPlayer(newplayernum);
 
-	playeringame[newplayernum] = true;
+	players[newplayernum].ingame = true;
 	G_AddPlayer(newplayernum);
 	newplayer = &players[newplayernum];
 
@@ -4328,7 +4328,7 @@ static int lib_gRemovePlayer(lua_State *L)
 		return luaL_error(L, "argument #1 not given (expected number)");
 	if (pnum >= MAXPLAYERS) // Out of range
 		return luaL_error(L, "playernum %d out of range (0 - %d)", pnum, MAXPLAYERS-1);
-	if (playeringame[pnum]) // Found player
+	if (players[pnum].ingame) // Found player
 	{
 		if (players[pnum].bot == BOT_NONE) // Can't remove clients.
 			return luaL_error(L, "G_RemovePlayer can only be used on players with a bot value other than BOT_NONE.");

@@ -2944,23 +2944,22 @@ static int lib_pStartMoveFloor(lua_State *L)
 		return luaL_error(L, "argument #3 must be greater than 0");
 
 	floormove_t* floor;
-	floor = Z_Calloc(sizeof(*floor), PU_LEVSPEC, NULL);
-	if (sec->floordata != NULL)
+	if (sec->floordata == NULL)
 	{
-		P_RemoveThinker(sec->floordata);
-		sec->floordata = NULL;
-		sec->floorspeed = 0;
+		floor = Z_Calloc(sizeof(*floor), PU_LEVSPEC, NULL);
+		sec->floordata = floor;
+		P_AddThinker(THINK_MAIN, &floor->thinker);
+		floor->thinker.function = (actionf_p1)T_MoveFloor;
+		R_CreateInterpolator_SectorPlane(&floor->thinker, sec, false);
 	}
-	sec->floordata = floor;
-	P_AddThinker(THINK_MAIN, &floor->thinker);
-	floor->thinker.function = (actionf_p1)T_MoveFloor;
+	else
+		floor = sec->floordata;
 	floor->sector = sec;
 	floor->speed = speed;
 	floor->texture = -1;
 	floor->type = -1;
 	floor->floordestheight = destheight;
 	floor->direction = destheight >= sec->floorheight ? 1 : -1;
-	R_CreateInterpolator_SectorPlane(&floor->thinker, sec, true);
 
 	return 0;
 }
@@ -3002,23 +3001,22 @@ static int lib_pStartMoveCeiling(lua_State *L)
 		return luaL_error(L, "argument #3 must be greater than 0");
 
 	ceiling_t* ceiling;
-	ceiling = Z_Calloc(sizeof(*ceiling), PU_LEVSPEC, NULL);
-	if (sec->ceilingdata != NULL)
+	if (sec->ceilingdata == NULL)
 	{
-		P_RemoveThinker(sec->ceilingdata);
-		sec->ceilingdata = NULL;
-		sec->ceilspeed = 0;
+		ceiling = Z_Calloc(sizeof(*ceiling), PU_LEVSPEC, NULL);
+		sec->ceilingdata = ceiling;
+		P_AddThinker(THINK_MAIN, &ceiling->thinker);
+		ceiling->thinker.function = (actionf_p1)T_MoveCeiling;
+		R_CreateInterpolator_SectorPlane(&ceiling->thinker, sec, true);
 	}
-	sec->ceilingdata = ceiling;
-	P_AddThinker(THINK_MAIN, &ceiling->thinker);
-	ceiling->thinker.function = (actionf_p1)T_MoveCeiling;
+	else
+		ceiling = sec->ceilingdata;
 	ceiling->sector = sec;
 	ceiling->speed = speed;
 	ceiling->texture = -1;
 	ceiling->type = -1;
 	ceiling->direction = destheight >= sec->ceilingheight ? 1 : -1;
 	ceiling->topheight = ceiling->bottomheight = destheight;
-	R_CreateInterpolator_SectorPlane(&ceiling->thinker, sec, true);
 
 	return 0;
 }

@@ -4700,7 +4700,7 @@ static int lib_gSetCustomExitVars(lua_State *L)
 		skipstats = (INT16)luaL_optinteger(L, 2, 0);
 		nextgametype = (INT16)luaL_optinteger(L, 3, -1);
 		
-		if (!lua_isnil(L, 4))
+		if (!lua_isnoneornil(L, 4))
 			keepcutscene = luaL_checkboolean(L, 4);
 	}
 

@@ -8380,7 +8380,8 @@ void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame)
 				break;
 		}
 
-		Z_Free(list);
+		if (list != NULL)
+			Z_Free(list);
 	}
 	else
 	{

@@ -2900,6 +2900,10 @@ void readframe(MYFILE *f, INT32 num)
 
 				free(actiontocompare);
 			}
+			else if (fastcmp(word1, "SPRITE2NUMBER") || fastcmp(word1, "SPRITE2NAME"))
+			{
+				states[num].sprite2 = get_sprite2(word2);
+			}
 			else
 				deh_warning("Frame %d: unknown word '%s'", num, word1);
 		}

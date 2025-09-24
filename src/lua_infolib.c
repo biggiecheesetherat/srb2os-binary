@@ -1013,6 +1013,11 @@ static int lib_setState(lua_State *L)
 			if (value < S_NULL || value >= NUMSTATES)
 				return luaL_error(L, "nextstate number %d is invalid.", value);
 			state->nextstate = (statenum_t)value;
+		} else if (i == 8 || (str && fastcmp(str, "sprite2"))) {
+			value = luaL_checkinteger(L, 3);
+			if (value < SPR2_STND || value >= NUMPLAYERSPRITES)
+				return luaL_error(L, "sprite2 number %d is invalid.", value);
+			state->sprite2 = (playersprite_t)value;
 		}
 		lua_pop(L, 1);
 	}
@@ -1185,6 +1190,8 @@ static int state_get(lua_State *L)
 		number = st->var2;
 	else if (fastcmp(field,"nextstate"))
 		number = st->nextstate;
+	else if (fastcmp(field,"sprite2"))
+		number = st->sprite2;
 	else if (devparm)
 		return luaL_error(L, LUA_QL("state_t") " has no field named " LUA_QS, field);
 	else
@@ -1255,6 +1262,11 @@ static int state_set(lua_State *L)
 		if (value < S_NULL || value >= NUMSTATES)
 			return luaL_error(L, "nextstate number %d is invalid.", value);
 		st->nextstate = (statenum_t)value;
+	} else if (fastcmp(field,"sprite2")) {
+		value = luaL_checknumber(L, 3);
+		if (value < SPR2_STND || value >= NUMPLAYERSPRITES)
+			return luaL_error(L, "sprite2 number %d is invalid.", value);
+		st->sprite2 = (playersprite_t)value;
 	} else
 		return luaL_error(L, LUA_QL("state_t") " has no field named " LUA_QS, field);
 

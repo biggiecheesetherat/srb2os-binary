@@ -254,6 +254,14 @@ static INT64 MSToAudioPTS(movie_t *movie, INT64 ms)
 	return av_rescale_q(ms, oldtb, newtb);
 }
 
+static INT64 MSToSubtitlePTS(movie_t *movie, INT64 ms)
+{
+	AVRational oldtb = { 1, 1000 };
+	AVRational newtb = movie->subtitlestream.stream->time_base;
+
+	return av_rescale_q(ms, oldtb, newtb);
+}
+
 static INT64 PTSToMS(INT64 pts)
 {
 	AVRational newtb = { 1, 1000 };
@@ -273,6 +281,11 @@ static INT64 GetVideoFrameEndPTS(movievideoframe_t *frame)
 static INT64 GetAudioFrameEndPTS(movie_t *movie, movieaudioframe_t *frame)
 {
 	return frame->pts + SamplesToPTS(movie, frame->numsamples);
+}
+
+static INT64 GetSubtitleFrameEndPTS(moviesubtitleframe_t *frame)
+{
+	return frame->pts + frame->duration;
 }
 
 static INT64 GetAudioFrameEndSample(movieaudioframe_t *frame)
@@ -424,6 +437,12 @@ static void InitialiseAudioBuffer(movie_t *movie)
 		InitialiseDynamicBuffer(&movie->audiostream.buffer, 1, sizeof(movieaudioframe_t));
 }
 
+static void InitialiseSubtitleBuffer(movie_t *movie)
+{
+	if (movie->subtitlestream.stream)
+		InitialiseDynamicBuffer(&movie->subtitlestream.buffer, 1, sizeof(moviesubtitleframe_t));
+}
+
 static void InitialisePacketQueue(moviedecodeworker_t *worker)
 {
 	InitialiseBuffer(&worker->packetqueue, NUM_PACKETS, sizeof(AVPacket*));
@@ -474,8 +493,19 @@ static void InitialiseVideoConversion(moviedecodeworker_t *worker)
 
 static void InitialiseAudioConversion(moviedecodeworker_t *worker)
 {
+	if (worker->audiostream.index < 0)
+		return;
+
 	AVCodecContext *audiocodeccontext = worker->audiostream.codeccontext;
 
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_OLD_CHANNEL_LAYOUT
+	worker->resamplingcontext = swr_alloc_set_opts(
+		NULL,
+		audiocodeccontext->channel_layout, AV_SAMPLE_FMT_S16, SAMPLE_RATE,
+		audiocodeccontext->channel_layout, audiocodeccontext->sample_fmt, audiocodeccontext->sample_rate,
+		0, NULL
+	);
+#else
 	if (swr_alloc_set_opts2(
 		&worker->resamplingcontext,
 		&audiocodeccontext->ch_layout, AV_SAMPLE_FMT_S16, SAMPLE_RATE,
@@ -483,6 +513,8 @@ static void InitialiseAudioConversion(moviedecodeworker_t *worker)
 		0, NULL
 	))
 		I_Error("libav: cannot allocate resampling context");
+#endif
+		
 
 	if (!worker->resamplingcontext)
 		I_Error("libav: cannot allocate resampling context");
@@ -496,16 +528,20 @@ static void InitialiseDecodeWorker(movie_t *movie)
 	moviedecodeworker_t *worker = &movie->decodeworker;
 	moviestream_t *vstream = &movie->videostream;
 	moviestream_t *astream = &movie->audiostream;
+	moviestream_t *sstream = &movie->subtitlestream;
 
 	worker->usepatches = movie->usepatches;
 	worker->usedithering = movie->usedithering;
 	worker->videostream.index = vstream->index;
 	worker->audiostream.index = astream->index;
+	worker->subtitlestream.index = sstream->index;
 	worker->videostream.codeccontext = InitialiseDecoding(vstream->stream);
 	worker->audiostream.codeccontext = InitialiseDecoding(astream->stream);
+	worker->subtitlestream.codeccontext = InitialiseDecoding(sstream->stream);
 	CloneBuffer(&worker->videostream.framequeue, &vstream->buffer);
 	CloneBuffer(&worker->videostream.framepool, &vstream->buffer);
 	CloneBuffer(&worker->audiostream.framequeue, &astream->buffer);
+	CloneBuffer(&worker->subtitlestream.framequeue, &sstream->buffer);
 	InitialiseImages(worker);
 	InitialisePacketQueue(worker);
 	InitialiseVideoConversion(worker);
@@ -538,6 +574,22 @@ static void FlushAudioFrameBuffers(movie_t *movie)
 {
 	FlushAudioFrameQueue(&movie->audiostream.buffer);
 	FlushAudioFrameQueue(&movie->decodeworker.audiostream.framequeue);
+}
+
+static void FlushSubtitleFrameQueue(moviebuffer_t *queue)
+{
+	while (queue->size > 0)
+	{
+		moviesubtitleframe_t *frame = PeekBuffer(queue);
+		avsubtitle_free(&frame->subtitle);
+		DequeueBuffer(queue, NULL);
+	}
+}
+
+static void FlushSubtitleFrameBuffers(movie_t *movie)
+{
+	FlushSubtitleFrameQueue(&movie->subtitlestream.buffer);
+	FlushSubtitleFrameQueue(&movie->decodeworker.subtitlestream.framequeue);
 }
 
 static void UninitialiseImages(movie_t *movie)
@@ -578,6 +630,13 @@ static void UninitialiseDecodeWorkerAudioStream(movie_t *movie)
 	avcodec_free_context(&movie->decodeworker.audiostream.codeccontext);
 }
 
+static void UninitialiseDecodeWorkerSubtitleStream(movie_t *movie)
+{
+	FlushSubtitleFrameBuffers(movie);
+	UninitialiseBuffer(&movie->decodeworker.subtitlestream.framequeue);
+	avcodec_free_context(&movie->decodeworker.subtitlestream.codeccontext);
+}
+
 static void UninitialisePacketQueue(moviedecodeworker_t *worker)
 {
 	DequeueWholeBufferIntoBuffer(&worker->packetpool, &worker->packetqueue);
@@ -596,6 +655,7 @@ static void UninitialiseDecodeWorker(movie_t *movie)
 
 	UninitialiseDecodeWorkerVideoStream(movie);
 	UninitialiseDecodeWorkerAudioStream(movie);
+	UninitialiseDecodeWorkerSubtitleStream(movie);
 	UninitialisePacketQueue(worker);
 	sws_freeContext(worker->yuv444scalingcontext);
 	sws_freeContext(worker->rgbascalingcontext);
@@ -624,6 +684,53 @@ static void StopDecoderThread(moviedecodeworker_t *worker)
 // DECODING WORKER THREAD
 //
 
+static void ParseSubtitleFrame(moviedecodeworker_t *worker, AVSubtitle *subtitle, AVPacket *packet)
+{
+	moviesubtitleframe_t frame;
+	const char *textwithoutass = "";
+
+	frame.pts = packet->pts;
+	frame.duration = packet->duration;
+	frame.subtitle = *subtitle;
+
+	if (subtitle->num_rects > 0)
+	{
+		// Skip 8 commas to get only the text field
+		const char *ass = subtitle->rects[0]->ass;
+		for (size_t i = 0; i < 8; i++)
+			ass = strchr(ass, ',') + 1;
+		textwithoutass = ass;
+	}
+
+	frame.text = malloc(strlen(textwithoutass));
+	if (!frame.text)
+		I_Error("libav: cannot allocate subtitle text");
+
+	// Copy and substitute "\N" with newlines
+	INT32 pos = 0;
+	INT32 len = 0;
+	while (textwithoutass[pos] != '\0')
+	{
+		if (textwithoutass[pos] == '\\' && textwithoutass[pos + 1] == 'N')
+		{
+			frame.text[len] = '\n';
+			len++;
+			pos += 2;
+		}
+		else
+		{
+			frame.text[len] = textwithoutass[pos];
+			len++;
+			pos++;
+		}
+	}
+	frame.text[len] = '\0';
+
+	I_lock_mutex(&worker->mutex);
+	EnqueueBuffer(&worker->subtitlestream.framequeue, &frame);
+	I_unlock_mutex(worker->mutex);
+}
+
 static void SendPacket(moviedecodeworker_t *worker)
 {
 	AVCodecContext *context;
@@ -639,17 +746,35 @@ static void SendPacket(moviedecodeworker_t *worker)
 		context = worker->videostream.codeccontext;
 	else if (packet->stream_index == worker->audiostream.index)
 		context = worker->audiostream.codeccontext;
+	else if (packet->stream_index == worker->subtitlestream.index)
+		context = worker->subtitlestream.codeccontext;
 	else
 		I_Error("libav: unexpected packet");
 
-	if (avcodec_send_packet(context, packet) < 0)
-		I_Error("libav: cannot send packet to the decoder");
+	if (packet->stream_index == worker->subtitlestream.index)
+	{
+		AVSubtitle subtitle;
+		int gotsubtitle;
+
+		if (avcodec_decode_subtitle2(context, &subtitle, &gotsubtitle, packet) < 0)
+			I_Error("libav: cannot send packet to the decoder");
+		if (gotsubtitle)
+			ParseSubtitleFrame(worker, &subtitle, packet);
+	}
+	else
+	{
+		if (avcodec_send_packet(context, packet) < 0)
+			I_Error("libav: cannot send packet to the decoder");
+	}
 
 	av_packet_unref(packet);
 }
 
 static boolean ReceiveFrame(moviedecodeworker_t *worker, moviedecodeworkerstream_t *stream)
 {
+	if (stream->index < 0)
+		return false;
+
 	int error = avcodec_receive_frame(stream->codeccontext, worker->frame);
 
 	if (error == 0) // Frame received successfully
@@ -753,7 +878,12 @@ static void ParseVideoFrame(moviedecodeworker_t *worker)
 	worker->nextframeid++;
 
 	frame->pts = worker->frame->pts;
-	frame->duration = worker->frame->duration;
+	frame->duration = 
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_PKT_DURATION
+	worker->frame->pkt_duration;
+#else
+	worker->frame->duration;
+#endif
 
 	if (worker->usedithering)
 	{
@@ -813,7 +943,12 @@ static void ParseAudioFrame(moviedecodeworker_t *worker)
 
 	if (!av_samples_alloc(
 		frame.samples, NULL,
-		worker->frame->ch_layout.nb_channels, maxsamples,
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_OLD_CHANNEL_LAYOUT
+		worker->frame->channels,
+#else
+		worker->frame->ch_layout.nb_channels, 
+#endif
+		maxsamples,
 		AV_SAMPLE_FMT_S16, 1
 	))
 		I_Error("libav: cannot allocate samples");
@@ -845,6 +980,9 @@ static void FlushDecodeWorker(moviedecodeworker_t *worker)
 
 static void FlushStream(moviedecodeworker_t *worker, moviedecodeworkerstream_t *stream)
 {
+	if (!stream)
+		return;
+
 	// Flush the decoder
 	if (avcodec_send_packet(stream->codeccontext, NULL) < 0)
 		I_Error("libav: cannot flush decoder");
@@ -864,10 +1002,10 @@ static void FlushStream(moviedecodeworker_t *worker, moviedecodeworkerstream_t *
 
 	I_lock_mutex(&worker->mutex);
 	{
-		if (stream == &worker->audiostream)
-			FlushAudioFrameQueue(&stream->framequeue);
-		else
+		if (stream == &worker->videostream)
 			DequeueWholeBufferIntoBuffer(&stream->framepool, &stream->framequeue);
+		else
+			FlushAudioFrameQueue(&stream->framequeue);
 	}
 	I_unlock_mutex(worker->mutex);
 }
@@ -963,6 +1101,16 @@ static void ClearOldestAudioFrame(movie_t *movie)
 	I_wake_one_cond(&movie->decodeworker.cond);
 }
 
+static void ClearOldestSubtitleFrame(movie_t *movie)
+{
+	moviesubtitleframe_t *frame = PeekBuffer(&movie->subtitlestream.buffer);
+	avsubtitle_free(&frame->subtitle);
+	free(frame->text);
+	DequeueBuffer(&movie->subtitlestream.buffer, NULL);
+
+	I_wake_one_cond(&movie->decodeworker.cond);
+}
+
 static void ClearOldVideoFrames(movie_t *movie)
 {
 	moviebuffer_t *buffer = &movie->videostream.buffer;
@@ -974,11 +1122,26 @@ static void ClearOldVideoFrames(movie_t *movie)
 
 static void ClearOldAudioFrames(movie_t *movie)
 {
+	if (!movie->audiostream.stream)
+		return;
+
 	moviebuffer_t *buffer = &movie->audiostream.buffer;
 	INT64 limit = max(MSToAudioPTS(movie, movie->position - STREAM_BUFFER_TIME / 2), 0);
 
 	while (buffer->size > 0 && GetAudioFrameEndPTS(movie, PeekBuffer(buffer)) < limit)
 		ClearOldestAudioFrame(movie);
+}
+
+static void ClearOldSubtitleFrames(movie_t *movie)
+{
+	if (!movie->subtitlestream.stream)
+		return;
+
+	moviebuffer_t *buffer = &movie->subtitlestream.buffer;
+	INT64 limit = max(MSToSubtitlePTS(movie, movie->position - STREAM_BUFFER_TIME / 2), 0);
+
+	while (buffer->size > 0 && GetSubtitleFrameEndPTS(PeekBuffer(buffer)) < limit)
+		ClearOldestSubtitleFrame(movie);
 }
 
 static void ClearAllFrames(movie_t *movie)
@@ -988,6 +1151,9 @@ static void ClearAllFrames(movie_t *movie)
 
 	while (movie->audiostream.buffer.size != 0)
 		ClearOldestAudioFrame(movie);
+
+	while (movie->subtitlestream.buffer.size != 0)
+		ClearOldestSubtitleFrame(movie);
 }
 
 //
@@ -1030,15 +1196,13 @@ static void CacheMovieLump(movie_t *movie, const char *name)
 	// without having to store the entire lump in the memory
 	if (lumpinfo->compression != CM_NOCOMPRESSION)
 	{
+		CONS_Alert(CONS_NOTICE, M_GetText("Caching a compressed movie lump (%s) is not recommended.\n"), lumpinfo->longname);
+
 		movie->lumpdata = malloc(movie->lumpsize);
 		if (!movie->lumpdata)
 			I_Error("libav: cannot allocate lump data");
 
 		W_ReadLump(lumpnum, movie->lumpdata);
-	}
-	else
-	{
-		CONS_Alert(CONS_NOTICE, M_GetText("Caching a compressed movie lump (%s) is not recommended.\n"), lumpinfo->longname);
 	}
 }
 
@@ -1104,6 +1268,10 @@ static void InitialiseDemuxing(movie_t *movie)
 	movie->audiostream.index = av_find_best_stream(movie->formatcontext, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
 	if (movie->audiostream.index >= 0)
 		movie->audiostream.stream = movie->formatcontext->streams[movie->audiostream.index];
+
+	movie->subtitlestream.index = av_find_best_stream(movie->formatcontext, AVMEDIA_TYPE_SUBTITLE, -1, -1, NULL, 0);
+	if (movie->subtitlestream.index >= 0)
+		movie->subtitlestream.stream = movie->formatcontext->streams[movie->subtitlestream.index];
 }
 
 static void UninitialiseDemuxing(movie_t *movie)
@@ -1132,7 +1300,8 @@ static boolean ReadPacket(movie_t *movie)
 	else if (error < 0)
 		I_Error("libav: cannot read packet");
 	else if (packet->stream_index == movie->videostream.index
-		|| packet->stream_index == movie->audiostream.index)
+		|| packet->stream_index == movie->audiostream.index
+		|| packet->stream_index == movie->subtitlestream.index)
 	{
 		DequeueBufferIntoBuffer(&worker->packetqueue, &worker->packetpool);
 		I_wake_one_cond(&worker->cond);
@@ -1176,6 +1345,18 @@ static void PollAudioFrameQueue(movie_t *movie)
 			}
 		}
 
+		I_wake_one_cond(&worker->cond);
+	}
+}
+
+static void PollSubtitleFrameQueue(movie_t *movie)
+{
+	moviedecodeworker_t *worker = &movie->decodeworker;
+	moviebuffer_t *buffer = &movie->subtitlestream.buffer;
+
+	if (worker->subtitlestream.framequeue.size != 0)
+	{
+		DequeueWholeBufferIntoBuffer(buffer, &worker->subtitlestream.framequeue);
 		I_wake_one_cond(&worker->cond);
 	}
 }
@@ -1247,6 +1428,7 @@ movie_t *MovieDecode_Play(const char *name, boolean usepatches, boolean usedithe
 	InitialiseDemuxing(movie);
 	InitialiseVideoBuffer(movie);
 	InitialiseAudioBuffer(movie);
+	InitialiseSubtitleBuffer(movie);
 	InitialiseDecodeWorker(movie);
 
 	if (!I_spawn_thread("decode-movie", (I_thread_fn)DecoderThread, &movie->decodeworker))
@@ -1270,6 +1452,7 @@ void MovieDecode_Stop(movie_t **movieptr)
 	UninitialiseDecodeWorker(movie);
 	UninitialiseBuffer(&movie->videostream.buffer);
 	UninitialiseBuffer(&movie->audiostream.buffer);
+	UninitialiseBuffer(&movie->subtitlestream.buffer);
 	UninitialiseDemuxing(movie);
 
 	free(movie);
@@ -1305,6 +1488,7 @@ void MovieDecode_Update(movie_t *movie)
 		{
 			PollVideoFrameQueue(movie);
 			PollAudioFrameQueue(movie);
+			PollSubtitleFrameQueue(movie);
 		}
 
 		UpdateSeeking(movie);
@@ -1313,6 +1497,7 @@ void MovieDecode_Update(movie_t *movie)
 		{
 			ClearOldVideoFrames(movie);
 			ClearOldAudioFrames(movie);
+			ClearOldSubtitleFrames(movie);
 		}
 	}
 	I_unlock_mutex(worker->mutex);
@@ -1374,6 +1559,10 @@ INT32 MovieDecode_GetPatchBytes(movie_t *movie)
 void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size)
 {
 	moviestream_t *stream = &movie->audiostream;
+
+	if (!stream->stream)
+		return;
+
 	moviebuffer_t *buffer = &stream->buffer;
 	AVCodecContext *codeccontext = movie->decodeworker.audiostream.codeccontext;
 	UINT8 *membytes = mem;
@@ -1384,7 +1573,12 @@ void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size)
 	// Here, if using packed audio, the sample size includes both channels
 	INT32 samplesize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
 	if (!av_sample_fmt_is_planar(AV_SAMPLE_FMT_S16))
-		samplesize *= codeccontext->ch_layout.nb_channels;
+		samplesize *= 
+#if LIBAVUTIL_VERSION_MAJOR < 59 // FF_API_OLD_CHANNEL_LAYOUT
+		codeccontext->channels;
+#else
+		codeccontext->ch_layout.nb_channels;
+#endif
 	INT64 numsamples = size / samplesize;
 
 	INT32 startbufferindex = FindAudioBufferIndexForPosition(movie, movie->audioposition);
@@ -1408,4 +1602,23 @@ void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size)
 	}
 
 	movie->audioposition += numsamples;
+}
+
+const char *MovieDecode_GetSubtitleText(movie_t *movie)
+{
+	moviestream_t *stream = &movie->subtitlestream;
+
+	if (!stream->stream)
+		return NULL;
+
+	INT64 pts = MSToSubtitlePTS(movie, movie->position);
+
+	for (INT32 i = 0; i < stream->buffer.size; i++)
+	{
+		moviesubtitleframe_t *frame = GetBufferSlot(&stream->buffer, i);
+		if (frame->pts <= pts && pts < GetSubtitleFrameEndPTS(frame))
+			return frame->text;
+	}
+
+	return NULL;
 }

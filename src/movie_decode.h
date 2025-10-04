@@ -27,5 +27,6 @@ void MovieDecode_GetDimensions(movie_t *movie, INT32 *width, INT32 *height);
 UINT8 *MovieDecode_GetImage(movie_t *movie);
 INT32 MovieDecode_GetPatchBytes(movie_t *movie);
 void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size);
+const char *MovieDecode_GetSubtitleText(movie_t *movie);
 
 #endif

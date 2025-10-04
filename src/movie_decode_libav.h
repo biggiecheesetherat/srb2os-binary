@@ -51,6 +51,14 @@ typedef struct
 
 typedef struct
 {
+	INT64 pts;
+	INT64 duration;
+	char *text;
+	AVSubtitle subtitle;
+} moviesubtitleframe_t;
+
+typedef struct
+{
 	void *data;
 	INT32 capacity;
 	INT32 slotsize;
@@ -86,6 +94,7 @@ typedef struct
 
 	moviedecodeworkerstream_t videostream;
 	moviedecodeworkerstream_t audiostream;
+	moviedecodeworkerstream_t subtitlestream;
 
 	moviebuffer_t packetpool;
 	moviebuffer_t packetqueue;
@@ -116,6 +125,7 @@ typedef struct movie
 
 	moviestream_t videostream;
 	moviestream_t audiostream;
+	moviestream_t subtitlestream;
 
 	lumpnum_t lumpnum;
 	UINT8 *lumpdata;

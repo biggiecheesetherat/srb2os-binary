@@ -78,6 +78,14 @@ static int lib_dimensions(lua_State *L)
 	return 2;
 }
 
+static int lib_subtitleText(lua_State *L)
+{
+	CheckActiveMovie(L);
+	const char *text = MovieDecode_GetSubtitleText(activemovie);
+	lua_pushstring(L, text);
+	return 1;
+}
+
 static luaL_Reg lib[] = {
 	{"play", lib_play},
 	{"stop", lib_stop},
@@ -85,6 +93,7 @@ static luaL_Reg lib[] = {
 	{"seek", lib_seek},
 	{"duration", lib_duration},
 	{"dimensions", lib_dimensions},
+	{"subtitleText", lib_subtitleText},
 	{NULL, NULL}
 };
 

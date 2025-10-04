@@ -84,3 +84,9 @@ void MovieDecode_CopyAudioSamples(movie_t *movie, void *mem, size_t size)
 	(void)mem;
 	(void)size;
 }
+
+const char *MovieDecode_GetSubtitleText(movie_t *movie)
+{
+	(void)movie;
+	return NULL;
+}

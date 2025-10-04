@@ -1050,10 +1050,6 @@ static void CacheMovieLump(movie_t *movie, const char *name)
 
 		W_ReadLump(lumpnum, movie->lumpdata);
 	}
-	else
-	{
-		CONS_Alert(CONS_NOTICE, M_GetText("Caching a compressed movie lump (%s) is not recommended.\n"), lumpinfo->longname);
-	}
 }
 
 static int ReadStream(void *owner, uint8_t *buffer, int buffersize)

@@ -3066,23 +3066,22 @@ static int lib_pStartMoveFloor(lua_State *L)
 		return luaL_error(L, "argument #3 must be greater than 0");
 
 	floormove_t* floor;
-	floor = Z_Calloc(sizeof(*floor), PU_LEVSPEC, NULL);
-	if (sec->floordata != NULL)
+	if (sec->floordata == NULL)
 	{
-		P_RemoveThinker(sec->floordata);
-		sec->floordata = NULL;
-		sec->floorspeed = 0;
+		floor = Z_Calloc(sizeof(*floor), PU_LEVSPEC, NULL);
+		sec->floordata = floor;
+		P_AddThinker(THINK_MAIN, &floor->thinker);
+		floor->thinker.function = (actionf_p1)T_MoveFloor;
+		R_CreateInterpolator_SectorPlane(&floor->thinker, sec, false);
 	}
-	sec->floordata = floor;
-	P_AddThinker(THINK_MAIN, &floor->thinker);
-	floor->thinker.function = (actionf_p1)T_MoveFloor;
+	else
+		floor = sec->floordata;
 	floor->sector = sec;
 	floor->speed = speed;
 	floor->texture = -1;
 	floor->type = -1;
 	floor->floordestheight = destheight;
 	floor->direction = destheight >= sec->floorheight ? 1 : -1;
-	R_CreateInterpolator_SectorPlane(&floor->thinker, sec, true);
 
 	return 0;
 }
@@ -3124,23 +3123,22 @@ static int lib_pStartMoveCeiling(lua_State *L)
 		return luaL_error(L, "argument #3 must be greater than 0");
 
 	ceiling_t* ceiling;
-	ceiling = Z_Calloc(sizeof(*ceiling), PU_LEVSPEC, NULL);
-	if (sec->ceilingdata != NULL)
+	if (sec->ceilingdata == NULL)
 	{
-		P_RemoveThinker(sec->ceilingdata);
-		sec->ceilingdata = NULL;
-		sec->ceilspeed = 0;
+		ceiling = Z_Calloc(sizeof(*ceiling), PU_LEVSPEC, NULL);
+		sec->ceilingdata = ceiling;
+		P_AddThinker(THINK_MAIN, &ceiling->thinker);
+		ceiling->thinker.function = (actionf_p1)T_MoveCeiling;
+		R_CreateInterpolator_SectorPlane(&ceiling->thinker, sec, true);
 	}
-	sec->ceilingdata = ceiling;
-	P_AddThinker(THINK_MAIN, &ceiling->thinker);
-	ceiling->thinker.function = (actionf_p1)T_MoveCeiling;
+	else
+		ceiling = sec->ceilingdata;
 	ceiling->sector = sec;
 	ceiling->speed = speed;
 	ceiling->texture = -1;
 	ceiling->type = -1;
 	ceiling->direction = destheight >= sec->ceilingheight ? 1 : -1;
 	ceiling->topheight = ceiling->bottomheight = destheight;
-	R_CreateInterpolator_SectorPlane(&ceiling->thinker, sec, true);
 
 	return 0;
 }
@@ -3445,6 +3443,38 @@ static int lib_rTextureNameForNum(lua_State *L)
 	s[8] = '\0';
 	lua_pushstring(L, s);
 	return 1;
+}
+
+// Not a real function.
+static int lib_rGetTextureDimensions(lua_State *L)
+{
+	INT32 num = -1;
+	if (lua_isnoneornil(L, 1))
+		return luaL_error(L, "argument #1 not given (expected number or string)");
+	else if (lua_type(L, 1) == LUA_TNUMBER)
+	{
+		num = (INT32)luaL_checkinteger(L, 1);
+		if (num < 1 || num >= numtextures)
+			return luaL_error(L, "texture %d (argument #1) out of range (1 - %d)", num, numtextures-1);
+	}
+	else
+	{
+		const char *name = luaL_checkstring(L, 1);
+		num = R_CheckTextureNumForName(name, TEXTURETYPE_TEXTURE);
+
+		// Didn't find it, so look for a flat
+		if (num == -1)
+		{
+			num = R_CheckTextureNumForName(name, TEXTURETYPE_FLAT);
+			if (num == -1)
+				return luaL_error(L, "texture %s (argument #1) is not loaded", name);
+		}
+	}
+	//HUDSAFE
+
+	lua_pushinteger(L, textures[num]->width);
+	lua_pushinteger(L, textures[num]->height);
+	return 2;
 }
 
 // R_DRAW
@@ -4966,6 +4996,7 @@ static luaL_Reg lib[] = {
 	{"R_TextureNumForName",lib_rTextureNumForName},
 	{"R_CheckTextureNameForNum", lib_rCheckTextureNameForNum},
 	{"R_TextureNameForNum", lib_rTextureNameForNum},
+	{"R_GetTextureDimensions", lib_rGetTextureDimensions},
 
 	// r_draw
 	{"R_GetColorByName", lib_rGetColorByName},

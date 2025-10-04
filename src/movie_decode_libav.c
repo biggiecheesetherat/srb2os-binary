@@ -654,7 +654,7 @@ static void SendPacket(moviedecodeworker_t *worker)
 static boolean ReceiveFrame(moviedecodeworker_t *worker, moviedecodeworkerstream_t *stream)
 {
 	if (stream->index < 0)
-		return;
+		return false;
 
 	int error = avcodec_receive_frame(stream->codeccontext, worker->frame);
 

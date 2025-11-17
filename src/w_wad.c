@@ -414,6 +414,7 @@ static lumpinfo_t* ResGetLumpsWad (FILE* handle, UINT16* nlmp, const char* filen
 	{
 		lump_p->position = LONG(fileinfo->filepos);
 		lump_p->size = lump_p->disksize = LONG(fileinfo->size);
+		lump_p->diskpath = NULL;
 		if (compressed) // wad is compressed, lump might be
 		{
 			UINT32 realsize = 0;
@@ -441,64 +442,19 @@ static lumpinfo_t* ResGetLumpsWad (FILE* handle, UINT16* nlmp, const char* filen
 		}
 		else
 			lump_p->compression = CM_NOCOMPRESSION;
-
 		memset(lump_p->name, 0x00, 9);
 		strncpy(lump_p->name, fileinfo->name, 8);
+		lump_p->hash = quickncasehash(lump_p->name, 8);
 
-		if (WADNAMECHECK(fileinfo->name))
-		{
-			size_t namelen;
-			const char *trimname, *dotpos;
+		// Allocate the lump's long name.
+		lump_p->longname = Z_Malloc(9 * sizeof(char), PU_STATIC, NULL);
+		strncpy(lump_p->longname, fileinfo->name, 8);
+		lump_p->longname[8] = '\0';
 
-			trimname = strrchr(filename, PATHSEP[0]);
-#if defined (_WIN32)
-			// For Zone Builder support, work around temporary filenames.
-			if (trimname != 0)
-			{
-				const char *temp = trimname-1;
-				while (temp >= filename+5 && *temp != PATHSEP[0])
-					temp--;
-
-				if (temp-filename >= 5 && !strncmp(temp-5, PATHSEP"Temp", 5))
-				{
-					filename = wadfiles[numwadfiles-1]->filename;
-					trimname = strrchr(filename, PATHSEP[0]);
-				}
-			}
-#endif
-
-			// Strip away file address
-			if (trimname != 0)
-				trimname++;
-			else
-				trimname = filename; // Care taken for root files.
-
-			// First stop, not last, to permit RR_GREENHILLS.beta3.wad
-			if ((dotpos = strchr(trimname, '.')) != 0)
-				namelen = (dotpos + 1 - trimname);
-			else
-				namelen = strlen(trimname);
-
-			// Allocate the lump's long and full name (save on memory).
-			lump_p->longname = lump_p->fullname = Z_Calloc(namelen * sizeof(char), PU_STATIC, NULL);
-			strncpy(lump_p->longname, trimname, namelen);
-			lump_p->longname[namelen-1] = '\0';
-
-			// Grab the hash from the first part
-			lump_p->hash = quickncasehash(lump_p->longname, 8);
-
-			wadnamelump = i | (numwadfiles << 16);
-		}
-		else
-		{
-			// Set up true hash
-			lump_p->hash = quickncasehash(lump_p->name, 8);
-
-			// Allocate the lump's long and full name (save on memory).
-			lump_p->longname = lump_p->fullname = Z_Malloc(9 * sizeof(char), PU_STATIC, NULL);
-			strncpy(lump_p->longname, fileinfo->name, 8);
-			lump_p->longname[8] = '\0';
-		}
+		// Allocate the lump's full name.
+		lump_p->fullname = Z_Malloc(9 * sizeof(char), PU_STATIC, NULL);
+		strncpy(lump_p->fullname, fileinfo->name, 8);
+		lump_p->fullname[8] = '\0';
 	}
 	free(fileinfov);
 	*nlmp = numlumps;

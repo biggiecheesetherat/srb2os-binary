@@ -1262,9 +1262,6 @@ static void Command_assert(void)
 #endif
 }
 
-lumpnum_t wadnamelump = LUMPERROR;
-INT16 wadnamemap = 0; // gamemap based
-
 //
 // D_SRB2Main
 //
@@ -1567,19 +1564,14 @@ void D_SRB2Main(void)
 	if (M_CheckParm("-warp") && M_IsNextParm())
 	{
 		const char *word = M_GetNextParm();
-		if (WADNAMECHECK(word))
-		{
-			if (!(pstartmap = wadnamemap))
-				I_Error("Bad '%s' level warp.\n"
-#if defined (_WIN32)
-				"Are you using MSDOS 8.3 filenames in Zone Builder?\n"
-#endif
-				, word);
-		}
+		pstartmap = G_FindMapByNameOrCode(word, 0);
+		if (! pstartmap)
+			I_Error("Cannot find a map remotely named '%s'\n", word);
 		else
 		{
-			if (!(pstartmap = G_FindMapByNameOrCode(word, 0)))
-				I_Error("Cannot find a map remotely named '%s'\n", word);
+			if (!(M_CheckParm("-server") || dedicated))
+				G_SetUsedCheats(true);
+			autostart = true;
 		}
 	}
 

@@ -8369,9 +8369,6 @@ void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame)
 			int status = P_AddMap(name, lumpnum);
 			if (status == 1)
 			{
-				if (lumpnum == wadnamelump)
-					wadnamemap = i+1;
-
 				if (added_ingame)
 					CONS_Printf("%s\n", name);
 				mapsadded = true;

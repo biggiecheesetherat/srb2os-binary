@@ -8388,17 +8388,44 @@ void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame)
 		for (size_t i = 0; i < numlumps; i++, lumpinfo++)
 		{
 			name = lumpinfo->name;
-			if (name[0] == 'M' && name[1] == 'A' && name[2] == 'P' && name[5] == '\0')
+
+			if (name != NULL)
 			{
-				int status = P_AddMap(name, (wadnum << 16) + i);
-				if (status == 1)
+				if (fastncmp(name, "MAP", 3))
 				{
-					if (added_ingame)
-						CONS_Printf("%s\n", name);
-					mapsadded = true;
+					int status = P_AddMap(name, (wadnum << 16) + i);
+					if (status == 1)
+					{
+						if (added_ingame)
+							CONS_Printf("%s\n", name);
+						mapsadded = true;
+					}
+					else if (status < 0)
+						break;
+				} 
+				else if (fastncmp(name, "TEXTMAP", 7)) // Use base file name if theres a missing map marker (UDMF only)
+				{
+					char filename[MAX_MAP_NAME_SIZE]; // This will have no file extension
+
+					// Copy full file name  (with extension)
+					strncpy(filename, M_GetFilenameFromPath(wadfiles[wadnum]->filename), MAX_MAP_NAME_SIZE - 1);
+
+					// null termination 
+					filename[MAX_MAP_NAME_SIZE - 1] = '\0';
+
+					// delete extension...
+					FIL_ForceExtension(filename, "");
+
+					int status = P_AddMap(filename, (wadnum << 16) + i);
+					if (status == 1)
+					{
+						if (added_ingame)
+							CONS_Printf("%s\n", filename);
+						mapsadded = true;
+					}
+					else if (status < 0)
+						break;
 				}
-				else if (status < 0)
-					break;
 			}
 		}
 

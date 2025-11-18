@@ -8407,7 +8407,7 @@ void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame)
 				{
 					char filename[MAX_MAP_NAME_SIZE]; // This will have no file extension
 
-					// Copy full file name  (with extension)
+					// Copy full file name (with extension)
 					strncpy(filename, M_GetFilenameFromPath(wadfiles[wadnum]->filename), MAX_MAP_NAME_SIZE - 1);
 
 					// null termination 

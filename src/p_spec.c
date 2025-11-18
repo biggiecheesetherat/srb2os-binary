@@ -4566,12 +4566,49 @@ static void P_ProcessExitSector(player_t *player, mtag_t sectag)
 		return;
 	}
 
+	// stringarg[0]: Next map string
+	// stringarg[1]: Next map string (if emerald check is enabled and the player has all emeralds)
+
+	// TODO: 2.3: Remove UDMF nextmap arg[0] and arg[2], and move arg[1] to arg[0].
+
 	// Special goodies depending on emeralds collected
 	if ((lines[lineindex].args[1] & TMEF_EMERALDCHECK) && ALL7EMERALDS(emeralds))
-		nextmapoverride = (INT16)(udmf ? lines[lineindex].args[2] : lines[lineindex].frontsector->ceilingheight>>FRACBITS);
-	else
-		nextmapoverride = (INT16)(udmf ? lines[lineindex].args[0] : lines[lineindex].frontsector->floorheight>>FRACBITS);
-
+	{
+		if (udmf) 
+		{
+			if (lines[lineindex].stringargs[1])
+			{
+				nextmapoverride = (INT16)(G_GetMapNumber(lines[lineindex].stringargs[1]));
+			}
+			else
+			{
+				nextmapoverride = (INT16)(lines[lineindex].args[2]);
+			}
+		}
+		else
+		{
+			nextmapoverride = (INT16)(lines[lineindex].frontsector->ceilingheight>>FRACBITS);
+		}
+	}
+	else // No emeralds
+	{
+		if (udmf) 
+		{
+			if (lines[lineindex].stringargs[0])
+			{
+				nextmapoverride = (INT16)(G_GetMapNumber(lines[lineindex].stringargs[0]));
+			}
+			else
+			{
+				nextmapoverride = (INT16)(lines[lineindex].args[0]);
+			}
+		}
+		else
+		{
+			nextmapoverride = (INT16)(lines[lineindex].frontsector->floorheight>>FRACBITS);
+		}
+	}
+	
 	if (lines[lineindex].args[1] & TMEF_SKIPTALLY)
 		skipstats = 1;
 

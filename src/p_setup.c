@@ -8382,6 +8382,7 @@ void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame)
 	}
 	else
 	{
+		boolean usefilename = true;
 		lumpinfo = wadfiles[wadnum]->lumpinfo;
 		numlumps = wadfiles[wadnum]->numlumps;
 
@@ -8398,6 +8399,8 @@ void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame)
 					{
 						if (added_ingame)
 							CONS_Printf("%s\n", name);
+
+						usefilename = false; // Disable using file name as map name throughout lump iteration
 						mapsadded = true;
 					}
 					else if (status < 0)
@@ -8405,6 +8408,9 @@ void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame)
 				} 
 				else if (fastncmp(name, "TEXTMAP", 7)) // Use base file name if theres a missing map marker (UDMF only)
 				{
+					if (!usefilename) // Skip if a map marker has been read already.
+						continue;
+
 					char filename[MAX_MAP_NAME_SIZE]; // This will have no file extension
 
 					// Copy full file name (with extension)

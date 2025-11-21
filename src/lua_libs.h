@@ -121,6 +121,7 @@ int LUA_TagLib(lua_State *L);
 int LUA_PolyObjLib(lua_State *L);
 int LUA_BlockmapLib(lua_State *L);
 int LUA_HudLib(lua_State *L);
+int LUA_RandomLib(lua_State* L);
 int LUA_ColorLib(lua_State *L);
 int LUA_InputLib(lua_State *L);
 int LUA_InterceptLib(lua_State *L);

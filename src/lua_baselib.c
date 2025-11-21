@@ -1137,8 +1137,9 @@ static int lib_pRingZMovement(lua_State *L)
 	INLEVEL
 	if (!actor)
 		return LUA_ErrInvalid(L, "mobj_t");
-	P_RingZMovement(actor);
-	P_CheckPosition(actor, actor->x, actor->y);
+	lua_pushboolean(L, P_RingZMovement(actor));
+	if (!P_MobjWasRemoved(actor))
+		P_CheckPosition(actor, actor->x, actor->y);
 	P_SetTarget(&tmthing, ptmthing);
 	return 0;
 }

@@ -40,6 +40,8 @@ automatically.
 	X (MobjRemoved),/* P_RemoveMobj */\
 	X (BotRespawn),/* B_CheckRespawn */\
 	X (MobjMoveBlocked),/* P_XYMovement (when movement is blocked) */\
+	X (MobjHitFloor),/* P_ZMovement (when movement is blocked by floor) */\
+	X (MobjHitCeiling),/* P_ZMovement (when movement is blocked by ceiling) */\
 	X (MapThingSpawn),/* P_SpawnMapThing */\
 	X (FollowMobj),/* P_PlayerAfterThink Smiles mobj-following */\
 	X (HurtMsg),/* imhurttin */\
@@ -157,6 +159,8 @@ int  LUA_HookShouldDamage(mobj_t *target, mobj_t *inflictor, mobj_t *source, INT
 int  LUA_HookMobjDamage(mobj_t *target, mobj_t *inflictor, mobj_t *source, INT32 damage, UINT8 damagetype);
 int  LUA_HookMobjDeath(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 damagetype);
 int  LUA_HookMobjMoveBlocked(mobj_t *, mobj_t *, line_t *);
+int  LUA_HookMobjHitFloor(mobj_t *);
+int  LUA_HookMobjHitCeiling(mobj_t *);
 int  LUA_HookBotAI(mobj_t *sonic, mobj_t *tails, ticcmd_t *cmd);
 void LUA_HookLinedefExecute(line_t *, mobj_t *, sector_t *);
 int  LUA_HookPlayerMsg(int source, int target, int flags, char *msg);

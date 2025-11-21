@@ -1149,6 +1149,9 @@
     <ClCompile Include="i_threads.c">
       <Filter>SDLApp</Filter>
     </ClCompile>
+    <ClCompile Include="..\lua_randomlib.c">
+      <Filter>LUA</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Srb2SDL.ico">

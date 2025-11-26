@@ -884,7 +884,6 @@ void P_SetBlockmapEntry(mobj_t *thing)
 void P_SetThingPosition(mobj_t *thing)
 {                                                      // link into subsector
 	subsector_t *ss;
-	subsector_t *ss;
 	sector_t *oldsec = NULL;
 	fixed_t tfloorz, tceilz;
 

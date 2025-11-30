@@ -416,12 +416,15 @@ static int lib_mMapNumber(lua_State *L)
 	return 1;
 }
 
+// TODO: 2.3: Consider removing in favor of random library
+
 // M_RANDOM
 //////////////
 
 static int lib_pRandomFixed(lua_State *L)
 {
 	NOHUD
+	LUA_Deprecated(L, "P_RandomFixed", "random.fixed")
 	lua_pushfixed(L, P_RandomFixed());
 	return 1;
 }
@@ -429,6 +432,7 @@ static int lib_pRandomFixed(lua_State *L)
 static int lib_pRandomByte(lua_State *L)
 {
 	NOHUD
+	LUA_Deprecated(L, "P_RandomByte", "random.byte")
 	lua_pushinteger(L, P_RandomByte());
 	return 1;
 }
@@ -438,6 +442,7 @@ static int lib_pRandomKey(lua_State *L)
 	INT32 a = (INT32)luaL_checkinteger(L, 1);
 
 	NOHUD
+	LUA_Deprecated(L, "P_RandomKey", "random.key")
 	if (a > 65536)
 		LUA_UsageWarning(L, "P_RandomKey: range > 65536 is undefined behavior");
 	lua_pushinteger(L, P_RandomKey(a));
@@ -450,6 +455,7 @@ static int lib_pRandomRange(lua_State *L)
 	INT32 b = (INT32)luaL_checkinteger(L, 2);
 
 	NOHUD
+	LUA_Deprecated(L, "P_RandomRange", "random.range")
 	if (b < a) {
 		INT32 c = a;
 		a = b;
@@ -465,6 +471,7 @@ static int lib_pRandomRange(lua_State *L)
 static int lib_pSignedRandom(lua_State *L)
 {
 	NOHUD
+	LUA_Deprecated(L, "P_SignedRandom", "random.signed")
 	lua_pushinteger(L, P_SignedRandom());
 	return 1;
 }
@@ -473,6 +480,7 @@ static int lib_pRandomChance(lua_State *L)
 {
 	fixed_t p = luaL_checkfixed(L, 1);
 	NOHUD
+	LUA_Deprecated(L, "P_RandomChance", "random.chance")
 	lua_pushboolean(L, P_RandomChance(p));
 	return 1;
 }
@@ -1129,8 +1137,9 @@ static int lib_pRingZMovement(lua_State *L)
 	INLEVEL
 	if (!actor)
 		return LUA_ErrInvalid(L, "mobj_t");
-	P_RingZMovement(actor);
-	P_CheckPosition(actor, actor->x, actor->y);
+	lua_pushboolean(L, P_RingZMovement(actor));
+	if (!P_MobjWasRemoved(actor))
+		P_CheckPosition(actor, actor->x, actor->y);
 	P_SetTarget(&tmthing, ptmthing);
 	return 0;
 }
@@ -1162,6 +1171,128 @@ static int lib_pPlayerZMovement(lua_State *L)
 	P_CheckPosition(actor, actor->x, actor->y);
 	P_SetTarget(&tmthing, ptmthing);
 	return 0;
+}
+
+static int lib_pGetMobjDistance2D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushfixed(L, P_GetMobjDistance2D(mobj1, mobj2));
+	return 1;
+}
+
+static int lib_pGetMobjDistance3D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushfixed(L, P_GetMobjDistance3D(mobj1, mobj2));
+	return 1;
+}
+
+static int lib_pGetMobjLargeDistance2D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushinteger(L, P_GetMobjLargeDistance2D(mobj1, mobj2));
+	return 1;
+}
+
+static int lib_pGetMobjLargeDistance3D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushinteger(L, P_GetMobjLargeDistance3D(mobj1, mobj2));
+	return 1;
+}
+
+static int lib_pAreMobjsClose2D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	fixed_t maxdist = luaL_checkfixed(L, 3);
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushboolean(L, P_AreMobjsClose2D(mobj1, mobj2, maxdist));
+	return 1;
+}
+
+static int lib_pAreMobjsClose3D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	fixed_t maxdist = luaL_checkfixed(L, 3);
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushboolean(L, P_AreMobjsClose3D(mobj1, mobj2, maxdist));
+	return 1;
+}
+
+static int lib_pAreMobjsFar2D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	fixed_t mindist = luaL_checkfixed(L, 3);
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushboolean(L, P_AreMobjsFar2D(mobj1, mobj2, mindist));
+	return 1;
+}
+
+static int lib_pAreMobjsFar3D(lua_State *L)
+{
+	mobj_t *mobj1 = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	mobj_t *mobj2 = *((mobj_t **)luaL_checkudata(L, 2, META_MOBJ));
+	fixed_t mindist = luaL_checkfixed(L, 3);
+	//HUDSAFE
+	INLEVEL
+	if (!(mobj1 && mobj2))
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushboolean(L, P_AreMobjsFar3D(mobj1, mobj2, mindist));
+	return 1;
+}
+
+static int lib_pGetMobjMomentum2D(lua_State *L)
+{
+	mobj_t *mobj = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	//HUDSAFE
+	INLEVEL
+	if (!mobj)
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushfixed(L, P_GetMobjMomentum2D(mobj));
+	return 1;
+}
+
+static int lib_pGetMobjMomentum3D(lua_State *L)
+{
+	mobj_t *mobj = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
+	//HUDSAFE
+	INLEVEL
+	if (!mobj)
+		return LUA_ErrInvalid(L, "mobj_t");
+	lua_pushfixed(L, P_GetMobjMomentum3D(mobj));
+	return 1;
 }
 
 // P_USER
@@ -2944,23 +3075,22 @@ static int lib_pStartMoveFloor(lua_State *L)
 		return luaL_error(L, "argument #3 must be greater than 0");
 
 	floormove_t* floor;
-	floor = Z_Calloc(sizeof(*floor), PU_LEVSPEC, NULL);
-	if (sec->floordata != NULL)
+	if (sec->floordata == NULL)
 	{
-		P_RemoveThinker(sec->floordata);
-		sec->floordata = NULL;
-		sec->floorspeed = 0;
+		floor = Z_Calloc(sizeof(*floor), PU_LEVSPEC, NULL);
+		sec->floordata = floor;
+		P_AddThinker(THINK_MAIN, &floor->thinker);
+		floor->thinker.function = (actionf_p1)T_MoveFloor;
+		R_CreateInterpolator_SectorPlane(&floor->thinker, sec, false);
 	}
-	sec->floordata = floor;
-	P_AddThinker(THINK_MAIN, &floor->thinker);
-	floor->thinker.function = (actionf_p1)T_MoveFloor;
+	else
+		floor = sec->floordata;
 	floor->sector = sec;
 	floor->speed = speed;
 	floor->texture = -1;
 	floor->type = -1;
 	floor->floordestheight = destheight;
 	floor->direction = destheight >= sec->floorheight ? 1 : -1;
-	R_CreateInterpolator_SectorPlane(&floor->thinker, sec, true);
 
 	return 0;
 }
@@ -3002,23 +3132,22 @@ static int lib_pStartMoveCeiling(lua_State *L)
 		return luaL_error(L, "argument #3 must be greater than 0");
 
 	ceiling_t* ceiling;
-	ceiling = Z_Calloc(sizeof(*ceiling), PU_LEVSPEC, NULL);
-	if (sec->ceilingdata != NULL)
+	if (sec->ceilingdata == NULL)
 	{
-		P_RemoveThinker(sec->ceilingdata);
-		sec->ceilingdata = NULL;
-		sec->ceilspeed = 0;
+		ceiling = Z_Calloc(sizeof(*ceiling), PU_LEVSPEC, NULL);
+		sec->ceilingdata = ceiling;
+		P_AddThinker(THINK_MAIN, &ceiling->thinker);
+		ceiling->thinker.function = (actionf_p1)T_MoveCeiling;
+		R_CreateInterpolator_SectorPlane(&ceiling->thinker, sec, true);
 	}
-	sec->ceilingdata = ceiling;
-	P_AddThinker(THINK_MAIN, &ceiling->thinker);
-	ceiling->thinker.function = (actionf_p1)T_MoveCeiling;
+	else
+		ceiling = sec->ceilingdata;
 	ceiling->sector = sec;
 	ceiling->speed = speed;
 	ceiling->texture = -1;
 	ceiling->type = -1;
 	ceiling->direction = destheight >= sec->ceilingheight ? 1 : -1;
 	ceiling->topheight = ceiling->bottomheight = destheight;
-	R_CreateInterpolator_SectorPlane(&ceiling->thinker, sec, true);
 
 	return 0;
 }
@@ -3099,6 +3228,7 @@ static int lib_rPointToAngle2(lua_State *L)
 	return 1;
 }
 
+// TODO: 2.3: Delete
 static int lib_rPointToDist(lua_State *L)
 {
 	fixed_t x = luaL_checkfixed(L, 1);
@@ -3108,6 +3238,7 @@ static int lib_rPointToDist(lua_State *L)
 	return 1;
 }
 
+// TODO: 2.3: Delete
 static int lib_rPointToDist2(lua_State *L)
 {
 	fixed_t px2 = luaL_checkfixed(L, 1);
@@ -3115,7 +3246,7 @@ static int lib_rPointToDist2(lua_State *L)
 	fixed_t px1 = luaL_checkfixed(L, 3);
 	fixed_t py1 = luaL_checkfixed(L, 4);
 	//HUDSAFE
-	lua_pushfixed(L, R_PointToDist2(px2, py2, px1, py1));
+	lua_pushfixed(L, GetDistance2D(px2, py2, px1, py1));
 	return 1;
 }
 
@@ -3321,6 +3452,38 @@ static int lib_rTextureNameForNum(lua_State *L)
 	s[8] = '\0';
 	lua_pushstring(L, s);
 	return 1;
+}
+
+// Not a real function.
+static int lib_rGetTextureDimensions(lua_State *L)
+{
+	INT32 num = -1;
+	if (lua_isnoneornil(L, 1))
+		return luaL_error(L, "argument #1 not given (expected number or string)");
+	else if (lua_type(L, 1) == LUA_TNUMBER)
+	{
+		num = (INT32)luaL_checkinteger(L, 1);
+		if (num < 1 || num >= numtextures)
+			return luaL_error(L, "texture %d (argument #1) out of range (1 - %d)", num, numtextures-1);
+	}
+	else
+	{
+		const char *name = luaL_checkstring(L, 1);
+		num = R_CheckTextureNumForName(name, TEXTURETYPE_TEXTURE);
+
+		// Didn't find it, so look for a flat
+		if (num == -1)
+		{
+			num = R_CheckTextureNumForName(name, TEXTURETYPE_FLAT);
+			if (num == -1)
+				return luaL_error(L, "texture %s (argument #1) is not loaded", name);
+		}
+	}
+	//HUDSAFE
+
+	lua_pushinteger(L, textures[num]->width);
+	lua_pushinteger(L, textures[num]->height);
+	return 2;
 }
 
 // R_DRAW
@@ -4124,7 +4287,7 @@ static int lib_gAddPlayer(lua_State *L)
 
 	for (i = 1; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			break;
 	}
 
@@ -4138,7 +4301,7 @@ static int lib_gAddPlayer(lua_State *L)
 
 	CL_ClearPlayer(newplayernum);
 
-	playeringame[newplayernum] = true;
+	players[newplayernum].ingame = true;
 	G_AddPlayer(newplayernum);
 	newplayer = &players[newplayernum];
 
@@ -4206,7 +4369,7 @@ static int lib_gRemovePlayer(lua_State *L)
 		return luaL_error(L, "argument #1 not given (expected number)");
 	if (pnum >= MAXPLAYERS) // Out of range
 		return luaL_error(L, "playernum %d out of range (0 - %d)", pnum, MAXPLAYERS-1);
-	if (playeringame[pnum]) // Found player
+	if (players[pnum].ingame) // Found player
 	{
 		if (players[pnum].bot == BOT_NONE) // Can't remove clients.
 			return luaL_error(L, "G_RemovePlayer can only be used on players with a bot value other than BOT_NONE.");
@@ -4607,6 +4770,8 @@ static luaL_Reg lib[] = {
 	// m_misc
 	{"M_MapNumber",lib_mMapNumber},
 
+	// TODO: 2.3
+	// Consider removing in favor of random library
 	// m_random
 	{"P_RandomFixed",lib_pRandomFixed},
 	{"P_RandomByte",lib_pRandomByte},
@@ -4616,7 +4781,7 @@ static luaL_Reg lib[] = {
 	{"P_RandomChance",lib_pRandomChance}, // MACRO
 
 	// p_maputil
-	{"P_AproxDistance",lib_pAproxDistance},
+	{"P_AproxDistance",lib_pAproxDistance}, // TODO: 2.3: Delete
 	{"P_ClosestPointOnLine",lib_pClosestPointOnLine},
 	{"P_PointOnLineSide",lib_pPointOnLineSide},
 
@@ -4668,6 +4833,16 @@ static luaL_Reg lib[] = {
 	{"P_RingZMovement",lib_pRingZMovement},
 	{"P_SceneryZMovement",lib_pSceneryZMovement},
 	{"P_PlayerZMovement",lib_pPlayerZMovement},
+	{"P_GetMobjDistance2D",lib_pGetMobjDistance2D},
+	{"P_GetMobjDistance3D",lib_pGetMobjDistance3D},
+	{"P_GetMobjLargeDistance2D",lib_pGetMobjLargeDistance2D},
+	{"P_GetMobjLargeDistance3D",lib_pGetMobjLargeDistance3D},
+	{"P_AreMobjsClose2D",lib_pAreMobjsClose2D},
+	{"P_AreMobjsClose3D",lib_pAreMobjsClose3D},
+	{"P_AreMobjsFar2D",lib_pAreMobjsFar2D},
+	{"P_AreMobjsFar3D",lib_pAreMobjsFar3D},
+	{"P_GetMobjMomentum2D",lib_pGetMobjMomentum2D},
+	{"P_GetMobjMomentum3D",lib_pGetMobjMomentum3D},
 
 	// p_user
 	{"P_GetPlayerHeight",lib_pGetPlayerHeight},
@@ -4810,8 +4985,8 @@ static luaL_Reg lib[] = {
 	// r_defs
 	{"R_PointToAngle",lib_rPointToAngle},
 	{"R_PointToAngle2",lib_rPointToAngle2},
-	{"R_PointToDist",lib_rPointToDist},
-	{"R_PointToDist2",lib_rPointToDist2},
+	{"R_PointToDist",lib_rPointToDist}, // TODO: 2.3: Delete
+	{"R_PointToDist2",lib_rPointToDist2}, // TODO: 2.3: Delete
 	{"R_PointInSubsector",lib_rPointInSubsector},
 	{"R_PointInSubsectorOrNil",lib_rPointInSubsectorOrNil},
 
@@ -4832,6 +5007,7 @@ static luaL_Reg lib[] = {
 	{"R_TextureNumForName",lib_rTextureNumForName},
 	{"R_CheckTextureNameForNum", lib_rCheckTextureNameForNum},
 	{"R_TextureNameForNum", lib_rTextureNameForNum},
+	{"R_GetTextureDimensions", lib_rGetTextureDimensions},
 
 	// r_draw
 	{"R_GetColorByName", lib_rGetColorByName},

@@ -48,6 +48,9 @@ typedef struct
 	char data[MAXPACKETLENGTH];
 } ATTRPACK doomcom_t;
 
+#define DOOMCOM_DATA(d) (doomdata_t *)&(d)->data
+#define DOOMCOM_SETTYPE(d, t) ((d)[6] = (t))
+#define DOOMCOM_DATABUF(d) { .buf = (unsigned char *)(d)->data+8, .size = (d)->datalength, .pos = 0 }
 #if defined(_MSC_VER)
 #pragma pack()
 #endif
@@ -64,15 +67,13 @@ extern INT16 numslots;
 */
 extern INT16 extratics;
 
-extern doomcom_t *doomcom;
-
 /**	\brief return packet in doomcom struct
 */
-extern boolean (*I_NetGet)(void);
+extern boolean (*I_NetGet)(doomcom_t *doomcom);
 
 /**	\brief send packet within doomcom struct
 */
-extern void (*I_NetSend)(void);
+extern void (*I_NetSend)(doomcom_t *doomcom);
 
 /**	\brief	close a connection
 

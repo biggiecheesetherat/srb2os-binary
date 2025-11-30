@@ -58,10 +58,10 @@
 
 typedef enum
 {
+	THINK_DYNSLOPE,
 	THINK_POLYOBJ,
 	THINK_MAIN,
 	THINK_MOBJ,
-	THINK_DYNSLOPE,
 	THINK_PRECIP,
 	NUM_THINKERLISTS
 } thinklistnum_t; /**< Thinker lists. */
@@ -558,5 +558,16 @@ void P_ExplodeMissile(mobj_t *mo);
 void P_CheckGravity(mobj_t *mo, boolean affect);
 void P_SetPitchRollFromSlope(mobj_t *mo, pslope_t *slope);
 boolean P_IsMobjInPainState(mobj_t *mobj);
+
+fixed_t P_GetMobjDistance2D(mobj_t *mobj1, mobj_t *mobj2);
+fixed_t P_GetMobjDistance3D(mobj_t *mobj1, mobj_t *mobj2);
+INT32 P_GetMobjLargeDistance2D(mobj_t *mobj1, mobj_t *mobj2);
+INT32 P_GetMobjLargeDistance3D(mobj_t *mobj1, mobj_t *mobj2);
+boolean P_AreMobjsClose2D(mobj_t *mobj1, mobj_t *mobj2, fixed_t maxdist);
+boolean P_AreMobjsClose3D(mobj_t *mobj1, mobj_t *mobj2, fixed_t maxdist);
+boolean P_AreMobjsFar2D(mobj_t *mobj1, mobj_t *mobj2, fixed_t mindist);
+boolean P_AreMobjsFar3D(mobj_t *mobj1, mobj_t *mobj2, fixed_t mindist);
+fixed_t P_GetMobjMomentum2D(mobj_t *mobj);
+fixed_t P_GetMobjMomentum3D(mobj_t *mobj);
 
 #endif // __P_LOCAL__

@@ -335,11 +335,11 @@ void P_GiveEmerald(boolean spawnObj)
 	{
 		// The Chaos Emerald begins to orbit us!
 		// Only visibly give it to ONE person!
-		UINT8 i, pnum = ((playeringame[consoleplayer]) && (!players[consoleplayer].spectator) && (players[consoleplayer].mo)) ? consoleplayer : 255;
+		UINT8 i, pnum = ((players[consoleplayer].ingame) && (!players[consoleplayer].spectator) && (players[consoleplayer].mo)) ? consoleplayer : 255;
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
 			mobj_t *emmo;
-			if (!playeringame[i])
+			if (!players[i].ingame)
 				continue;
 			if (players[i].spectator)
 				continue;
@@ -472,9 +472,9 @@ boolean P_TransferToNextMare(player_t *player)
 	thinker_t *th;
 	mobj_t *mo2;
 	mobj_t *closestaxis = NULL;
-	INT32 lowestaxisnum = -1;
+	INT32 lowestaxisnum = INT32_MAX;
 	UINT8 mare = P_FindLowestMare();
-	fixed_t dist1, dist2 = 0;
+	INT32 dist, closestdist = INT32_MAX;
 
 	if (mare == 255)
 		return false;
@@ -500,22 +500,12 @@ boolean P_TransferToNextMare(player_t *player)
 		if (mo2->threshold != mare)
 			continue;
 
-		if (closestaxis == NULL)
+		dist = P_GetMobjLargeDistance2D(player->mo, mo2) - mo2->radius / FRACUNIT;
+		if (mo2->health < lowestaxisnum && dist < closestdist)
 		{
 			closestaxis = mo2;
 			lowestaxisnum = mo2->health;
-			dist2 = R_PointToDist2(player->mo->x, player->mo->y, mo2->x, mo2->y) - mo2->radius;
-		}
-		else if (mo2->health < lowestaxisnum)
-		{
-			dist1 = R_PointToDist2(player->mo->x, player->mo->y, mo2->x, mo2->y) - mo2->radius;
-
-			if (dist1 < dist2)
-			{
-				closestaxis = mo2;
-				lowestaxisnum = mo2->health;
-				dist2 = dist1;
-			}
+			closestdist = dist;
 		}
 	}
 
@@ -606,7 +596,7 @@ void P_TransferToAxis(player_t *player, INT32 axisnum)
 	mobj_t *mo2;
 	mobj_t *closestaxis;
 	INT32 mare = player->mare;
-	fixed_t dist1, dist2 = 0;
+	INT32 dist, closestdist = INT32_MAX;
 
 	CONS_Debug(DBG_NIGHTS, "Transferring to axis %d\nLeveltime: %u...\n", axisnum, leveltime);
 
@@ -628,20 +618,11 @@ void P_TransferToAxis(player_t *player, INT32 axisnum)
 		if (mo2->threshold != mare)
 			continue;
 
-		if (closestaxis == NULL)
+		dist = P_GetMobjLargeDistance2D(player->mo, mo2) - mo2->radius / FRACUNIT;
+		if (dist < closestdist)
 		{
 			closestaxis = mo2;
-			dist2 = R_PointToDist2(player->mo->x, player->mo->y, mo2->x, mo2->y) - mo2->radius;
-		}
-		else
-		{
-			dist1 = R_PointToDist2(player->mo->x, player->mo->y, mo2->x, mo2->y) - mo2->radius;
-
-			if (dist1 < dist2)
-			{
-				closestaxis = mo2;
-				dist2 = dist1;
-			}
+			closestdist = dist;
 		}
 	}
 
@@ -705,7 +686,7 @@ static void P_DeNightserizePlayer(player_t *player)
 	{
 		INT32 i;
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+			if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 				players[i].nightstime = 1; // force everyone else to fall too.
 		player->exiting = 3*TICRATE;
 
@@ -860,7 +841,7 @@ void P_NightserizePlayer(player_t *player, INT32 nighttime)
 		if (G_IsSpecialStage(gamemap))
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
-				if (playeringame[i]/* && players[i].powers[pw_carry] == CR_NIGHTSMODE*/)
+				if (players[i].ingame/* && players[i].powers[pw_carry] == CR_NIGHTSMODE*/)
 				{
 					total_spheres += players[i].spheres;
 					total_rings += players[i].rings;
@@ -869,7 +850,7 @@ void P_NightserizePlayer(player_t *player, INT32 nighttime)
 
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i] || !players[i].mo || players[i].spectator)
+			if (!players[i].ingame || !players[i].mo || players[i].spectator)
 				continue;
 
 			players[i].texttimer = (3 * TICRATE) - 10;
@@ -1058,7 +1039,7 @@ void P_DoPlayerPain(player_t *player, mobj_t *source, mobj_t *inflictor)
 			// to recover
 			if ((inflictor->flags2 & MF2_SCATTER) && source)
 			{
-				fixed_t dist = P_AproxDistance(P_AproxDistance(source->x-player->mo->x, source->y-player->mo->y), source->z-player->mo->z);
+				fixed_t dist = P_GetMobjDistance3D(source, player->mo);
 
 				dist = FixedMul(128*FRACUNIT, inflictor->scale) - dist/4;
 
@@ -1370,7 +1351,7 @@ void P_GiveCoopLives(player_t *player, INT32 numlives, boolean sound)
 		INT32 i;
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i])
+			if (!players[i].ingame)
 				continue;
 
 			P_GivePlayerLives(&players[i], numlives);
@@ -1483,7 +1464,7 @@ void P_AddPlayerScore(player_t *player, UINT32 amount)
 		{ // Pseudo-shared score for multiplayer special stages.
 			INT32 i;
 			for (i = 0; i < MAXPLAYERS; i++)
-				if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+				if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 				{
 					oldscore = players[i].marescore;
 
@@ -5166,7 +5147,7 @@ void P_Telekinesis(player_t *player, fixed_t thrust, fixed_t range)
 		if (!((mo2->flags & MF_SHOOTABLE && mo2->flags & MF_ENEMY) || mo2->type == MT_EGGGUARD || mo2->player))
 			continue;
 
-		dist = P_AproxDistance(P_AproxDistance(player->mo->x-mo2->x, player->mo->y-mo2->y), player->mo->z-mo2->z);
+		dist = P_GetMobjDistance3D(player->mo, mo2);
 
 		if (range < dist)
 			continue;
@@ -6071,7 +6052,7 @@ static void P_3dMovement(player_t *player)
 	totalthrust.z = FRACUNIT*P_MobjFlip(player->mo)/3; // A bit of extra push-back on slopes
 
 	// Get the old momentum; this will be needed at the end of the function! -SH
-	oldMagnitude = R_PointToDist2(player->mo->momx - player->cmomx, player->mo->momy - player->cmomy, 0, 0);
+	oldMagnitude = GetDistance2D(player->mo->momx, player->mo->momy, player->cmomx, player->cmomy);
 
 	controlstyle = P_ControlStyle(player);
 
@@ -6348,7 +6329,7 @@ static void P_3dMovement(player_t *player)
 	// If "no" to 2, normalize to topspeed, so we can't suddenly run faster than it of our own accord.
 	// If "no" to 1, we're not reaching any limits yet, so ignore this entirely!
 	// -Shadow Hog
-	newMagnitude = R_PointToDist2(player->mo->momx - player->cmomx, player->mo->momy - player->cmomy, 0, 0);
+	newMagnitude = GetDistance2D(player->mo->momx, player->mo->momy, player->cmomx, player->cmomy);
 	if (newMagnitude > topspeed)
 	{
 		fixed_t tempmomx, tempmomy;
@@ -6635,12 +6616,11 @@ static void P_NightsTransferPoints(player_t *player, fixed_t xspeed, fixed_t rad
 
 		//CONS_Debug(DBG_NIGHTS, "T1 is at %d, %d\n", transfer1->x>>FRACBITS, transfer1->y>>FRACBITS);
 		//CONS_Debug(DBG_NIGHTS, "T2 is at %d, %d\n", transfer2->x>>FRACBITS, transfer2->y>>FRACBITS);
-		//CONS_Debug(DBG_NIGHTS, "Distance from T1: %d\n", P_AproxDistance(transfer1->x - player->mo->x, transfer1->y - player->mo->y)>>FRACBITS);
-		//CONS_Debug(DBG_NIGHTS, "Distance from T2: %d\n", P_AproxDistance(transfer2->x - player->mo->x, transfer2->y - player->mo->y)>>FRACBITS);
+		//CONS_Debug(DBG_NIGHTS, "Distance from T1: %d\n", P_GetMobjDistance2D(transfer1, player->mo)>>FRACBITS);
+		//CONS_Debug(DBG_NIGHTS, "Distance from T2: %d\n", P_GetMobjDistance2D(transfer2, player->mo)>>FRACBITS);
 
 		// Transfer1 is closer to the player than transfer2
-		if (P_AproxDistance(transfer1->x - player->mo->x, transfer1->y - player->mo->y)>>FRACBITS
-			< P_AproxDistance(transfer2->x - player->mo->x, transfer2->y - player->mo->y)>>FRACBITS)
+		if (P_AreMobjsClose2D(transfer1, player->mo, P_GetMobjDistance2D(transfer2, player->mo)))
 		{
 			//CONS_Debug(DBG_NIGHTS, " must be < 0 to transfer\n");
 
@@ -6972,7 +6952,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 	if (G_IsSpecialStage(gamemap))
 	{ // In special stages, share rings. Everyone gives up theirs to the capsule player always, because we can't have any individualism here!
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] && (&players[i] != player) && players[i].spheres > 0)
+			if (players[i].ingame && (&players[i] != player) && players[i].spheres > 0)
 			{
 				player->spheres += players[i].spheres;
 				players[i].spheres = 0;
@@ -7073,7 +7053,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 				tictimer = -1;
 
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && !player->exiting && players[i].mare == player->mare)
+					if (players[i].ingame && !player->exiting && players[i].mare == player->mare)
 					{
 						players[i].bonustime = true;
 						players[i].texttimer = 4*TICRATE;
@@ -7090,7 +7070,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 
 					/*for (i = 0; i < MAXPLAYERS; i++)
 					{
-						if (!playeringame[i] || players[i].spectator || !players[i].mo || !players[i].mo->tracer)
+						if (!players[i].ingame || players[i].spectator || !players[i].mo || !players[i].mo->tracer)
 							continue;
 
 						emmo = P_SpawnMobj(players[i].mo->x, players[i].mo->y, players[i].mo->z + players[i].mo->info->height, MT_GOTEMERALD);
@@ -7118,7 +7098,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 					// Find the player with the lowest time remaining and award points based on that time instead.
 					lowest_time = player->finishedtime;
 					for (i = 0; i < MAXPLAYERS; i++)
-						if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+						if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 							if (players[i].finishedtime < lowest_time)
 								lowest_time = players[i].finishedtime;
 					P_AddPlayerScore(player, (lowest_time/TICRATE) * 100);
@@ -7151,7 +7131,7 @@ static void P_DoNiGHTSCapsule(player_t *player)
 					}
 				}
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && players[i].mare == player->mare)
+					if (players[i].ingame && players[i].mare == player->mare)
 						P_SetTarget(&players[i].capsule, NULL); // Remove capsule from everyone now that it is dead!
 				S_StartScreamSound(player->mo, sfx_ngdone);
 				P_SwitchSpheresBonusMode(true);
@@ -7274,7 +7254,7 @@ static void P_NiGHTSMovement(player_t *player)
 		boolean capsule = false;
 		// NiGHTS special stages have a pseudo-shared timer, so check if ANYONE is feeding the capsule.
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] /*&& players[i].powers[pw_carry] == CR_NIGHTSMODE*/
+			if (players[i].ingame /*&& players[i].powers[pw_carry] == CR_NIGHTSMODE*/
 			&& (players[i].capsule && players[i].capsule->reactiontime))
 				capsule = true;
 		if (!capsule && !P_IsPlayerInNightsTransformationState(player) && !player->exiting)
@@ -7314,7 +7294,7 @@ static void P_NiGHTSMovement(player_t *player)
 
 	if (!player->mo->target)
 	{
-		fixed_t dist1, dist2 = 0;
+		fixed_t dist, closestdist = INT32_MAX;
 
 		// scan the thinkers
 		// to find the closest axis point
@@ -7330,20 +7310,11 @@ static void P_NiGHTSMovement(player_t *player)
 			if (mo2->threshold != player->mare)
 				continue;
 
-			if (closestaxis == NULL)
+			dist = GetDistance2D(newx, newy, mo2->x, mo2->y) - mo2->radius;
+			if (dist < closestdist)
 			{
 				closestaxis = mo2;
-				dist2 = R_PointToDist2(newx, newy, mo2->x, mo2->y) - mo2->radius;
-			}
-			else
-			{
-				dist1 = R_PointToDist2(newx, newy, mo2->x, mo2->y) - mo2->radius;
-
-				if (dist1 < dist2)
-				{
-					closestaxis = mo2;
-					dist2 = dist1;
-				}
+				closestdist = dist;
 			}
 		}
 		P_SetTarget(&player->mo->target, closestaxis);
@@ -7373,7 +7344,7 @@ static void P_NiGHTSMovement(player_t *player)
 
 	if (!(player->pflags & PF_TRANSFERTOCLOSEST))
 	{
-		fixed_t realdist = R_PointToDist2(player->mo->x, player->mo->y, player->mo->target->x, player->mo->target->y);
+		fixed_t realdist = P_GetMobjDistance2D(player->mo, player->mo->target);
 		// teleport player to correct radius if neccessary
 		if (realdist>>FRACBITS != radius>>FRACBITS)
 		{
@@ -7723,7 +7694,7 @@ static void P_NiGHTSMovement(player_t *player)
 		else if (player->angle_pos > player->old_angle_pos)
 			neg = -1;
 
-		movingangle = R_PointToAngle2(0, 0, neg*R_PointToDist2(player->mo->momx, player->mo->momy, 0, 0), player->mo->momz);
+		movingangle = R_PointToAngle2(0, 0, neg*P_GetMobjMomentum2D(player->mo), player->mo->momz);
 		player->anotherflyangle = (movingangle >> ANGLETOFINESHIFT) * 360/FINEANGLES;
 	}
 
@@ -7897,8 +7868,7 @@ void P_BlackOw(player_t *player)
 	S_StartSoundFromMobj(player->mo, sfx_bkpoof); // Sound the BANG!
 
 	for (i = 0; i < MAXPLAYERS; i++)
-		if (playeringame[i] && P_AproxDistance(player->mo->x - players[i].mo->x,
-			player->mo->y - players[i].mo->y) < 1536*FRACUNIT)
+		if (players[i].ingame && P_AreMobjsClose2D(player->mo, players[i].mo, 1536*FRACUNIT))
 			P_FlashPal(&players[i], PAL_NUKE, 10);
 
 	P_NukeEnemies(player->mo, player->mo, 1536*FRACUNIT); // Search for all nearby enemies and nuke their pants off!
@@ -8261,7 +8231,7 @@ void P_MovePlayer(player_t *player)
 				if (player == &players[displayplayer]) // only play the sound for yourself landing
 					S_StartSoundFromEverywhere(sfx_s3k6a);
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i])
+					if (players[i].ingame)
 						players[i].exiting = (14*TICRATE)/5 + 1;
 			}
 			else {
@@ -8502,7 +8472,7 @@ void P_MovePlayer(player_t *player)
 			}
 			else
 			{
-				fixed_t newMagnitude, oldMagnitude = R_PointToDist2(momx, momy, 0, 0);
+				fixed_t newMagnitude, oldMagnitude = GetDistance2D(0, 0, momx, momy);
 
 				if (mo->eflags & MFE_UNDERWATER)
 					speed = FixedMul((glidespeed>>1) + player->glidetime*750, scale);
@@ -8511,7 +8481,7 @@ void P_MovePlayer(player_t *player)
 
 				P_Thrust(mo, angle, FixedMul(accelfactor, scale));
 
-				newMagnitude = R_PointToDist2(player->mo->momx - player->cmomx, player->mo->momy - player->cmomy, 0, 0);
+				newMagnitude = GetDistance2D(player->mo->momx, player->mo->momy, player->cmomx, player->cmomy);
 				if (newMagnitude > speed)
 				{
 					fixed_t tempmomx, tempmomy;
@@ -8891,7 +8861,7 @@ void P_MovePlayer(player_t *player)
 		fixed_t speed;
 		const fixed_t runnyspeed = 20*FRACUNIT;
 
-		speed = R_PointToDist2(player->rmomx, player->rmomy, 0, 0);
+		speed = GetDistance2D(0, 0, player->rmomx, player->rmomy);
 
 		if (speed > player->normalspeed-5*FRACUNIT)
 			speed = player->normalspeed-5*FRACUNIT;
@@ -8944,7 +8914,7 @@ static void P_DoZoomTube(player_t *player)
 	speed = abs(player->speed);
 
 	// change slope
-	dist = P_AproxDistance(P_AproxDistance(player->mo->tracer->x - player->mo->x, player->mo->tracer->y - player->mo->y), player->mo->tracer->z - player->mo->z);
+	dist = P_GetMobjDistance3D(player->mo->tracer, player->mo);
 
 	if (dist < 1)
 		dist = 1;
@@ -8985,7 +8955,7 @@ static void P_DoZoomTube(player_t *player)
 			// calculate MOMX/MOMY/MOMZ for next waypoint
 
 			// change slope
-			dist = P_AproxDistance(P_AproxDistance(player->mo->tracer->x - player->mo->x, player->mo->tracer->y - player->mo->y), player->mo->tracer->z - player->mo->z);
+			dist = P_GetMobjDistance3D(player->mo->tracer, player->mo);
 
 			if (dist < 1)
 				dist = 1;
@@ -9038,7 +9008,7 @@ static void P_DoRopeHang(player_t *player)
 	sequence = player->mo->tracer->threshold;
 
 	// change slope
-	dist = P_AproxDistance(P_AproxDistance(player->mo->tracer->x - player->mo->x, player->mo->tracer->y - player->mo->y), player->mo->tracer->z - playerz);
+	dist = GetDistance3D(player->mo->tracer->x, player->mo->tracer->y, player->mo->tracer->z, player->mo->x, player->mo->y, playerz);
 
 	if (dist < 1)
 		dist = 1;
@@ -9101,7 +9071,7 @@ static void P_DoRopeHang(player_t *player)
 
 			// calculate MOMX/MOMY/MOMZ for next waypoint
 			// change slope
-			dist = P_AproxDistance(P_AproxDistance(player->mo->tracer->x - player->mo->x, player->mo->tracer->y - player->mo->y), player->mo->tracer->z - playerz);
+			dist = GetDistance3D(player->mo->tracer->x, player->mo->tracer->y, player->mo->tracer->z, player->mo->x, player->mo->y, playerz);
 
 			if (dist < 1)
 				dist = 1;
@@ -9140,7 +9110,7 @@ static void P_NukeAllPlayers(player_t *player)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			continue;
 		if (players[i].spectator)
 			continue;
@@ -9202,7 +9172,7 @@ void P_NukeEnemies(mobj_t *inflictor, mobj_t *source, fixed_t radius)
 		if (abs(inflictor->x - mo->x) > radius || abs(inflictor->y - mo->y) > radius || abs(inflictor->z - mo->z) > radius)
 			continue; // Workaround for possible integer overflow in the below -Red
 
-		if (P_AproxDistance(P_AproxDistance(inflictor->x - mo->x, inflictor->y - mo->y), inflictor->z - mo->z) > radius)
+		if (P_AreMobjsFar3D(inflictor, mo, radius))
 			continue;
 
 		if (mo->type == MT_MINUS && !(mo->flags & (MF_SPECIAL|MF_SHOOTABLE)))
@@ -9331,14 +9301,18 @@ mobj_t *P_LookForFocusTarget(player_t *player, mobj_t *exclude, SINT8 direction,
 			continue; // not a valid object
 		}
 
-		{
-			fixed_t zdist = (player->mo->z + player->mo->height/2) - (mo->z + mo->height/2);
-			dist = P_AproxDistance(player->mo->x-mo->x, player->mo->y-mo->y);
+		// Early check to prevent integer overflow across large distances
+		if (P_AreMobjsFar2D(player->mo, mo, maxdist))
+			continue;
 
-			if (abs(zdist) > dist)
+		{
+			fixed_t xydist = P_GetMobjDistance2D(player->mo, mo);
+			fixed_t zdist = (player->mo->z + player->mo->height/2) - (mo->z + mo->height/2);
+
+			if (abs(zdist) > xydist)
 				continue; // Don't home outside of desired angle!
 
-			dist = P_AproxDistance(dist, zdist);
+			dist = GetDistance2D(0, 0, xydist, zdist);
 			if (dist > maxdist)
 				continue; // out of range
 		}
@@ -9428,9 +9402,13 @@ mobj_t *P_LookForEnemies(player_t *player, boolean nonenemies, boolean bullet)
 		if (!bullet && mo->type == MT_DETON) // Don't be STUPID, Sonic!
 			continue;
 
+		// Early check to prevent integer overflow across large distances
+		if (P_AreMobjsFar2D(player->mo, mo, maxdist))
+			continue;
+
 		{
 			fixed_t zdist = (player->mo->z + player->mo->height/2) - (mo->z + mo->height/2);
-			dist = R_PointToDist2(0, 0, player->mo->x-mo->x, player->mo->y-mo->y);
+			dist = P_GetMobjDistance2D(mo, player->mo);
 			if (bullet)
 			{
 				if ((R_PointToAngle2(0, 0, dist, zdist) + span) > span*2)
@@ -9447,7 +9425,7 @@ mobj_t *P_LookForEnemies(player_t *player, boolean nonenemies, boolean bullet)
 					continue;
 			}
 
-			dist = R_PointToDist2(0, 0, dist, zdist);
+			dist = GetDistance2D(0, 0, dist, zdist);
 			if (dist > maxdist)
 				continue; // out of range
 		}
@@ -9507,7 +9485,7 @@ boolean P_HomingAttack(mobj_t *source, mobj_t *enemy) // Home in on your target
 
 	// change slope
 	zdist = ((P_MobjFlip(source) == -1) ? (enemy->z + enemy->height) - (source->z + source->height) : (enemy->z - source->z));
-	dist = P_AproxDistance(P_AproxDistance(enemy->x - source->x, enemy->y - source->y), zdist);
+	dist = GetDistance3D(0, 0, 0, enemy->x - source->x, enemy->y - source->y, zdist);
 
 	if (dist < 1)
 		dist = 1;
@@ -9593,7 +9571,7 @@ boolean P_GetLives(player_t *player)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			continue;
 
 		if (players[i].lives > livescheck)
@@ -9630,7 +9608,7 @@ static void P_ConsiderAllGone(void)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			continue;
 
 		if (players[i].playerstate != PST_DEAD && !players[i].spectator && players[i].mo && players[i].mo->health)
@@ -9710,7 +9688,7 @@ static void P_DeathThink(player_t *player)
 	{
 		for (j = 0; j < MAXPLAYERS; j++)
 		{
-			if (!playeringame[j])
+			if (!players[j].ingame)
 				continue;
 
 			if (players[j].lives > 1)
@@ -9771,7 +9749,7 @@ static void P_DeathThink(player_t *player)
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 				if (!players[i].exiting && players[i].lives)
 					break;
@@ -9972,7 +9950,6 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	boolean camstill, cameranoclip, camorbit;
 	mobj_t *mo, *sign = NULL;
 	subsector_t *newsubsec;
-	fixed_t f1, f2;
 
 	static fixed_t camsideshift[2] = {0, 0};
 	fixed_t shiftx = 0, shifty = 0;
@@ -10028,7 +10005,7 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 					thiscam->angle = players[displayplayer].cmd.angleturn << 16;
 					thiscam->aiming = players[displayplayer].cmd.aiming << 16;
 				}
-			} 
+			}
 			else if (thiscam == &camera2)
 			{
 				// i dont think secondarydisplayplayer changes, so we should be fine.
@@ -10607,9 +10584,7 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 	}
 
 	// compute aming to look the viewed point
-	f1 = viewpointx-thiscam->x;
-	f2 = viewpointy-thiscam->y;
-	dist = FixedHypot(f1, f2);
+	dist = GetDistance2D(viewpointx, viewpointy, thiscam->x, thiscam->y);
 
 	if (mo->eflags & MFE_VERTICALFLIP)
 		angle = R_PointToAngle2(0, thiscam->z + thiscam->height, dist, (sign ? sign->ceilingz : mo->z + mo->height) - P_GetPlayerHeight(player));
@@ -10638,8 +10613,7 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 		}
 
 		/* check z distance too for orbital camera */
-		if (P_AproxDistance(P_AproxDistance(vx - mo->x, vy - mo->y),
-					vz - ( mo->z + mo->height / 2 )) < FixedMul(48*FRACUNIT, mo->scale))
+		if (ArePointsClose3D(vx, vy, vz, mo->x, mo->y, mo->z + mo->height / 2, FixedMul(48*FRACUNIT, mo->scale)))
 			mo->flags2 |= MF2_SHADOW;
 		else
 			mo->flags2 &= ~MF2_SHADOW;
@@ -10693,7 +10667,7 @@ boolean P_SpectatorJoinGame(player_t *player)
 
 		//find a team by num players, score, or random if all else fails.
 		for (z = 0; z < MAXPLAYERS; ++z)
-			if (playeringame[z])
+			if (players[z].ingame)
 			{
 				if (players[z].ctfteam == 1)
 					++numplayersred;
@@ -11012,7 +10986,7 @@ static void P_GetAxisPosition(fixed_t x, fixed_t y, mobj_t *amo, fixed_t *newx, 
 			y = ay;
 		else // Diagonal lines
 		{
-			fixed_t distance = R_PointToDist2(ax, ay, x, y);
+			fixed_t distance = GetDistance2D(ax, ay, x, y);
 			angle_t fad = ((R_PointToAngle2(ax, ay, x, y) - ang) >> ANGLETOFINESHIFT) & FINEMASK;
 			fixed_t cosine = FINECOSINE(fad);
 			angle_t fa = (ang >> ANGLETOFINESHIFT) & FINEMASK;
@@ -11024,7 +10998,7 @@ static void P_GetAxisPosition(fixed_t x, fixed_t y, mobj_t *amo, fixed_t *newx, 
 	else // Keep minecart to circle
 	{
 		fixed_t rad = amo->radius;
-		fixed_t distfactor = FixedDiv(rad, R_PointToDist2(ax, ay, x, y));
+		fixed_t distfactor = FixedDiv(rad, GetDistance2D(ax, ay, x, y));
 
 		gr = R_PointToAngle2(ax, ay, x, y);
 		ang = gr + ANGLE_90;
@@ -11067,7 +11041,7 @@ static void P_SpawnSparks(mobj_t *mo, angle_t maindir)
 static mobj_t *P_LookForRails(mobj_t* mobj, fixed_t c, fixed_t s, angle_t targetangle, fixed_t xcom, fixed_t ycom)
 {
 	INT16 interval = 16;
-	INT16 fwooffset = FixedHypot(mobj->momx, mobj->momy) >> FRACBITS;
+	INT16 fwooffset = P_GetMobjMomentum2D(mobj) >> FRACBITS;
 	fixed_t x = mobj->x;
 	fixed_t y = mobj->y;
 	fixed_t z = mobj->z;
@@ -11108,7 +11082,7 @@ static void P_ParabolicMove(mobj_t *mo, fixed_t x, fixed_t y, fixed_t z, fixed_t
 	fixed_t dx = x - mo->x;
 	fixed_t dy = y - mo->y;
 	fixed_t dz = z - mo->z;
-	fixed_t dh = P_AproxDistance(dx, dy);
+	fixed_t dh = P_AproxDistance(dx, dy); // LJ: Kept on purpose or the minecart doesn't always land on the track after jumping
 	fixed_t c = FixedDiv(dx, dh);
 	fixed_t s = FixedDiv(dy, dh);
 	fixed_t fixConst = FixedDiv(speed, g);
@@ -11240,7 +11214,7 @@ static void P_MinecartThink(player_t *player)
 			}
 
 			// How fast are we going?
-			currentSpeed = FixedHypot(minecart->momx, minecart->momy);
+			currentSpeed = P_GetMobjMomentum2D(minecart);
 			angdiff = R_PointToAngle2(0, 0, minecart->momx, minecart->momy) - minecart->angle;
 			if (angdiff > ANGLE_90 && angdiff < ANGLE_270)
 				currentSpeed *= -1;
@@ -11896,7 +11870,7 @@ void P_PlayerThink(player_t *player)
 		// Check if all the players in the race have finished. If so, end the level.
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (playeringame[i])
+			if (players[i].ingame)
 			{
 				if (!players[i].exiting && players[i].lives > 0)
 					break;
@@ -11965,7 +11939,7 @@ void P_PlayerThink(player_t *player)
 
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i] || players[i].spectator || players[i].bot)
+				if (!players[i].ingame || players[i].spectator || players[i].bot)
 					continue;
 				if (players[i].lives <= 0)
 					continue;
@@ -11997,7 +11971,7 @@ void P_PlayerThink(player_t *player)
 
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i] || players[i].spectator || players[i].bot)
+				if (!players[i].ingame || players[i].spectator || players[i].bot)
 					continue;
 				if (players[i].quittime > 30 * TICRATE)
 					continue;
@@ -12125,7 +12099,7 @@ void P_PlayerThink(player_t *player)
 			if (mo2->flags2 & MF2_NIGHTSPULL)
 				continue;
 
-			if (P_AproxDistance(P_AproxDistance(mo2->x - x, mo2->y - y), mo2->z - z) > FixedMul(128*FRACUNIT, player->mo->scale))
+			if (ArePointsFar3D(x, y, z, mo2->x, mo2->y, mo2->z, FixedMul(128*FRACUNIT, player->mo->scale)))
 				continue;
 
 			// Yay! The thing's in reach! Pull it in!
@@ -12968,7 +12942,7 @@ void P_PlayerAfterThink(player_t *player)
 						P_SetPlayerAngle(player, player->mo->angle);
 				}
 
-				if (P_AproxDistance(player->mo->x - tails->x, player->mo->y - tails->y) > tails->radius)
+				if (P_AreMobjsFar2D(player->mo, tails, tails->radius))
 					player->powers[pw_carry] = CR_NONE;
 
 				if (player->powers[pw_carry] == CR_PLAYER)

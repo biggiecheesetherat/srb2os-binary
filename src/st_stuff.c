@@ -915,7 +915,7 @@ static void ST_drawLivesArea(void)
 				notgreyedout = (stplyr->lives > 0);
 				for (i = 0; i < MAXPLAYERS; i++)
 				{
-					if (!playeringame[i])
+					if (!players[i].ingame)
 						continue;
 
 					if (players[i].lives < 1)
@@ -1937,7 +1937,7 @@ static void ST_drawNiGHTSHUD(void)
 		total_spherecount = total_ringcount = 0;
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i])
+			if (!players[i].ingame)
 				continue;
 			total_spherecount += players[i].spheres;
 			total_ringcount += players[i].rings;
@@ -2102,7 +2102,7 @@ static void ST_drawNiGHTSHUD(void)
 			tic_t lowest_time = stplyr->nightstime;
 			INT32 i;
 			for (i = 0; i < MAXPLAYERS; i++)
-				if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE && players[i].nightstime < lowest_time)
+				if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE && players[i].nightstime < lowest_time)
 					lowest_time = players[i].nightstime;
 			realnightstime = lowest_time/TICRATE;
 		}
@@ -2348,7 +2348,7 @@ static void ST_drawTextHUD(void)
 					INT32 i;
 					for (i = 0; i < MAXPLAYERS; i++)
 					{
-						if (!playeringame[i])
+						if (!players[i].ingame)
 							continue;
 
 						if (&players[i] == stplyr)
@@ -2380,7 +2380,7 @@ static void ST_drawTextHUD(void)
 
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i] || players[i].spectator || players[i].bot)
+				if (!players[i].ingame || players[i].spectator || players[i].bot)
 					continue;
 				if (players[i].lives <= 0)
 					continue;
@@ -2547,7 +2547,7 @@ static INT32 ST_drawEmeraldHuntIcon(mobj_t *hunt, patch_t **patches, INT32 offse
 	INT32 interval, i;
 	if (stplyr->mo == NULL)
 		return 0;  // player just joined after spectating, can happen on custom gamemodes.
-	UINT32 dist = ((UINT32)P_AproxDistance(P_AproxDistance(stplyr->mo->x - hunt->x, stplyr->mo->y - hunt->y), stplyr->mo->z - hunt->z))>>FRACBITS;
+	UINT32 dist = ((UINT32)P_GetMobjDistance3D(stplyr->mo, hunt))>>FRACBITS;
 
 	if (dist < 128)
 	{
@@ -2734,7 +2734,7 @@ static void ST_overlayDrawer(void)
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 
 				if (&players[i] == stplyr)

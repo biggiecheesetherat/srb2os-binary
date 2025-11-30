@@ -1331,46 +1331,52 @@ static int libd_renderer(lua_State *L)
 	return 1;
 }
 
+// TODO: 2.3: Remove in favor of random library
 // M_RANDOM
 //////////////
 
-static int libd_RandomFixed(lua_State *L)
+static int libd_RandomFixed(lua_State* L)
 {
+	LUA_Deprecated(L, "v.RandomFixed", "random.localFixed")
 	lua_pushfixed(L, M_RandomFixed());
 	return 1;
 }
 
-static int libd_RandomByte(lua_State *L)
+static int libd_RandomByte(lua_State* L)
 {
+	LUA_Deprecated(L, "v.RandomByte", "random.localByte")
 	lua_pushinteger(L, M_RandomByte());
 	return 1;
 }
 
-static int libd_RandomKey(lua_State *L)
+static int libd_RandomKey(lua_State* L)
 {
 	INT32 a = (INT32)luaL_checkinteger(L, 1);
 
+	LUA_Deprecated(L, "v.RandomKey", "random.localKey")
 	lua_pushinteger(L, M_RandomKey(a));
 	return 1;
 }
 
-static int libd_RandomRange(lua_State *L)
+static int libd_RandomRange(lua_State* L)
 {
 	INT32 a = (INT32)luaL_checkinteger(L, 1);
 	INT32 b = (INT32)luaL_checkinteger(L, 2);
 
+	LUA_Deprecated(L, "v.RandomRange", "random.localRange")
 	lua_pushinteger(L, M_RandomRange(a, b));
 	return 1;
 }
 
 // Macros.
-static int libd_SignedRandom(lua_State *L)
+static int libd_SignedRandom(lua_State* L)
 {
+	LUA_Deprecated(L, "v.SignedRandom", "random.localSigned")
 	lua_pushinteger(L, M_SignedRandom());
 	return 1;
 }
 
-static int libd_RandomChance(lua_State *L)
+static int libd_RandomChance(lua_State* L)
 {
 	fixed_t p = luaL_checkfixed(L, 1);
 	lua_pushboolean(L, M_RandomChance(p));
@@ -1420,6 +1426,7 @@ static luaL_Reg lib_draw[] = {
 	{"nameTagWidth", libd_nameTagWidth},
 	{"levelTitleWidth", libd_levelTitleWidth},
 	{"levelTitleHeight", libd_levelTitleHeight},
+	// TODO: 2.3: Remove in favor of random library
 	// m_random
 	{"RandomFixed",libd_RandomFixed},
 	{"RandomByte",libd_RandomByte},
@@ -1492,18 +1499,6 @@ static luaL_Reg lib_hud[] = {
 	{NULL, NULL}
 };
 
-// globalized client_side random functions.
-static luaL_Reg lib_randomclient[] = {
-	// m_random
-	{"localFixed",libd_RandomFixed},
-	{"localByte",libd_RandomByte},
-	{"localKey",libd_RandomKey},
-	{"localRange",libd_RandomRange},
-	{"localSignedRandom",libd_SignedRandom}, // MACRO
-	{"localChance",libd_RandomChance}, // MACRO
-	{NULL, NULL}
-};
-
 //
 //
 //
@@ -1527,7 +1522,6 @@ int LUA_HudLib(lua_State *L)
 	LUA_RegisterGlobalUserdata(L, "hudinfo", lib_getHudInfo, NULL, lib_hudinfolen);
 
 	luaL_register(L, "hud", lib_hud);
-	luaL_register(L, "random", lib_randomclient);
 	return 0;
 }
 

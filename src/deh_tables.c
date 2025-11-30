@@ -5007,6 +5007,7 @@ struct int_const_s const INT_CONST[] = {
 
 	// doomdef.h constants
 	{"TICRATE",TICRATE},
+	{"TR",TICRATE},
 	{"MUSICRATE",MUSICRATE},
 	{"RING_DIST",RING_DIST},
 	{"PUSHACCEL",PUSHACCEL},
@@ -5711,6 +5712,7 @@ struct int_const_s const INT_CONST[] = {
 	{"KR_TIMEOUT",KR_TIMEOUT},
 	{"KR_BAN",KR_BAN},
 	{"KR_LEAVE",KR_LEAVE},
+	{"KR_IDLE",KR_IDLE},
 
 	// translation colormaps
 	{"TC_DEFAULT",TC_DEFAULT},

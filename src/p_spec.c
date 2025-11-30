@@ -1117,7 +1117,7 @@ static boolean PolyFlag(line_t *line)
 static boolean PolyDisplace(line_t *line)
 {
 	polydisplacedata_t pdd;
-	fixed_t length = R_PointToDist2(line->v2->x, line->v2->y, line->v1->x, line->v1->y);
+	fixed_t length = GetDistance2D(line->v2->x, line->v2->y, line->v1->x, line->v1->y);
 	fixed_t speed = line->args[1] << FRACBITS;
 
 	pdd.polyObjNum = line->args[0];
@@ -1366,7 +1366,7 @@ static boolean P_CheckNightsTriggerLine(line_t *triggerline, mobj_t *actor)
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
 			UINT8 lap;
-			if (!playeringame[i] || players[i].spectator)
+			if (!players[i].ingame || players[i].spectator)
 				continue;
 
 			// denightserize: run only if all players are not nights
@@ -1490,7 +1490,7 @@ static boolean P_CheckPlayerRings(line_t *triggerline, mobj_t *actor)
 	{
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i] || players[i].spectator)
+			if (!players[i].ingame || players[i].spectator)
 				continue;
 
 			if (!players[i].mo || ((maptol & TOL_NIGHTS) ? players[i].spheres : players[i].rings) <= 0)
@@ -2754,7 +2754,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 				scroll_t *scroller;
 				thinker_t *th;
 
-				fixed_t length = R_PointToDist2(line->v2->x, line->v2->y, line->v1->x, line->v1->y);
+				fixed_t length = GetDistance2D(line->v2->x, line->v2->y, line->v1->x, line->v1->y);
 				fixed_t speed = line->args[1] << FRACBITS;
 				fixed_t dx = FixedMul(FixedMul(FixedDiv(line->dx, length), speed) >> SCROLL_SHIFT, CARRYFACTOR);
 				fixed_t dy = FixedMul(FixedMul(FixedDiv(line->dy, length), speed) >> SCROLL_SHIFT, CARRYFACTOR);
@@ -3603,7 +3603,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 					UINT8 i;
 					for (i = 0; i < MAXPLAYERS; i++)
 					{
-						if (!playeringame[i])
+						if (!players[i].ingame)
 							continue;
 						P_DoPlayerExit(&players[i], true);
 					}
@@ -3657,7 +3657,7 @@ static void P_ProcessLineSpecial(line_t *line, mobj_t *mo, sector_t *callsec)
 					// Mark all players with the time to exit thingy!
 					for (i = 0; i < MAXPLAYERS; i++)
 					{
-						if (!playeringame[i])
+						if (!players[i].ingame)
 							continue;
 						P_DoPlayerExit(&players[i], true);
 					}
@@ -4345,7 +4345,7 @@ sector_t *P_FindPlayerTrigger(player_t *player, line_t *sourceline)
 
 boolean P_IsPlayerValid(size_t playernum)
 {
-	if (!playeringame[playernum])
+	if (!players[playernum].ingame)
 		return false;
 
 	if (!players[playernum].mo)
@@ -4419,7 +4419,7 @@ static void P_ProcessEggCapsule(player_t *player, sector_t *sector)
 	// Mark all players with the time to exit thingy!
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i])
+		if (!players[i].ingame)
 			continue;
 		P_DoPlayerExit(&players[i], true);
 	}
@@ -4868,9 +4868,8 @@ static void P_ProcessRopeHang(player_t *player, mtag_t sectag)
 	}
 	else
 	{
-		if (P_AproxDistance(P_AproxDistance(player->mo->x-resultlow.x, player->mo->y-resultlow.y),
-				player->mo->z-resultlow.z) < P_AproxDistance(P_AproxDistance(player->mo->x-resulthigh.x,
-					player->mo->y-resulthigh.y), player->mo->z-resulthigh.z))
+		if (GetDistance3D(player->mo->x, player->mo->y, player->mo->z, resultlow.x, resultlow.y, resultlow.z) <
+			GetDistance3D(player->mo->x, player->mo->y, player->mo->z, resulthigh.x, resulthigh.y, resulthigh.z))
 		{
 			// Line between Mid and Low is closer
 			closest = waypointmid;
@@ -7854,7 +7853,7 @@ static void P_SpawnScrollers(void)
 
 			case 510: // plane scroller
 			{
-				fixed_t length = R_PointToDist2(l->v2->x, l->v2->y, l->v1->x, l->v1->y);
+				fixed_t length = GetDistance2D(l->v2->x, l->v2->y, l->v1->x, l->v1->y);
 				fixed_t speed = l->args[3] << FRACBITS;
 				fixed_t dx = FixedMul(FixedDiv(l->dx, length), speed) >> SCROLL_SHIFT;
 				fixed_t dy = FixedMul(FixedDiv(l->dy, length), speed) >> SCROLL_SHIFT;
@@ -8887,7 +8886,7 @@ void T_Pusher(pusher_t *p)
 
 		// Tumbleweeds bounce a bit...
 		if (thing->type == MT_LITTLETUMBLEWEED || thing->type == MT_BIGTUMBLEWEED)
-			thing->momz += P_AproxDistance(xspeed, yspeed) >> 2;
+			thing->momz += GetDistance2D(0, 0, xspeed, yspeed) / 4;
 
 		if (moved)
 		{
@@ -8935,7 +8934,7 @@ static void P_SpawnPushers(void)
 		if (l->special != 541)
 			continue;
 
-		length = R_PointToDist2(l->v2->x, l->v2->y, l->v1->x, l->v1->y);
+		length = GetDistance2D(l->v2->x, l->v2->y, l->v1->x, l->v1->y);
 		hspeed = l->args[1] << FRACBITS;
 		dx = FixedMul(FixedDiv(l->dx, length), hspeed);
 		dy = FixedMul(FixedDiv(l->dy, length), hspeed);

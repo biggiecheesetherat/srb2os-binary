@@ -3,6 +3,7 @@ include(clang-tidy-default)
 add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	comptime.c
 	md5.c
+	lonesha256.c
 	config.h.in
 	string.c
 	d_main.c
@@ -101,6 +102,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	lua_thinkerlib.c
 	lua_maplib.c
 	lua_taglib.c
+	lua_randomlib.c
 	lua_polyobjlib.c
 	lua_blockmaplib.c
 	lua_hudlib.c

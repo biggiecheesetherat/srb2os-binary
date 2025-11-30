@@ -115,7 +115,6 @@ UINT32 demoIdleTime  = 3*TICRATE;
 
 boolean netgame; // only true if packets are broadcast
 boolean multiplayer;
-boolean playeringame[MAXPLAYERS];
 boolean addedtogame;
 player_t players[MAXPLAYERS];
 
@@ -1463,9 +1462,11 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 			P_SetTarget(&newtarget->target, ticcmd_ztargetfocus[forplayer]);
 			newtarget->drawonlyforplayer = player; // Hide it from the other player in splitscreen, and yourself when spectating
 
-			if (player->mo && R_PointToDist2(0, 0,
-				player->mo->x - ticcmd_ztargetfocus[forplayer]->x,
-				player->mo->y - ticcmd_ztargetfocus[forplayer]->y
+			if (player->mo && GetDistance2D(
+				ticcmd_ztargetfocus[forplayer]->x,
+				ticcmd_ztargetfocus[forplayer]->y,
+				player->mo->x,
+				player->mo->y
 			) > 50*player->mo->scale)
 			{
 				INT32 anglediff = R_PointToAngle2(player->mo->x, player->mo->y, ticcmd_ztargetfocus[forplayer]->x, ticcmd_ztargetfocus[forplayer]->y) - *myangle;
@@ -1888,7 +1889,7 @@ void G_DoLoadLevel(boolean resetplayer)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (resetplayer || (playeringame[i] && players[i].playerstate == PST_DEAD))
+		if (resetplayer || (players[i].ingame && players[i].playerstate == PST_DEAD))
 			players[i].playerstate = PST_REBORN;
 	}
 
@@ -2056,7 +2057,7 @@ static boolean ViewpointSwitchResponder(event_t *ev)
 		displayplayer += direction;
 		displayplayer = (displayplayer + MAXPLAYERS) % MAXPLAYERS;
 
-		if (!playeringame[displayplayer])
+		if (!players[displayplayer].ingame)
 			continue;
 
 		// Call ViewpointSwitch hooks here.
@@ -2306,7 +2307,7 @@ void G_Ticker(boolean run)
 	// Bot players queued for removal
 	for (i = MAXPLAYERS-1; i != UINT32_MAX; i--)
 	{
-		if (playeringame[i] && players[i].removing)
+		if (players[i].ingame && players[i].removing)
 		{
 			CL_RemovePlayer(i, i);
 			if (netgame)
@@ -2381,7 +2382,7 @@ void G_Ticker(boolean run)
 		}
 
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] && players[i].playerstate == PST_REBORN)
+			if (players[i].ingame && players[i].playerstate == PST_REBORN)
 				G_DoReborn(i);
 	}
 	P_MapEnd();
@@ -2407,7 +2408,7 @@ void G_Ticker(boolean run)
 #define ISHUMAN (players[i].bot == BOT_NONE || players[i].bot == BOT_2PHUMAN)
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (playeringame[i] && !ISHUMAN) // Less work is required if we're building a bot ticcmd.
+		if (players[i].ingame && !ISHUMAN) // Less work is required if we're building a bot ticcmd.
 		{
 			players[i].lastbuttons = players[i].cmd.buttons; // Save last frame's button readings
 			B_BuildTiccmd(&players[i], &players[i].cmd);
@@ -2420,7 +2421,7 @@ void G_Ticker(boolean run)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (playeringame[i] && ISHUMAN)
+		if (players[i].ingame && ISHUMAN)
 		{
 			players[i].lastbuttons = players[i].cmd.buttons; // Save last frame's button readings
 			G_CopyTiccmd(&players[i].cmd, &netcmds[buf][i], 1);
@@ -2627,6 +2628,7 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	UINT32 availabilities;
 	tic_t jointime;
 	tic_t quittime;
+	boolean pingame;
 	boolean spectator;
 	boolean outofcoop;
 	boolean removing;
@@ -2645,6 +2647,7 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	exiting = players[player].exiting;
 	jointime = players[player].jointime;
 	quittime = players[player].quittime;
+	pingame = players[player].ingame;
 	spectator = players[player].spectator;
 	outofcoop = players[player].outofcoop;
 	removing = players[player].removing;
@@ -2723,6 +2726,7 @@ void G_PlayerReborn(INT32 player, boolean betweenmaps)
 	p->ctfteam = ctfteam;
 	p->jointime = jointime;
 	p->quittime = quittime;
+	p->ingame = pingame;
 	p->spectator = spectator;
 	p->outofcoop = outofcoop;
 	p->removing = removing;
@@ -2841,7 +2845,7 @@ static boolean G_CheckSpot(INT32 playernum, mapthing_t *mthing)
 	{
 		// first spawn of level
 		for (i = 0; i < playernum; i++)
-			if (playeringame[i] && players[i].mo
+			if (players[i].ingame && players[i].mo
 				&& players[i].mo->x == mthing->x << FRACBITS
 				&& players[i].mo->y == mthing->y << FRACBITS)
 			{
@@ -2867,7 +2871,7 @@ static boolean G_CheckSpot(INT32 playernum, mapthing_t *mthing)
 //
 void G_SpawnPlayer(INT32 playernum)
 {
-	if (!playeringame[playernum])
+	if (!players[playernum].ingame)
 		return;
 
 	P_SpawnPlayer(playernum);
@@ -3011,7 +3015,7 @@ mapthing_t *G_FindMapStart(INT32 playernum)
 {
 	mapthing_t *spawnpoint;
 
-	if (!playeringame[playernum])
+	if (!players[playernum].ingame)
 		return NULL;
 
 	// -- Spectators --
@@ -3163,7 +3167,7 @@ void G_DoReborn(INT32 playernum)
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 				if (players[i].exiting || players[i].lives > 0)
 					break;
@@ -3183,7 +3187,7 @@ void G_DoReborn(INT32 playernum)
 
 					for (i = 0; i < MAXPLAYERS; i++)
 					{
-						if (playeringame[i])
+						if (players[i].ingame)
 							players[i].score = 0;
 					}
 
@@ -3199,7 +3203,7 @@ void G_DoReborn(INT32 playernum)
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 
 				if (players[i].playerstate != PST_DEAD && !players[i].spectator && players[i].mo && players[i].mo->health)
@@ -3220,7 +3224,7 @@ void G_DoReborn(INT32 playernum)
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 				players[i].recordscore = 0;
 				players[i].starpostscale = 0;
@@ -3238,7 +3242,7 @@ void G_DoReborn(INT32 playernum)
 
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 				players[i].playerstate = PST_REBORN;
 				P_ClearStarPost(players[i].starpostnum);
@@ -3269,7 +3273,7 @@ void G_DoReborn(INT32 playernum)
 			// Starpost support
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i])
+				if (!players[i].ingame)
 					continue;
 				G_SpawnPlayer(i);
 			}
@@ -3281,7 +3285,7 @@ void G_DoReborn(INT32 playernum)
 				tic_t maxstarposttime = 0;
 				for (i = 0; i < MAXPLAYERS; i++)
 				{
-					if (playeringame[i] && players[i].starposttime > maxstarposttime)
+					if (players[i].ingame && players[i].starposttime > maxstarposttime)
 						maxstarposttime = players[i].starposttime;
 				}
 				leveltime = maxstarposttime;
@@ -3335,7 +3339,7 @@ void G_AddPlayer(INT32 playernum)
 		INT32 i;
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i])
+			if (!players[i].ingame)
 				continue;
 
 			if (players[i].bot == BOT_2PAI || players[i].bot == BOT_2PHUMAN) // ignore dumb, stupid tails
@@ -3379,7 +3383,7 @@ boolean G_EnoughPlayersFinished(void)
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (!playeringame[i] || players[i].spectator || players[i].bot)
+		if (!players[i].ingame || players[i].spectator || players[i].bot)
 			continue;
 		if (players[i].quittime > 30 * TICRATE)
 			continue;
@@ -3921,7 +3925,7 @@ static void G_UpdateVisited(gamedata_t *data, player_t *player, boolean global)
 
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i])
+			if (!players[i].ingame)
 			{
 				continue;
 			}
@@ -4176,7 +4180,7 @@ static void G_DoCompleted(void)
 	wipegamestate = GS_NULL;
 
 	for (i = 0; i < MAXPLAYERS; i++)
-		if (playeringame[i])
+		if (players[i].ingame)
 			G_PlayerFinishLevel(i); // take away cards and stuff
 
 	if (automapactive)
@@ -5016,7 +5020,7 @@ cleanup:
 //
 // G_DeferedInitNew
 // Can be called by the startup code or the menu task,
-// consoleplayer, displayplayer, playeringame[] should be set.
+// consoleplayer, displayplayer, players[].ingame should be set.
 //
 void G_DeferedInitNew(boolean pultmode, const char *mapname, INT32 character, boolean SSSG, boolean FLS)
 {

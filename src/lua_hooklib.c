@@ -510,6 +510,8 @@ static int call_mobj_type_hooks(Hook_State *hook, mobjtype_t mobj_type)
 		|| hook->hook_type == MOBJ_HOOK(MobjThinker    )
 		|| hook->hook_type == MOBJ_HOOK(BossThinker    )
 		|| hook->hook_type == MOBJ_HOOK(MobjMoveBlocked)
+		|| hook->hook_type == MOBJ_HOOK(MobjHitFloor   )
+		|| hook->hook_type == MOBJ_HOOK(MobjHitCeiling )
 		|| hook->hook_type == MOBJ_HOOK(FollowMobj     )
 	))
 		LUA_UsageWarning(L, va(
@@ -896,6 +898,28 @@ int LUA_HookMobjMoveBlocked(mobj_t *t1, mobj_t *t2, line_t *line)
 		LUA_PushUserdata(gL, t2, META_MOBJ);
 		LUA_PushUserdata(gL, line, META_LINE);
 		call_hooks(&hook, 1, res_true);
+	}
+	return hook.status;
+}
+
+int LUA_HookMobjHitFloor(mobj_t *mobj)
+{
+	Hook_State hook;
+	if (prepare_mobj_hook(&hook, 0, MOBJ_HOOK(MobjHitFloor), mobj))
+	{
+		LUA_PushUserdata(gL, mobj, META_MOBJ);
+		call_hooks(&hook, 1, res_force);
+	}
+	return hook.status;
+}
+
+int LUA_HookMobjHitCeiling(mobj_t *mobj)
+{
+	Hook_State hook;
+	if (prepare_mobj_hook(&hook, 0, MOBJ_HOOK(MobjHitCeiling), mobj))
+	{
+		LUA_PushUserdata(gL, mobj, META_MOBJ);
+		call_hooks(&hook, 1, res_force);
 	}
 	return hook.status;
 }

@@ -242,7 +242,7 @@ void P_DoNightsScore(player_t *player)
 	{
 		INT32 i;
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i])
+			if (players[i].ingame)
 			{
 				if (++players[i].linkcount > players[i].maxlink)
 					players[i].maxlink = players[i].linkcount;
@@ -319,7 +319,7 @@ void P_DoMatchSuper(player_t *player)
 	// Check everyone else on your team for emeralds, and turn those helpful assisting players invincible too.
 	if (doteams)
 		for (i = 0; i < MAXPLAYERS; i++)
-			if (playeringame[i] && players[i].ctfteam == player->ctfteam
+			if (players[i].ingame && players[i].ctfteam == player->ctfteam
 			&& players[i].powers[pw_emeralds] != 0)
 			{
 				players[i].powers[pw_emeralds] = 0;
@@ -750,7 +750,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			{
 				for (i = 0; i < MAXPLAYERS; i++)
 				{
-					if (!playeringame[i] || players[i].spectator)
+					if (!players[i].ingame || players[i].spectator)
 						continue;
 					P_DoPlayerExit(&players[i], true);
 				}
@@ -964,7 +964,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 						else // Make sure that SOMEONE has the emerald, at least!
 						{
 							for (i = 0; i < MAXPLAYERS; i++)
-								if (playeringame[i] && players[i].playerstate == PST_LIVE
+								if (players[i].ingame && players[i].playerstate == PST_LIVE
 								&& players[i].mo->tracer
 								&& players[i].mo->tracer->type == MT_GOTEMERALD)
 									return;
@@ -1125,7 +1125,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 				x = (x/count)<<FRACBITS;
 				y = (y/count)<<FRACBITS;
 				z = (z/count)<<FRACBITS;
-				gatherradius = P_AproxDistance(P_AproxDistance(special->x - x, special->y - y), special->z - z);
+				gatherradius = GetDistance3D(x, y, z, special->x, special->y, special->z);
 				P_RemoveMobj(special);
 
 				if (player->powers[pw_nights_superloop])
@@ -1151,7 +1151,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 
 					mo2 = (mobj_t *)th;
 
-					if (P_AproxDistance(P_AproxDistance(mo2->x - x, mo2->y - y), mo2->z - z) > gatherradius)
+					if (GetDistance3D(x, y, z, mo2->x, mo2->y, mo2->z) > gatherradius)
 						continue;
 
 					if (mo2->flags & MF_SHOOTABLE)
@@ -1214,7 +1214,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			if (G_IsSpecialStage(gamemap) && !player->exiting)
 			{ // In special stages, share spheres. Everyone gives up theirs to the player who touched the capsule
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && (&players[i] != player) && players[i].spheres > 0)
+					if (players[i].ingame && (&players[i] != player) && players[i].spheres > 0)
 					{
 						player->spheres += players[i].spheres;
 						players[i].spheres = 0;
@@ -1294,7 +1294,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			else
 			{
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+					if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 						players[i].powers[pw_nights_superloop] = (UINT16)special->info->speed;
 				if (special->info->deathsound != sfx_None)
 					S_StartSoundFromEverywhere(special->info->deathsound);
@@ -1316,7 +1316,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			else
 			{
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+					if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 						players[i].drillmeter = special->info->speed;
 				if (special->info->deathsound != sfx_None)
 					S_StartSoundFromEverywhere(special->info->deathsound);
@@ -1346,7 +1346,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			{
 				mobj_t *flickyobj;
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && players[i].mo && players[i].powers[pw_carry] == CR_NIGHTSMODE) {
+					if (players[i].ingame && players[i].mo && players[i].powers[pw_carry] == CR_NIGHTSMODE) {
 						players[i].powers[pw_nights_helper] = (UINT16)special->info->speed;
 						flickyobj = P_SpawnMobj(players[i].mo->x, players[i].mo->y, players[i].mo->z + players[i].mo->info->height, MT_NIGHTOPIANHELPER);
 						if (!P_MobjWasRemoved(flickyobj))
@@ -1377,7 +1377,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			else
 			{
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && (player->powers[pw_carry] == CR_NIGHTSMODE || (G_IsSpecialStage(gamemap) && !(maptol & TOL_NIGHTS))))
+					if (players[i].ingame && (player->powers[pw_carry] == CR_NIGHTSMODE || (G_IsSpecialStage(gamemap) && !(maptol & TOL_NIGHTS))))
 					{
 						players[i].nightstime += special->info->speed;
 						players[i].startedtime += special->info->speed;
@@ -1407,7 +1407,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			else
 			{
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+					if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 					{
 						players[i].powers[pw_nights_linkfreeze] += (UINT16)special->info->speed;
 						players[i].linktimer = nightslinktics;
@@ -1457,7 +1457,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			if (G_IsSpecialStage(gamemap))
 			{
 				for (i = 0; i < MAXPLAYERS; i++)
-					if (playeringame[i] && players[i].powers[pw_carry] == CR_NIGHTSMODE)
+					if (players[i].ingame && players[i].powers[pw_carry] == CR_NIGHTSMODE)
 						players[i].drillmeter += TICRATE/2;
 			}
 			else if (player->bot && player->bot != BOT_MPAI)
@@ -1573,8 +1573,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 				fixed_t touchx, touchy, touchspeed;
 				angle_t angle;
 
-				if (P_AproxDistance(toucher->x-special->x, toucher->y-special->y) >
-					P_AproxDistance((toucher->x-toucher->momx)-special->x, (toucher->y-toucher->momy)-special->y))
+				if (P_AreMobjsFar2D(toucher, special, GetDistance2D(toucher->x - toucher->momx, toucher->y - toucher->momy, special->x, special->y)))
 				{
 					touchx = toucher->x + toucher->momx;
 					touchy = toucher->y + toucher->momy;
@@ -1586,7 +1585,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 				}
 
 				angle = R_PointToAngle2(special->x, special->y, touchx, touchy);
-				touchspeed = P_AproxDistance(toucher->momx, toucher->momy);
+				touchspeed = P_GetMobjMomentum2D(toucher);
 
 				toucher->momx = P_ReturnThrustX(special, angle, touchspeed);
 				toucher->momy = P_ReturnThrustY(special, angle, touchspeed);
@@ -1632,7 +1631,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 		case MT_EGGSHIELD:
 			{
 				angle_t angle = R_PointToAngle2(special->x, special->y, toucher->x, toucher->y) - special->angle;
-				fixed_t touchspeed = P_AproxDistance(toucher->momx, toucher->momy);
+				fixed_t touchspeed = P_GetMobjMomentum2D(toucher);
 				if (touchspeed < special->scale)
 					touchspeed = special->scale;
 
@@ -1713,7 +1712,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 			{
 				special->momx = toucher->momx;
 				special->momy = toucher->momy;
-				special->momz = P_AproxDistance(toucher->momx, toucher->momy)/4;
+				special->momz = P_GetMobjMomentum2D(toucher)/4;
 
 				if (toucher->momz > 0)
 					special->momz += toucher->momz/8;
@@ -1888,7 +1887,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher, boolean heightcheck)
 
 				toucher->momx = toucher->tracer->momx/2;
 				toucher->momy = toucher->tracer->momy/2;
-				toucher->momz = toucher->tracer->momz + P_AproxDistance(toucher->tracer->momx, toucher->tracer->momy)/2;
+				toucher->momz = toucher->tracer->momz + P_GetMobjMomentum2D(toucher->tracer)/2;
 				P_ResetPlayer(player);
 				player->pflags &= ~PF_APPLYAUTOBRAKE;
 				P_SetMobjState(toucher, S_PLAY_FALL);
@@ -1967,7 +1966,7 @@ void P_TouchStarPost(mobj_t *post, player_t *player, boolean snaptopost)
 	{
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (playeringame[i])
+			if (players[i].ingame)
 			{
 				if (players[i].bot) // ignore dumb, stupid tails
 					continue;
@@ -2271,7 +2270,7 @@ void P_CheckTimeLimit(void)
 		{
 			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				if (!playeringame[i] || players[i].spectator
+				if (!players[i].ingame || players[i].spectator
 				 || (players[i].pflags & PF_GAMETYPEOVER) || (players[i].pflags & PF_TAGIT))
 					continue;
 
@@ -2295,7 +2294,7 @@ void P_CheckTimeLimit(void)
 		//Figure out if we have enough participating players to care.
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (playeringame[i] && players[i].spectator)
+			if (players[i].ingame && players[i].spectator)
 				spectators++;
 		}
 
@@ -2311,7 +2310,7 @@ void P_CheckTimeLimit(void)
 				//Store the nodes of participating players in an array.
 				for (i = 0; i < MAXPLAYERS; i++)
 				{
-					if (playeringame[i] && !players[i].spectator)
+					if (players[i].ingame && !players[i].spectator)
 					{
 						playerarray[playercount] = i;
 						playercount++;
@@ -2384,7 +2383,7 @@ void P_CheckPointLimit(void)
 	{
 		for (i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!playeringame[i] || players[i].spectator)
+			if (!players[i].ingame || players[i].spectator)
 				continue;
 
 			if ((UINT32)cv_pointlimit.value <= players[i].score)
@@ -2413,7 +2412,7 @@ void P_CheckSurvivors(void)
 
 	for (i=0; i < MAXPLAYERS; i++) //figure out counts of taggers, survivors and spectators.
 	{
-		if (playeringame[i])
+		if (players[i].ingame)
 		{
 			if (players[i].spectator)
 				spectators++;
@@ -2490,7 +2489,7 @@ boolean P_CheckRacers(void)
 	// Check if all the players in the race have finished. If so, end the level.
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
-		if (playeringame[i] && !players[i].exiting && players[i].lives > 0)
+		if (players[i].ingame && !players[i].exiting && players[i].lives > 0)
 			break;
 	}
 
@@ -2703,7 +2702,7 @@ void P_KillMobj(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 damaget
 					INT32 i;
 					for (i = 0; i < MAXPLAYERS; i++)
 					{
-						if (!playeringame[i])
+						if (!players[i].ingame)
 							continue;
 
 						if (players[i].lives > 0)
@@ -2800,7 +2799,7 @@ void P_KillMobj(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 damaget
 
 		case MT_BUGGLE:
 			if (inflictor && inflictor->player // did a player kill you? Spawn relative to the player so they're bound to get it
-			&& P_AproxDistance(inflictor->x - target->x, inflictor->y - target->y) <= inflictor->radius + target->radius + FixedMul(8*FRACUNIT, inflictor->scale) // close enough?
+			&& P_AreMobjsClose2D(inflictor, target, inflictor->radius + target->radius + FixedMul(8*FRACUNIT, inflictor->scale)) // close enough?
 			&& inflictor->z <= target->z + target->height + FixedMul(8*FRACUNIT, inflictor->scale)
 			&& inflictor->z + inflictor->height >= target->z - FixedMul(8*FRACUNIT, inflictor->scale))
 				mo = P_SpawnMobj(inflictor->x + inflictor->momx, inflictor->y + inflictor->momy, inflictor->z + (inflictor->height / 2) + inflictor->momz, MT_EXTRALARGEBUBBLE);
@@ -2903,7 +2902,7 @@ void P_KillMobj(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 damaget
 			if (inflictor)
 			{
 				fixed_t dx = target->x - inflictor->x, dy = target->y - inflictor->y, dz = target->z - inflictor->z;
-				fixed_t dm = FixedHypot(dz, FixedHypot(dy, dx));
+				fixed_t dm = GetDistance3D(0, 0, 0, dy, dx, dz);
 				target->momx = FixedDiv(FixedDiv(dx, dm), dm)*512;
 				target->momy = FixedDiv(FixedDiv(dy, dm), dm)*512;
 				target->momz = FixedDiv(FixedDiv(dz, dm), dm)*512;
@@ -3462,7 +3461,7 @@ static void P_SuperDamage(player_t *player, mobj_t *inflictor, mobj_t *source, I
 	// to recover
 	if (inflictor->flags2 & MF2_SCATTER && source)
 	{
-		fixed_t dist = P_AproxDistance(P_AproxDistance(source->x-player->mo->x, source->y-player->mo->y), source->z-player->mo->z);
+		fixed_t dist = P_GetMobjDistance3D(source, player->mo);
 
 		dist = FixedMul(128*FRACUNIT, inflictor->scale) - dist/4;
 

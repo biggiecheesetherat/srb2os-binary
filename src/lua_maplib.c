@@ -55,7 +55,7 @@ enum sector_e {
 	sector_tag,
 	sector_taglist,
 	sector_thinglist,
-	sector_touching_thinglist,
+	sector_mobjs,
 	sector_heightsec,
 	sector_camsec,
 	sector_lines,
@@ -100,7 +100,7 @@ static const char *const sector_opt[] = {
 	"tag",
 	"taglist",
 	"thinglist",
-	"touching_thinglist",
+	"mobjs",
 	"heightsec",
 	"camsec",
 	"lines",
@@ -447,14 +447,14 @@ static int lib_iterateSectorThinglist(lua_State *L)
 }
 
 // iterates through a sector's 'touching' thinglist!
-static int lib_iterateSectorTouchingThinglist(lua_State *L)
+static int lib_iterateSectorMobjs(lua_State *L)
 {
 	mobj_t *state = NULL;
 	mobj_t *thing = NULL;
 	INLEVEL
 
 	if (lua_gettop(L) < 2)
-		return luaL_error(L, "Don't call sector.touching_thinglist() directly, use it as 'for rover in sector.touching_thinglist do <block> end'.");
+		return luaL_error(L, "Don't call sector.mobjs() directly, use it as 'for rover in sector.mobjs do <block> end'.");
 
 	msecnode_t *node = (msecnode_t *)lua_touserdata(L, lua_upvalueindex(1));
 	if (node == NULL)
@@ -469,7 +469,7 @@ static int lib_iterateSectorTouchingThinglist(lua_State *L)
 	{
 		thing = *((mobj_t **)luaL_checkudata(L, 1, META_MOBJ));
 		if (P_MobjWasRemoved(thing))
-			return luaL_error(L, "current entry in touching_thinglist was removed; avoid calling P_RemoveMobj on entries!");
+			return luaL_error(L, "current entry in mobj list was removed; avoid calling P_RemoveMobj on entries!");
 		thing = node->m_thing;
 	}
 	else
@@ -823,11 +823,11 @@ static int sector_get(lua_State *L)
 		LUA_PushUserdata(L, sector->thinglist, META_MOBJ);
 		lua_pushcclosure(L, sector_iterate, 2); // push lib_iterateSectorThinglist and sector->thinglist as upvalues for the function
 		return 1;
-	case sector_touching_thinglist: // touching_thinglist
+	case sector_mobjs: // touching_thinglist
 		lua_pushlightuserdata(gL, sector->touching_thinglist);
-		lua_pushcclosure(L, lib_iterateSectorTouchingThinglist, 1);
+		lua_pushcclosure(L, lib_iterateSectorMobjs, 1);
 		LUA_PushUserdata(L, sector->touching_thinglist ? sector->touching_thinglist->m_thing : NULL, META_MOBJ);
-		lua_pushcclosure(L, sector_iterate, 2); // push lib_iterateSectorThinglist and sector->thinglist as upvalues for the function
+		lua_pushcclosure(L, sector_iterate, 2);
 		return 1;
 	case sector_heightsec: // heightsec - fake floor heights
 		if (sector->heightsec < 0)

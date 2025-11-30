@@ -47,7 +47,7 @@ enum mobj_e {
 	mobj_floorspriteslope,
 	mobj_drawonlyforplayer,
 	mobj_dontdrawforviewmobj,
-	mobj_touching_sectorlist,
+	mobj_sectors,
 	mobj_subsector,
 	mobj_floorz,
 	mobj_ceilingz,
@@ -129,7 +129,7 @@ static const char *const mobj_opt[] = {
 	"floorspriteslope",
 	"drawonlyforplayer",
 	"dontdrawforviewmobj",
-	"touching_sectorlist",
+	"sectors",
 	"subsector",
 	"floorz",
 	"ceilingz",
@@ -191,14 +191,14 @@ static const char *const mobj_opt[] = {
 #define UNIMPLEMENTED luaL_error(L, LUA_QL("mobj_t") " field " LUA_QS " is not implemented for Lua and cannot be accessed.", mobj_opt[field])
 
 // iterates through a mobj's 'touching' sectorlist!
-static int lib_iterateTouchingSectorlist(lua_State *L)
+static int lib_iterateMobjSectors(lua_State *L)
 {
 	sector_t *state = NULL;
 	sector_t *sec = NULL;
 	INLEVEL
 
 	if (lua_gettop(L) < 2)
-		return luaL_error(L, "Don't call mo.touching_sectorlist() directly, use it as 'for rover in mo.touching_sectorlist do <block> end'.");
+		return luaL_error(L, "Don't call mobj.sectors() directly, use it as 'for rover in mobj.sectors do <block> end'.");
 
 	msecnode_t *node = (msecnode_t *)lua_touserdata(L, lua_upvalueindex(1));
 	if (node == NULL)
@@ -329,9 +329,9 @@ static int mobj_get(lua_State *L)
 		}
 		LUA_PushUserdata(L, mo->dontdrawforviewmobj, META_MOBJ);
 		break;
-	case mobj_touching_sectorlist:
+	case mobj_sectors:
 		lua_pushlightuserdata(gL, mo->touching_sectorlist);
-		lua_pushcclosure(L, lib_iterateTouchingSectorlist, 1);
+		lua_pushcclosure(L, lib_iterateMobjSectors, 1);
 		LUA_PushUserdata(L, mo->touching_sectorlist ? mo->touching_sectorlist->m_sector : NULL, META_SECTOR);
 		lua_pushcclosure(L, mobj_iterate, 2);
 		return 1;
@@ -657,7 +657,7 @@ static int mobj_set(lua_State *L)
 			P_SetTarget(&mo->dontdrawforviewmobj, dontdrawforviewmobj);
 		}
 		break;
-	case mobj_touching_sectorlist:
+	case mobj_sectors:
 		return NOSETPOS;
 	case mobj_subsector:
 		return NOSETPOS;

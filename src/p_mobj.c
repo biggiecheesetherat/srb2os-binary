@@ -6336,6 +6336,8 @@ void P_SetScale(mobj_t *mobj, fixed_t newscale, boolean instant)
 	if (!mobj)
 		return;
 
+	P_UnsetBlockmapEntry(mobj);
+
 	if (mobj->player)
 	{
 		G_GhostAddScale(newscale);
@@ -6349,6 +6351,7 @@ void P_SetScale(mobj_t *mobj, fixed_t newscale, boolean instant)
 	mobj->scale = newscale;
 	if (instant)
 		mobj->destscale = mobj->old_scale = newscale;
+	P_SetBlockmapEntry(mobj);
 }
 
 void P_Attract(mobj_t *source, mobj_t *dest, boolean nightsgrab) // Home in on your target

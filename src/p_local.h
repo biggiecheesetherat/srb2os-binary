@@ -414,6 +414,8 @@ extern msecnode_t *sector_list;
 
 extern mprecipsecnode_t *precipsector_list;
 
+void P_UnsetBlockmapEntry(mobj_t *thing);
+void P_SetBlockmapEntry(mobj_t *thing);
 void P_UnsetThingPosition(mobj_t *thing);
 void P_SetThingPosition(mobj_t *thing);
 void P_SetUnderlayPosition(mobj_t *thing);

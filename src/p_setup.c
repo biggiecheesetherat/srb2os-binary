@@ -8155,8 +8155,7 @@ boolean P_LoadLevel(boolean fromnetsave, boolean reloadinggamestate)
 		R_PrecacheLevel();
 
 	nextmapoverride = 0;
-	keepcutscene = false;
-	skipstats = 0;
+	mapexitflags = 0;
 
 	levelloading = false;
 

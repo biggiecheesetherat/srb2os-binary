@@ -49,6 +49,7 @@
 #include "f_finale.h"
 #include "lua_hook.h"
 #include "lua_libs.h"
+#include "lua_hud.h"
 
 #ifdef HWRENDER
 #include "hardware/hw_main.h"
@@ -3646,7 +3647,7 @@ void M_Drawer(void)
 	}
 
 	// focus lost notification goes on top of everything, even the former everything
-	if (window_notinfocus && cv_showfocuslost.value)
+	if (window_notinfocus && cv_showfocuslost.value && LUA_HudEnabled(hud_pause))
 	{
 		M_DrawTextBox((BASEVIDWIDTH/2) - (60), (BASEVIDHEIGHT/2) - (16), 13, 2);
 		if (gamestate == GS_LEVEL && (P_AutoPause() || paused))

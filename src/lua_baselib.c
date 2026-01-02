@@ -2462,8 +2462,7 @@ static int lib_pPlayRinglossSound(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
-	if (!player || P_IsLocalPlayer(player))
-		P_PlayRinglossSound(source);
+	P_PlayRinglossSound(source, player);
 	return 0;
 }
 
@@ -2481,8 +2480,7 @@ static int lib_pPlayDeathSound(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
-	if (!player || P_IsLocalPlayer(player))
-		P_PlayDeathSound(source);
+	P_PlayDeathSound(source, player);
 	return 0;
 }
 
@@ -2500,8 +2498,7 @@ static int lib_pPlayVictorySound(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
-	if (!player || P_IsLocalPlayer(player))
-		P_PlayVictorySound(source);
+	P_PlayVictorySound(source, player);
 	return 0;
 }
 

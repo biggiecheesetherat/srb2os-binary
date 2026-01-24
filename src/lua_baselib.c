@@ -4703,9 +4703,7 @@ static int lib_gSetCustomExitVars(lua_State *L)
 			}
 			nextmapoverride = mapnum;
 		}
-		
-		nextmapoverride = (INT16)luaL_optinteger(L, 1, 0);
-		
+
 		int options = luaL_optinteger(L, 2, 0);
 
 		if (options > 0)
@@ -4741,9 +4739,21 @@ static int lib_gSetNextLevel(lua_State * L)
 
 	if (n >= 1)
 	{
-		mapexitflags =		(UINT8)luaL_optinteger(L, 1, 0);
-		nextmapoverride =	(INT16)luaL_optinteger(L, 2, 0);
-		nextgametype =		(INT16)luaL_optinteger(L, 3, -1);
+		mapexitflags =        (UINT8)luaL_optinteger(L, 1, 0);
+		if (!lua_isnoneornil(L, 2))
+		{
+			INT16 mapnum = GetNextMapNameOrNumber(L, 2);
+			if (mapnum < 1 || (mapnum > numgamemaps && !G_IsGameEndMap(mapnum)))
+			{
+				return luaL_error(L,
+						"map number %d out of range (1 - %d)",
+						mapnum,
+						numgamemaps
+				);
+			}
+			nextmapoverride = mapnum;
+		}
+		nextgametype =        (INT16)luaL_optinteger(L, 3, -1);
 	}
 
 	return 0;

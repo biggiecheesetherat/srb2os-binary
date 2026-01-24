@@ -35,6 +35,9 @@ extern boolean ignoregameinputs;
 #define META_PIVOTLIST "SPRITEFRAMEPIVOT_T[]"
 #define META_FRAMEPIVOT "SPRITEFRAMEPIVOT_T*"
 
+#define META_EMBLEM "EMBLEM_T*"
+#define META_EXTRAEMBLEM "EXTRAEMBLEM_T*"
+
 #define META_TAGLIST "TAGLIST"
 
 #define META_MOBJ "MOBJ_T*"
@@ -121,6 +124,7 @@ int LUA_TagLib(lua_State *L);
 int LUA_PolyObjLib(lua_State *L);
 int LUA_BlockmapLib(lua_State *L);
 int LUA_HudLib(lua_State *L);
+int LUA_RandomLib(lua_State* L);
 int LUA_ColorLib(lua_State *L);
 int LUA_InputLib(lua_State *L);
 int LUA_InterceptLib(lua_State *L);

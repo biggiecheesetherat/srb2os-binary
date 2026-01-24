@@ -416,12 +416,15 @@ static int lib_mMapNumber(lua_State *L)
 	return 1;
 }
 
+// TODO: 2.3: Consider removing in favor of random library
+
 // M_RANDOM
 //////////////
 
 static int lib_pRandomFixed(lua_State *L)
 {
 	NOHUD
+	LUA_Deprecated(L, "P_RandomFixed", "random.fixed")
 	lua_pushfixed(L, P_RandomFixed());
 	return 1;
 }
@@ -429,6 +432,7 @@ static int lib_pRandomFixed(lua_State *L)
 static int lib_pRandomByte(lua_State *L)
 {
 	NOHUD
+	LUA_Deprecated(L, "P_RandomByte", "random.byte")
 	lua_pushinteger(L, P_RandomByte());
 	return 1;
 }
@@ -438,6 +442,7 @@ static int lib_pRandomKey(lua_State *L)
 	INT32 a = (INT32)luaL_checkinteger(L, 1);
 
 	NOHUD
+	LUA_Deprecated(L, "P_RandomKey", "random.key")
 	if (a > 65536)
 		LUA_UsageWarning(L, "P_RandomKey: range > 65536 is undefined behavior");
 	lua_pushinteger(L, P_RandomKey(a));
@@ -450,6 +455,7 @@ static int lib_pRandomRange(lua_State *L)
 	INT32 b = (INT32)luaL_checkinteger(L, 2);
 
 	NOHUD
+	LUA_Deprecated(L, "P_RandomRange", "random.range")
 	if (b < a) {
 		INT32 c = a;
 		a = b;
@@ -465,6 +471,7 @@ static int lib_pRandomRange(lua_State *L)
 static int lib_pSignedRandom(lua_State *L)
 {
 	NOHUD
+	LUA_Deprecated(L, "P_SignedRandom", "random.signed")
 	lua_pushinteger(L, P_SignedRandom());
 	return 1;
 }
@@ -473,6 +480,7 @@ static int lib_pRandomChance(lua_State *L)
 {
 	fixed_t p = luaL_checkfixed(L, 1);
 	NOHUD
+	LUA_Deprecated(L, "P_RandomChance", "random.chance")
 	lua_pushboolean(L, P_RandomChance(p));
 	return 1;
 }
@@ -1129,8 +1137,9 @@ static int lib_pRingZMovement(lua_State *L)
 	INLEVEL
 	if (!actor)
 		return LUA_ErrInvalid(L, "mobj_t");
-	P_RingZMovement(actor);
-	P_CheckPosition(actor, actor->x, actor->y);
+	lua_pushboolean(L, P_RingZMovement(actor));
+	if (!P_MobjWasRemoved(actor))
+		P_CheckPosition(actor, actor->x, actor->y);
 	P_SetTarget(&tmthing, ptmthing);
 	return 0;
 }
@@ -2452,8 +2461,7 @@ static int lib_pPlayRinglossSound(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
-	if (!player || P_IsLocalPlayer(player))
-		P_PlayRinglossSound(source);
+	P_PlayRinglossSound(source, player);
 	return 0;
 }
 
@@ -2471,8 +2479,7 @@ static int lib_pPlayDeathSound(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
-	if (!player || P_IsLocalPlayer(player))
-		P_PlayDeathSound(source);
+	P_PlayDeathSound(source, player);
 	return 0;
 }
 
@@ -2490,8 +2497,7 @@ static int lib_pPlayVictorySound(lua_State *L)
 		if (!player)
 			return LUA_ErrInvalid(L, "player_t");
 	}
-	if (!player || P_IsLocalPlayer(player))
-		P_PlayVictorySound(source);
+	P_PlayVictorySound(source, player);
 	return 0;
 }
 
@@ -4246,7 +4252,7 @@ static int lib_gUnlockCondition(lua_State* L)
 	int id = luaL_checkinteger(L, 1) - 1;
 	boolean global = luaL_checkboolean(L, 2);
 
-	if (id <= 0 || id > MAXLUACONDITIONS)
+	if (id < 0 || id >= MAXLUACONDITIONS)
 	{
 		luaL_error(L, "Lua condition %d out of range (1 - %d)", id + 1, MAXLUACONDITIONS);
 		return 0;
@@ -4662,11 +4668,13 @@ static int lib_gDoReborn(lua_State *L)
 
 // Another Lua function that doesn't actually exist!
 // Sets nextmapoverride, skipstats and nextgametype without instantly ending the level, for instances where other sources should be exiting the level, like normal signposts.
+// TODO: 2.3: Delete
 static int lib_gSetCustomExitVars(lua_State *L)
 {
 	int n = lua_gettop(L); // Num arguments
 	NOHUD
 	INLEVEL
+	LUA_Deprecated(L, "G_SetCustomExitVars", "G_SetNextLevel")
 
 	// LUA EXTENSION: Custom exit like support
 	// Supported:
@@ -4675,12 +4683,10 @@ static int lib_gSetCustomExitVars(lua_State *L)
 	//	G_SetCustomExitVars(nil, int)			[skipstats only]
 	//	G_SetCustomExitVars(int, int)			[both of the above]
 	//	G_SetCustomExitVars(int, int, int)		[nextmapoverride, skipstats and nextgametype]
-	//	G_SetCustomExitVars(int, int, int, int) [nextmapoverride, skipstats, nextgametype and keepcutscenes]
 
+	mapexitflags = 0;
 	nextmapoverride = 0;
-	skipstats = 0;
 	nextgametype = -1;
-	keepcutscene = false;
 
 	if (n >= 1)
 	{
@@ -4697,11 +4703,47 @@ static int lib_gSetCustomExitVars(lua_State *L)
 			}
 			nextmapoverride = mapnum;
 		}
-		skipstats = (INT16)luaL_optinteger(L, 2, 0);
-		nextgametype = (INT16)luaL_optinteger(L, 3, -1);
 		
-		if (!lua_isnoneornil(L, 4))
-			keepcutscene = luaL_checkboolean(L, 4);
+		nextmapoverride = (INT16)luaL_optinteger(L, 1, 0);
+		
+		int options = luaL_optinteger(L, 2, 0);
+
+		if (options > 0)
+			mapexitflags |= EXITMAP_SKIPSTATS;
+
+		if (options > 1)
+			mapexitflags |= EXITMAP_SKIPCUTSCENE;
+
+		nextgametype = (INT16)luaL_optinteger(L, 3, -1);
+	}
+
+	return 0;
+}
+
+// Another Lua function that doesn't actually exist!
+// Sets mapexitflags, nextmapoverride and nextgametype without instantly ending the level, for instances where other sources should be exiting the level, like normal signposts.
+static int lib_gSetNextLevel(lua_State * L)
+{
+	int n = lua_gettop(L); // Num arguments
+	NOHUD
+	INLEVEL
+
+	// Supported:
+	//	G_SetNextLevel();				[reset to defaults]
+	//	G_SetNextLevel(int)				[sets mapexitflags]
+	//	G_SetNextLevel(nil, int)		[nextmap override only]
+	//	G_SetNextLevel(int, int)		[both of the above]
+	//	G_SetNextLevel(int, int, int)	[mapexitflags, nextmapoverride and nextgametype]
+
+	mapexitflags = 0;
+	nextmapoverride = 0;
+	nextgametype = -1;
+
+	if (n >= 1)
+	{
+		mapexitflags =		(UINT8)luaL_optinteger(L, 1, 0);
+		nextmapoverride =	(INT16)luaL_optinteger(L, 2, 0);
+		nextgametype =		(INT16)luaL_optinteger(L, 3, -1);
 	}
 
 	return 0;
@@ -4714,10 +4756,12 @@ static int lib_gEnoughPlayersFinished(lua_State *L)
 	return 1;
 }
 
+// TODO: 2.3: Make it use lib_gSetNextLevel instead
 static int lib_gExitLevel(lua_State *L)
 {
 	int n = lua_gettop(L); // Num arguments
 	NOHUD
+	INLEVEL
 	// Moved this bit to G_SetCustomExitVars
 	if (n >= 1) // Don't run the reset to defaults option
 		lib_gSetCustomExitVars(L);
@@ -4894,6 +4938,8 @@ static luaL_Reg lib[] = {
 	// m_misc
 	{"M_MapNumber",lib_mMapNumber},
 
+	// TODO: 2.3
+	// Consider removing in favor of random library
 	// m_random
 	{"P_RandomFixed",lib_pRandomFixed},
 	{"P_RandomByte",lib_pRandomByte},
@@ -5180,8 +5226,9 @@ static luaL_Reg lib[] = {
 	{"G_GetMapThumbnail",lib_gGetMapThumbnail},
 	{"G_GetMapThumbnailWide",lib_gGetMapThumbnailWide},
 	{"G_DoReborn",lib_gDoReborn},
-	{"G_SetCustomExitVars",lib_gSetCustomExitVars},
+	{"G_SetCustomExitVars",lib_gSetCustomExitVars}, // TODO: 2.3: Delete
 	{"G_EnoughPlayersFinished",lib_gEnoughPlayersFinished},
+	{"G_SetNextLevel",lib_gSetNextLevel},
 	{"G_ExitLevel",lib_gExitLevel},
 	{"G_IsSpecialStage",lib_gIsSpecialStage},
 	{"G_GametypeUsesLives",lib_gGametypeUsesLives},

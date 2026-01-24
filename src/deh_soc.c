@@ -3664,6 +3664,17 @@ void readmaincfg(MYFILE *f)
 			word2 = tmp += 2;
 			strupr(word2);
 
+			{ /* Removing spaces from the end of word2 */
+				int wlen = strlen(word2); // Change tmp to word2 length
+				int index = 0; // word2 index
+				for (int i = 0; i < wlen; i++){
+					if (!isspace((unsigned char)word2[i])) {
+						index = i;
+					}
+				}
+				word2[(unsigned int)index + 1] = '\0'; // null terminator after finishing
+			}
+
 			value = atoi(word2); // used for numerical settings
 
 			if (fastcmp(word, "EXECCFG"))

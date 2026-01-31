@@ -99,8 +99,15 @@ static void P_SetupStateAnimation(mobj_t *mobj, state_t *st)
 
 	if (mobj->animator.animation)
 	{
-		P_SetMobjAnimation(mobj, mobj->animator.animation, P_GetNamedSubanimationID(mobj->animator.animation, st->anim_entry), st->frame & FF_FRAMEMASK);
-		return;
+		if (st->anim_entry)
+		{
+			P_SetMobjAnimation(mobj, mobj->animator.animation, P_GetNamedSubanimationID(mobj->animator.animation, st->anim_entry), st->frame & FF_FRAMEMASK);
+			return;
+		}
+		else
+		{
+			P_SetMobjAnimation(mobj, 0, 0, 0);
+		}
 	}
 
 	if (!(st->frame & FF_ANIMATE))

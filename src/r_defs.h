@@ -560,6 +560,8 @@ typedef struct sector_s
 	// portals
 	UINT32 portal_floor;
 	UINT32 portal_ceiling;
+
+	struct customargs_s* customargs;
 } sector_t;
 
 //
@@ -636,6 +638,7 @@ typedef struct line_s
 	UINT32 secportal; // transferred sector portal
 
 	struct pslope_s *midtexslope;
+	struct customargs_s *customargs;
 } line_t;
 
 // Don't make available to Lua or I will find where you live
@@ -707,6 +710,7 @@ typedef struct side_s
 	INT16 repeatcnt; // # of times to repeat midtexture
 
 	extracolormap_t *colormap_data; // storage for colormaps; not applied to sectors.
+	struct customargs_s* customargs;
 } side_t;
 
 //
@@ -836,7 +840,7 @@ typedef struct
 
 	// If NF_SUBSECTOR its a subsector.
 	UINT16 children[2];
-} node_t;
+} bspnode_t;
 
 #if defined(_MSC_VER)
 #pragma pack(1)

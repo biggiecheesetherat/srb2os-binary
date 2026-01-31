@@ -2407,8 +2407,9 @@ void G_DoPlayDemo(char *defdemoname)
 
 	LUA_HookInt(gamemap, HOOK(MapChange));
 	displayplayer = consoleplayer = 0;
-	memset(playeringame,0,sizeof(playeringame));
-	playeringame[0] = true;
+	for (i = 0; i < MAXPLAYERS; i++)
+		players[i].ingame = false;
+	players[0].ingame = true;
 	P_SetRandSeed(randseed);
 	G_InitNew(false, G_BuildMapName(gamemap), true, true, false);
 
@@ -2879,13 +2880,7 @@ void G_DoneLevelLoad(void)
 static void WriteDemoChecksum(void)
 {
 	UINT8 *p = demobuffer+16; // checksum position
-#ifdef NOMD5
-	UINT8 i;
-	for (i = 0; i < 16; i++, p++)
-		*p = P_RandomByte(); // This MD5 was chosen by fair dice roll and most likely < 50% correct.
-#else
 	md5_buffer((char *)p+16, demo_p - (p+16), p); // make a checksum of everything after the checksum in the file.
-#endif
 }
 
 // Stops recording a demo.

@@ -70,8 +70,6 @@ extern "C" {
 
 FILE *fopenfile(const char*, const char*);
 
-//#define NOMD5
-
 // If you don't disable ALL debug first, you get ALL debug enabled
 #if !defined (NDEBUG)
 #ifndef PACKETDROP
@@ -685,13 +683,6 @@ extern int
 ///	Shuffle's incomplete OpenGL sorting code.
 #define SHUFFLE // This has nothing to do with sorting, why was it disabled?
 
-///	Allow the use of the SOC RESETINFO command.
-///	\note	Builds that are tight on memory should disable this.
-///	    	This stops the game from storing backups of the states, sprites, and mobjinfo tables.
-///	    	Though this info is compressed under normal circumstances, it's still a lot of extra
-///	    	memory that never gets touched.
-#define ALLOW_RESETDATA
-
 /// Experimental tweaks to analog mode. (Needs a lot of work before it's ready for primetime.)
 //#define REDSANALOG
 
@@ -717,7 +708,7 @@ extern int
 /// Maintain compatibility with older 2.2 demos
 #define OLD22DEMOCOMPAT
 
-#ifdef HAVE_CURL
+#if defined (HAVE_CURL) && !(defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__))
 #define MASTERSERVER
 #else
 #undef UPDATE_ALERT

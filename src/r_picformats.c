@@ -2,8 +2,9 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 2005-2009 by Andrey "entryway" Budko.
-// Copyright (C) 2018-2024 by Lactozilla.
-// Copyright (C) 2019-2024 by Sonic Team Junior.
+// Copyright (C) 2024 by Kart Krew.
+// Copyright (C) 2018-2025 by Lactozilla.
+// Copyright (C) 2019-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -87,7 +88,12 @@ void *Picture_Convert(
 	(void)insize;
 
 	if (Picture_IsPatchFormat(outformat))
-		return Picture_PatchConvert(informat, picture, outformat, outsize, inwidth, inheight, inleftoffset, intopoffset, flags);
+	{
+		void *converted = Picture_PatchConvert(informat, insize, picture, outformat, outsize, inwidth, inheight, inleftoffset, intopoffset, flags);
+		if (converted == NULL)
+			I_Error("Picture_Convert: conversion to patch did not result in a valid graphic");
+		return converted;
+	}
 	else if (Picture_IsFlatFormat(outformat))
 		return Picture_FlatConvert(informat, picture, outformat, outsize, inwidth, intopoffset, flags);
 	else
@@ -235,8 +241,8 @@ static void *WritePatchPixel_i8o8(void *ptr, void *input)
   * \return A pointer to the converted picture.
   */
 void *Picture_PatchConvert(
-	pictureformat_t informat, void *picture, pictureformat_t outformat,
-	size_t *outsize,
+	pictureformat_t informat, size_t insize, void *picture,
+	pictureformat_t outformat, size_t *outsize,
 	INT32 inwidth, INT32 inheight, INT32 inleftoffset, INT32 intopoffset,
 	pictureflags_t flags)
 {
@@ -245,7 +251,7 @@ void *Picture_PatchConvert(
 	{
 		if (outsize != NULL)
 			*outsize = sizeof(patch_t);
-		return Patch_CreateFromDoomPatch(picture);
+		return Patch_CreateFromDoomPatch(picture, insize);
 	}
 
 	INT32 outbpp = Picture_FormatBPP(outformat);
@@ -799,47 +805,44 @@ boolean Picture_IsFlatFormat(pictureformat_t format)
 }
 
 /** Returns true if the lump is a valid Doom patch.
-  * PICFMT_DOOMPATCH only.
   *
   * \param patch Input patch.
   * \param picture Input patch size.
-  * \return True if the input patch is valid.
+  * \return True if the input patch is valid, false if not.
   */
 boolean Picture_CheckIfDoomPatch(softwarepatch_t *patch, size_t size)
 {
-	INT16 width, height;
-	boolean result;
-
-	// minimum length of a valid Doom patch
-	if (size < 13)
+	// Does not meet minimum size requirements
+	if (size < MIN_PATCH_LUMP_SIZE)
 		return false;
 
-	width = SHORT(patch->width);
-	height = SHORT(patch->height);
-	result = (height > 0 && height <= 16384 && width > 0 && width <= 16384);
+	INT16 width = SHORT(patch->width);
+	INT16 height = SHORT(patch->height);
 
-	if (result)
+	// Quickly check for the dimensions first.
+	if (width <= 0 || height <= 0 || width > MAX_PATCH_DIMENSIONS || height > MAX_PATCH_DIMENSIONS)
+		return false;
+
+	// Lump size makes no sense given the width
+	if (!VALID_PATCH_LUMP_SIZE(size, width))
+		return false;
+
+	// The dimensions seem like they might be valid for a patch, so
+	// check the column directory for extra security. All columns
+	// must begin after the column directory, and none of them must
+	// point past the end of the patch.
+	for (INT16 x = 0; x < width; x++)
 	{
-		// The dimensions seem like they might be valid for a patch, so
-		// check the column directory for extra security. All columns
-		// must begin after the column directory, and none of them must
-		// point past the end of the patch.
-		INT16 x;
+		UINT32 ofs = LONG(patch->columnofs[x]);
 
-		for (x = 0; x < width; x++)
+		// Need one byte for an empty column (but there's patches that don't know that!)
+		if (ofs < FIRST_PATCH_LUMP_COLUMN(width) || (size_t)ofs >= size)
 		{
-			UINT32 ofs = LONG(patch->columnofs[x]);
-
-			// Need one byte for an empty column (but there's patches that don't know that!)
-			if (ofs < (UINT32)width * 4 + 8 || ofs >= (UINT32)size)
-			{
-				result = false;
-				break;
-			}
+			return false;
 		}
 	}
 
-	return result;
+	return true;
 }
 
 /** Converts a texture to a flat.
@@ -901,12 +904,13 @@ void *Picture_TextureToFlat(size_t texnum)
   */
 boolean Picture_IsLumpPNG(const UINT8 *d, size_t s)
 {
-	if (s < 67) // https://web.archive.org/web/20230524232139/http://garethrees.org/2007/11/14/pngcrush/
+	if (s < PNG_MIN_SIZE)
 		return false;
+
 	// Check for PNG file signature using memcmp
 	// As it may be faster on CPUs with slow unaligned memory access
 	// Ref: http://www.libpng.org/pub/png/spec/1.2/PNG-Rationale.html#R.PNG-file-signature
-	return (memcmp(&d[0], "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a", 8) == 0);
+	return (memcmp(&d[0], "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a", PNG_HEADER_SIZE) == 0);
 }
 
 #ifndef NO_PNG_LUMPS
@@ -1373,7 +1377,9 @@ void *Picture_PNGConvert(
 		}
 
 		// Now, convert it!
-		converted = Picture_PatchConvert(informat, flat, outformat, outsize, (INT32)width, (INT32)height, *leftoffset, *topoffset, flags);
+		converted = Picture_PatchConvert(informat, flatsize, flat, outformat, outsize, (INT32)width, (INT32)height, *leftoffset, *topoffset, flags);
+		if (converted == NULL)
+			I_Error("Picture_PNGConvert: conversion to patch did not result in a valid graphic");
 		Z_Free(flat);
 		return converted;
 	}
@@ -1479,36 +1485,121 @@ boolean Picture_PNGDimensions(UINT8 *png, INT32 *width, INT32 *height, INT16 *to
 #endif
 #endif
 
-//
-// R_ParseSpriteInfoFrame
-//
-// Parse a SPRTINFO frame.
-//
-static void R_ParseSpriteInfoFrame(spriteinfo_t *info)
+struct ParseSpriteInfoState {
+	spriteinfo_t *info;
+	spritenum_t sprnum;
+	boolean any;
+};
+
+#define PARSER_FRAME (false)
+#define PARSER_DEFAULT (true)
+
+struct ParsedSpriteInfoFrame {
+	INT32 pivotX;
+	INT32 pivotY;
+};
+
+static boolean define_spriteinfo_frame(struct ParsedSpriteInfoFrame *frame, spriteinfoframe_t *dest)
+{
+	boolean defined = false;
+
+	if (frame->pivotX != INT32_MAX)
+	{
+		dest->pivot.x = frame->pivotX;
+		dest->pivot.available = true;
+		defined = true;
+	}
+	if (frame->pivotY != INT32_MAX)
+	{
+		dest->pivot.y = frame->pivotY;
+		dest->pivot.available = true;
+		defined = true;
+	}
+
+	return defined;
+}
+
+static void R_ParseSpriteInfoFrame(struct ParseSpriteInfoState *parser, boolean all)
 {
 	char *sprinfoToken;
-	size_t sprinfoTokenLength;
-	char *frameChar = NULL;
-	UINT8 frameFrame = 0xFF;
-	INT16 frameXPivot = 0;
-	INT16 frameYPivot = 0;
+	UINT16 frameID = 0;
+	UINT16 frameEndID = UINT16_MAX;
 
-	// Sprite identifier
-	sprinfoToken = M_GetToken(NULL);
-	if (sprinfoToken == NULL)
+	boolean usingDeprecatedPivot = false;
+
+	struct ParsedSpriteInfoFrame frame = {
+		.pivotX = INT32_MAX,
+		.pivotY = INT32_MAX
+	};
+
+	if (all)
 	{
-		I_Error("Error parsing SPRTINFO lump: Unexpected end of file where sprite frame should be");
-	}
-	sprinfoTokenLength = strlen(sprinfoToken);
-	if (sprinfoTokenLength != 1)
-	{
-		I_Error("Error parsing SPRTINFO lump: Invalid frame \"%s\"",sprinfoToken);
+		frameID = SPRINFO_DEFAULT_FRAME;
 	}
 	else
-		frameChar = sprinfoToken;
+	{
+		// Sprite identifier
+		char *frameToken = NULL;
+		char *startRange = NULL;
+		char *endRange = NULL;
+		sprinfoToken = M_GetToken(NULL);
+		if (sprinfoToken == NULL)
+		{
+			I_Error("Error parsing SPRTINFO lump: Unexpected end of file where sprite frame should be");
+		}
 
-	frameFrame = R_Char2Frame(frameChar[0]);
-	Z_Free(sprinfoToken);
+		// Parse range
+		frameToken = Z_StrDup(sprinfoToken);
+		startRange = frameToken;
+		endRange = strstr(frameToken, "..");
+		if (endRange != NULL)
+		{
+			*endRange = '\0';
+			endRange += 2;
+			if (strstr(endRange, "."))
+				I_Error("Error parsing SPRTINFO lump: Invalid range \"%s\"",sprinfoToken);
+		}
+
+		int parseStartFrameID = -1;
+		if (!M_StringToNumber(startRange, &parseStartFrameID))
+		{
+			if (strlen(startRange) != 1)
+				I_Error("Error parsing SPRTINFO lump: Invalid frame \"%s\"",startRange);
+			parseStartFrameID = R_Char2Frame(startRange[0]);
+			if (parseStartFrameID == 255)
+				I_Error("Error parsing SPRTINFO lump: Invalid frame \"%s\"",startRange);
+		}
+		if (parseStartFrameID < 0 || parseStartFrameID >= MAXFRAMENUM)
+			I_Error("Error parsing SPRTINFO lump: Invalid frame \"%s\"",startRange);
+		frameID = (UINT16)parseStartFrameID;
+
+		// Parse range ID
+		if (endRange != NULL)
+		{
+			int parseEndFrameID = -1;
+			if (!M_StringToNumber(endRange, &parseEndFrameID))
+			{
+				if (strlen(endRange) != 1)
+					I_Error("Error parsing SPRTINFO lump: Invalid frame \"%s\"",endRange);
+				parseEndFrameID = R_Char2Frame(endRange[0]);
+				if (parseEndFrameID == 255)
+					I_Error("Error parsing SPRTINFO lump: Invalid frame \"%s\"",endRange);
+			}
+			if (parseEndFrameID < 0 || parseEndFrameID >= MAXFRAMENUM)
+				I_Error("Error parsing SPRTINFO lump: Invalid frame \"%s\"",endRange);
+			frameEndID = (UINT16)parseEndFrameID;
+		}
+
+		Z_Free(frameToken);
+
+		// Validate the range
+		if (frameEndID != UINT16_MAX && frameID >= frameEndID)
+		{
+			I_Error("Error parsing SPRTINFO lump: Invalid range \"%s\"",sprinfoToken);
+		}
+
+		Z_Free(sprinfoToken);
+	}
 
 	// Left Curly Brace
 	sprinfoToken = M_GetToken(NULL);
@@ -1526,18 +1617,35 @@ static void R_ParseSpriteInfoFrame(spriteinfo_t *info)
 			}
 			while (strcmp(sprinfoToken,"}")!=0)
 			{
-				if (stricmp(sprinfoToken, "XPIVOT")==0)
+				if (stricmp(sprinfoToken, "ROTATIONXPIVOT")==0)
 				{
 					Z_Free(sprinfoToken);
 					sprinfoToken = M_GetToken(NULL);
-					frameXPivot = atoi(sprinfoToken);
+					frame.pivotX = atoi(sprinfoToken);
 				}
+				else if (stricmp(sprinfoToken, "ROTATIONYPIVOT")==0)
+				{
+					Z_Free(sprinfoToken);
+					sprinfoToken = M_GetToken(NULL);
+					frame.pivotY = atoi(sprinfoToken);
+				}
+				// TODO: 2.3: Delete
+				else if (stricmp(sprinfoToken, "XPIVOT")==0)
+				{
+					Z_Free(sprinfoToken);
+					sprinfoToken = M_GetToken(NULL);
+					frame.pivotX = atoi(sprinfoToken);
+					usingDeprecatedPivot = true;
+				}
+				// TODO: 2.3: Delete
 				else if (stricmp(sprinfoToken, "YPIVOT")==0)
 				{
 					Z_Free(sprinfoToken);
 					sprinfoToken = M_GetToken(NULL);
-					frameYPivot = atoi(sprinfoToken);
+					frame.pivotY = atoi(sprinfoToken);
+					usingDeprecatedPivot = true;
 				}
+				// TODO: 2.3: Delete
 				else if (stricmp(sprinfoToken, "ROTAXIS")==0)
 				{
 					Z_Free(sprinfoToken);
@@ -1555,9 +1663,45 @@ static void R_ParseSpriteInfoFrame(spriteinfo_t *info)
 		Z_Free(sprinfoToken);
 	}
 
-	// set fields
-	info->pivot[frameFrame].x = frameXPivot;
-	info->pivot[frameFrame].y = frameYPivot;
+	// Apply to the specified range of frames
+	if (frameEndID != UINT16_MAX)
+	{
+		for (UINT16 frameIter = frameID; frameIter <= frameEndID; frameIter++)
+		{
+			if (define_spriteinfo_frame(&frame, &parser->info->frames[frameIter]))
+			{
+				set_bit_array(parser->info->available, frameIter);
+			}
+		}
+	}
+	else
+	{
+		if (define_spriteinfo_frame(&frame, &parser->info->frames[frameID]))
+		{
+			set_bit_array(parser->info->available, frameID);
+		}
+	}
+
+	// TODO: 2.3: Delete
+	if (usingDeprecatedPivot)
+	{
+		parser->info->frames[SPRINFO_DEFAULT_FRAME].pivot.available = true;
+		set_bit_array(parser->info->available, SPRINFO_DEFAULT_FRAME);
+	}
+
+	if (parser->any)
+	{
+		spritenum_t sprnum;
+
+		for (sprnum = 0; sprnum < NUMSPRITES; ++sprnum)
+		{
+			M_Memcpy(&spriteinfo[sprnum], parser->info, sizeof(spriteinfo_t));
+		}
+	}
+	else
+	{
+		M_Memcpy(&spriteinfo[parser->sprnum], parser->info, sizeof(spriteinfo_t));
+	}
 }
 
 //
@@ -1567,11 +1711,16 @@ static void R_ParseSpriteInfoFrame(spriteinfo_t *info)
 //
 static void R_ParseSpriteInfo()
 {
-	spriteinfo_t *info;
 	char *sprinfoToken;
 	size_t sprinfoTokenLength;
 	char newSpriteName[MAXSPRITENAME + 1]; // no longer dynamically allocated
-	spritenum_t sprnum = NUMSPRITES;
+
+	struct ParseSpriteInfoState parser = {
+		.sprnum = NUMSPRITES,
+		.any = false,
+	};
+
+	INT32 i;
 
 	// Sprite name
 	sprinfoToken = M_GetToken(NULL);
@@ -1579,20 +1728,31 @@ static void R_ParseSpriteInfo()
 	{
 		I_Error("Error parsing SPRTINFO lump: Unexpected end of file where sprite name should be");
 	}
-	sprinfoTokenLength = strlen(sprinfoToken);
-	if (sprinfoTokenLength > MAXSPRITENAME)
-		I_Error("Error parsing SPRTINFO lump: Sprite name \"%s\" is longer than %d characters", sprinfoToken, MAXSPRITENAME);
-	strcpy(newSpriteName, sprinfoToken);
-	strupr(newSpriteName); // Just do this now so we don't have to worry about it
+
+	if (!strcmp(sprinfoToken, "*")) // All sprites
+	{
+		parser.any = true;
+	}
+	else
+	{
+		sprinfoTokenLength = strlen(sprinfoToken);
+		if (sprinfoTokenLength > MAXSPRITENAME)
+			I_Error("Error parsing SPRTINFO lump: Sprite name \"%s\" is longer than %d characters", sprinfoToken, MAXSPRITENAME);
+		strcpy(newSpriteName, sprinfoToken);
+		strupr(newSpriteName); // Just do this now so we don't have to worry about it
+	}
+
 	Z_Free(sprinfoToken);
 
-	sprnum = R_GetSpriteNumByName(newSpriteName);
-	if (sprnum == NUMSPRITES)
-		I_Error("Error parsing SPRTINFO lump: Unknown sprite name \"%s\"", newSpriteName);
+	if (!parser.any)
+	{
+		parser.sprnum = R_GetSpriteNumByName(newSpriteName);
+		if (parser.sprnum == NUMSPRITES)
+			I_Error("Error parsing SPRTINFO lump: Unknown sprite name \"%s\"", newSpriteName);
+	}
 
 	// allocate a spriteinfo
-	info = Z_Calloc(sizeof(spriteinfo_t), PU_STATIC, NULL);
-	info->available = true;
+	parser.info = Z_Calloc(sizeof(spriteinfo_t), PU_STATIC, NULL);
 
 	// Left Curly Brace
 	sprinfoToken = M_GetToken(NULL);
@@ -1612,9 +1772,13 @@ static void R_ParseSpriteInfo()
 		{
 			if (stricmp(sprinfoToken, "FRAME")==0)
 			{
-				R_ParseSpriteInfoFrame(info);
 				Z_Free(sprinfoToken);
-				M_Memcpy(&spriteinfo[sprnum], info, sizeof(spriteinfo_t));
+				R_ParseSpriteInfoFrame(&parser, PARSER_FRAME);
+			}
+			else if (stricmp(sprinfoToken, "DEFAULT")==0)
+			{
+				Z_Free(sprinfoToken);
+				R_ParseSpriteInfoFrame(&parser, PARSER_DEFAULT);
 			}
 			else
 			{
@@ -1634,7 +1798,7 @@ static void R_ParseSpriteInfo()
 	}
 
 	Z_Free(sprinfoToken);
-	Z_Free(info);
+	Z_Free(parser.info);
 }
 
 //
@@ -1697,4 +1861,9 @@ void R_LoadSpriteInfoLumps(UINT16 wadnum)
 		if (!memcmp(name, "SPRTINFO", 8) || !memcmp(name, "SPR_", 4))
 			R_ParseSPRTINFOLump(wadnum, i);
 	}
+}
+
+boolean R_IsSpriteInfoAvailable(spriteinfo_t *info, UINT16 frame)
+{
+	return info && frame <= SPRINFO_DEFAULT_FRAME && in_bit_array(info->available, frame);
 }

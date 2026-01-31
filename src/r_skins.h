@@ -20,6 +20,7 @@
 #include "r_patch.h"
 #include "r_picformats.h" // spriteinfo_t
 #include "r_defs.h" // spritedef_t
+#include "simple_hashmap.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,6 +95,9 @@ typedef struct
 	sfxenum_t soundsid[NUMSKINSOUNDS]; // sound # in S_sfx table
 
 	skinspritedef_t sprites[NUMSKINSPRITESETS];
+
+	hashentry_int32_int32_t *defaulttocustomstate; // e.g. S_PLAY_WALK => S_SKIN_BIGTHECAT_WALK
+	hashentry_int32_int32_t *customtodefaultstate; // e.g. S_SKIN_BIGTHECAT_WALK => S_PLAY_WALK
 } skin_t;
 
 /// Externs
@@ -130,8 +134,6 @@ boolean P_IsSkinAnimationValid(skin_t *skin, const char *subanim_name, UINT8 spr
 skin_t *P_IsSkinSprite(skin_t *skin, spritenum_t spritenum);
 skin_t *P_IsAnimationForSkin(skin_t *skin, UINT16 animation_id);
 const char *P_GetPlayerAnimName(UINT16 playeranim);
-
-void R_RefreshSprite2(void);
 
 #ifdef __cplusplus
 } // extern "C"

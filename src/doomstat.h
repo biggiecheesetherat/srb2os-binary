@@ -254,8 +254,18 @@ typedef struct
 extern textprompt_t *textprompts[MAX_PROMPTS];
 
 // For the Custom Exit linedef.
+
+// EXIT_ prefix is already used. These flags are for exitmapflags variable
+typedef enum {
+	EXITMAP_SKIPSTATS = 1, // Skips Score Tally
+	EXITMAP_SKIPCUTSCENE = 1<<1, // Skips Post-Level Cutscene
+	EXITMAP_SKIPSPECIAL = 1<<2, // Skips Special Stages
+	EXITMAP_SKIPRECORDS = 1<<3, // Skips Records Check
+	EXITMAP_NOTIMEATTACK = 1<<4, // Skips Awarding Time Attack Emblems
+} mapexitflags_t;
+
 extern INT16 nextmapoverride;
-extern UINT8 skipstats;
+extern UINT8 mapexitflags;
 extern INT16 nextgametype;
 
 extern UINT32 ssspheres; //  Total # of spheres in a level
@@ -320,17 +330,17 @@ typedef struct
 typedef struct
 {
 	// The original eight, plus one.
-	char lvlttl[21+1];              ///< Level name without "Zone". (21 character limit instead of 32, 21 characters can display on screen max anyway)
-	char subttl[32+1];              ///< Subtitle for level
+	char lvlttl[22];                ///< Level name without "Zone". (21 character limit instead of 32, 21 characters can display on screen max anyway)
+	char subttl[33];                ///< Subtitle for level
 	UINT8 actnum;                   ///< Act number or 0 for none.
 	UINT32 typeoflevel;             ///< Combination of typeoflevel flags.
-	INT16 nextlevel;                ///< Map number of next level, or 1100-1102 to end.
+	INT16 nextlevel;                ///< Map number of next level, or NEXTMAP_* to end.
 	INT16 marathonnext;             ///< See nextlevel, but for Marathon mode. Necessary to support hub worlds ala SUGOI.
-	char keywords[32+1];            ///< Keywords separated by space to search for. 32 characters.
+	char keywords[33];              ///< Keywords separated by space to search for. 32 characters.
 	char musname[MAX_MUSIC_NAME+1]; ///< Music track to play. "" for no music.
 	UINT16 mustrack;                ///< Subsong to play. Only really relevant for music modules and specific formats supported by GME. 0 to ignore.
 	UINT32 muspos;                  ///< Music position to jump to.
-	char forcecharacter[16+1];      ///< (SKINNAMESIZE+1) Skin to switch to or "" to disable.
+	char forcecharacter[17];        ///< (SKINNAMESIZE+1) Skin to switch to or "" to disable.
 	UINT8 weather;                  ///< 0 = sunny day, 1 = storm, 2 = snow, 3 = rain, 4 = blank, 5 = thunder w/o rain, 6 = rain w/o lightning, 7 = heat wave.
 	INT16 skynum;                   ///< Sky number to use.
 	INT16 skybox_scalex;            ///< Skybox X axis scale. (0 = no movement, 1 = 1:1 movement, 16 = 16:1 slow movement, -4 = 1:4 fast movement, etc.)
@@ -375,7 +385,7 @@ typedef struct
 	nightsgrades_t *grades;     ///< NiGHTS grades. Allocated dynamically for space reasons. Be careful.
 
 	// Music stuff.
-	UINT32 musinterfadeout;              ///< Fade out level music on intermission screen in milliseconds
+	UINT32 musinterfadeout;     ///< Fade out level music on intermission screen in milliseconds
 	char musintername[MAX_MUSIC_NAME+1]; ///< Intermission screen music.
 
 	char muspostbossname[MAX_MUSIC_NAME+1]; ///< Post-bossdeath music.

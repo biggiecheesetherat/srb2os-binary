@@ -18,6 +18,8 @@
 #include "hardware/hw_data.h"
 #endif
 
+#include "m_aatree.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -140,6 +142,8 @@ typedef struct wadfile_s
 	lumpinfo_t *lumpinfo;
 	lumpcache_t *lumpcache;
 	lumpcache_t *patchcache;
+	aatree_t *startfolders;
+	aatree_t *endfolders;
 	UINT16 numlumps; // this wad's number of resources
 	UINT16 foldercount; // folder count
 	FILE *handle;

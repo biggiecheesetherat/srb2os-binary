@@ -74,6 +74,8 @@ void P_LoadSoundsRange(UINT16 wadnum, UINT16 first, UINT16 num);
 void P_LoadMusicsRange(UINT16 wadnum, UINT16 first, UINT16 num);
 void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame);
 void P_WriteThings(const char *filepath);
+void P_LoadMapsFromFile(UINT16 wadnum, boolean added_ingame);
+
 size_t P_PrecacheLevelFlats(void);
 void P_AllocMapHeader(INT16 i);
 

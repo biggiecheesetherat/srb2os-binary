@@ -6,7 +6,6 @@ target_sources(SRB2SDL2 PRIVATE
 	rhi_gl2_platform.cpp
 	rhi_gl2_platform.hpp
 	i_threads.c
-	i_net.c
 	i_system.cpp
 	i_main.cpp
 	i_video.cpp

@@ -9,8 +9,6 @@
 /// \file  i_threads.h
 /// \brief Multithreading abstraction
 
-#ifdef HAVE_THREADS
-
 #ifndef I_THREADS_H
 #define I_THREADS_H
 
@@ -18,15 +16,18 @@
 extern "C" {
 #endif
 
+#include "doomtype.h"
+
 typedef void (*I_thread_fn)(void *userdata);
 
 typedef void * I_mutex;
 typedef void * I_cond;
 
+int       I_can_thread (void) FUNCWARNRV;
 void      I_start_threads (void);
 void      I_stop_threads  (void);
 
-void      I_spawn_thread (const char *name, I_thread_fn, void *userdata);
+int       I_spawn_thread (const char *name, I_thread_fn, void *userdata) FUNCWARNRV;
 
 /* check in your thread whether to return early */
 int       I_thread_is_stopped (void);
@@ -44,4 +45,3 @@ void      I_wake_all_cond   (I_cond *);
 #endif
 
 #endif/*I_THREADS_H*/
-#endif/*HAVE_THREADS*/

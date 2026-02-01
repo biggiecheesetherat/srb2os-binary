@@ -476,7 +476,7 @@ static int call_mapped(Hook_State *hook, const hook_t *map)
 
 	for (k = 0; k < map->numHooks; ++k)
 	{
-		if (hook->mobj_type > 0 && hook->hook_type ~= MOBJ_HOOK(HurtMsg) && (P_MobjWasRemoved(hook->mobj) || !ISINLEVEL))
+		if (hook->mobj_type > 0 && hook->hook_type != MOBJ_HOOK(HurtMsg) && (P_MobjWasRemoved(hook->mobj) || !ISINLEVEL))
 			return k;
 
 		get_hook(hook, map->ids, k);

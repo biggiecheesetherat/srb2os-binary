@@ -675,9 +675,11 @@ static int mobj_set(lua_State *L)
 	case mobj_radius:
 	{
 		mobj_t *ptmthing = tmthing;
+		P_UnsetBlockmapEntry(mo);
 		mo->radius = luaL_checkfixed(L, 3);
 		if (mo->radius < 0)
 			mo->radius = 0;
+		P_SetBlockmapEntry(mo);
 		P_CheckPosition(mo, mo->x, mo->y);
 		mo->floorz = tmfloorz;
 		mo->ceilingz = tmceilingz;

@@ -39,6 +39,8 @@ automatically.
 	X (BossDeath),/* A_BossDeath */\
 	X (MobjRemoved),/* P_RemoveMobj */\
 	X (BotRespawn),/* B_CheckRespawn */\
+	X (ShouldBlockMobj),/* PIT_CheckThing */\
+	X (ShouldBlockMobjMove),/* PIT_CheckThing */\
 	X (MobjMoveBlocked),/* P_XYMovement (when movement is blocked) */\
 	X (MobjHitFloor),/* P_ZMovement (when movement is blocked by floor) */\
 	X (MobjHitCeiling),/* P_ZMovement (when movement is blocked by ceiling) */\

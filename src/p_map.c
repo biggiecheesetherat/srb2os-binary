@@ -953,7 +953,8 @@ static unsigned PIT_DoCheckThing(mobj_t *thing)
 	}
 
 	{
-		UINT8 shouldCollide = LUA_Hook2Mobj(thing, tmthing, MOBJ_HOOK(MobjCollide)); // checks hook for thing's type
+		// checks hook for thing's type
+		UINT8 shouldCollide = LUA_HookMobjCollide(thing, tmthing, MOBJ_HOOK(MobjCollide));
 		if (P_MobjWasRemoved(tmthing) || P_MobjWasRemoved(thing))
 			return CHECKTHING_NOCOLLIDE; // one of them was removed???
 		if (shouldCollide == 1)
@@ -961,7 +962,8 @@ static unsigned PIT_DoCheckThing(mobj_t *thing)
 		else if (shouldCollide == 2)
 			return CHECKTHING_NOCOLLIDE; // force no collide
 
-		shouldCollide = LUA_Hook2Mobj(tmthing, thing, MOBJ_HOOK(MobjMoveCollide)); // checks hook for tmthing's type
+		// checks hook for tmthing's type
+		shouldCollide = LUA_HookMobjCollide(tmthing, thing, MOBJ_HOOK(MobjMoveCollide));
 		if (P_MobjWasRemoved(tmthing) || P_MobjWasRemoved(thing))
 			return CHECKTHING_NOCOLLIDE; // one of them was removed???
 		if (shouldCollide == 1)
@@ -1748,14 +1750,14 @@ static unsigned PIT_DoCheckThing(mobj_t *thing)
 	{
 		UINT8 shouldBlock = 0; // 0=default, 1=force block, 2=prevent block
 
-		shouldBlock = LUA_Hook2Mobj(thing, tmthing, MOBJ_HOOK(ShouldBlockMobj)); // checks hook for thing's type
+		shouldBlock = LUA_HookMobjCollide(thing, tmthing, MOBJ_HOOK(ShouldBlockMobj)); // checks hook for thing's type
 		if (P_MobjWasRemoved(tmthing) || P_MobjWasRemoved(thing))
 			return CHECKTHING_NOCOLLIDE; // one of them was removed???
 
 		// not overriden by the first hook, maybe the second will
 		if (shouldBlock == 0)
 		{
-			shouldBlock = LUA_Hook2Mobj(tmthing, thing, MOBJ_HOOK(ShouldBlockMobjMove)); // checks hook for tmthing's type
+			shouldBlock = LUA_HookMobjCollide(tmthing, thing, MOBJ_HOOK(ShouldBlockMobjMove)); // checks hook for tmthing's type
 			if (P_MobjWasRemoved(tmthing) || P_MobjWasRemoved(thing))
 				return CHECKTHING_NOCOLLIDE; // one of them was removed???
 		}

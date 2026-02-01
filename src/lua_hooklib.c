@@ -839,6 +839,7 @@ int LUA_HookMobjLineCollide(mobj_t *mobj, line_t *line)
 	{
 		LUA_PushUserdata(gL, mobj, META_MOBJ);
 		LUA_PushUserdata(gL, line, META_LINE);
+		lua_getref(gL, mobjmovement_ref);
 		call_hooks(&hook, 1, res_force);
 	}
 	return hook.status;
@@ -851,6 +852,7 @@ int LUA_HookTouchSpecial(mobj_t *special, mobj_t *toucher)
 	{
 		LUA_PushUserdata(gL, special, META_MOBJ);
 		LUA_PushUserdata(gL, toucher, META_MOBJ);
+		lua_getref(gL, mobjmovement_ref);
 		call_hooks(&hook, 1, res_true);
 	}
 	return hook.status;
@@ -898,6 +900,19 @@ int LUA_HookMobjDeath(mobj_t *target, mobj_t *inflictor, mobj_t *source, UINT8 d
 			MOBJ_HOOK(MobjDeath), res_true);
 }
 
+int LUA_HookMobjCollide(mobj_t *mobj1, mobj_t *mobj2, int hook_type)
+{
+	Hook_State hook;
+	if (prepare_mobj_hook(&hook, 0, hook_type, mobj1))
+	{
+		LUA_PushUserdata(gL, mobj1, META_MOBJ);
+		LUA_PushUserdata(gL, mobj2, META_MOBJ);
+		lua_getref(gL, mobjmovement_ref);
+		call_hooks(&hook, 1, res_force);
+	}
+	return hook.status;
+}
+
 int LUA_HookMobjMoveBlocked(mobj_t *t1, mobj_t *t2, line_t *line)
 {
 	Hook_State hook;
@@ -906,6 +921,7 @@ int LUA_HookMobjMoveBlocked(mobj_t *t1, mobj_t *t2, line_t *line)
 		LUA_PushUserdata(gL, t1, META_MOBJ);
 		LUA_PushUserdata(gL, t2, META_MOBJ);
 		LUA_PushUserdata(gL, line, META_LINE);
+		lua_getref(gL, mobjmovement_ref);
 		call_hooks(&hook, 1, res_true);
 	}
 	return hook.status;
@@ -917,6 +933,7 @@ int LUA_HookMobjHitFloor(mobj_t *mobj)
 	if (prepare_mobj_hook(&hook, 0, MOBJ_HOOK(MobjHitFloor), mobj))
 	{
 		LUA_PushUserdata(gL, mobj, META_MOBJ);
+		lua_getref(gL, mobjmovement_ref);
 		call_hooks(&hook, 1, res_force);
 	}
 	return hook.status;
@@ -928,6 +945,7 @@ int LUA_HookMobjHitCeiling(mobj_t *mobj)
 	if (prepare_mobj_hook(&hook, 0, MOBJ_HOOK(MobjHitCeiling), mobj))
 	{
 		LUA_PushUserdata(gL, mobj, META_MOBJ);
+		lua_getref(gL, mobjmovement_ref);
 		call_hooks(&hook, 1, res_force);
 	}
 	return hook.status;

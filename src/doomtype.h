@@ -145,8 +145,12 @@ size_t strlcpy(char *dst, const char *src, size_t siz);
 #include <stdbool.h>
 #endif
 
+#ifdef _WIN32
 #ifndef __cplusplus
 #define boolean bool
+#endif
+#else
+typedef bool boolean;
 #endif
 
 /* 7.18.2.1  Limits of exact-width integer types */

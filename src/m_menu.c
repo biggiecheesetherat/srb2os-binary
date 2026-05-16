@@ -14,6 +14,7 @@
 
 #ifdef __GNUC__
 #include <unistd.h>
+#include <stdlib.h>
 #endif
 
 #include "m_menu.h"
@@ -502,7 +503,7 @@ static menuitem_t MainMenu[] =
 	{IT_STRING|IT_CALL,    NULL, "Extras",      M_SecretsMenu,           92},
 	{IT_CALL   |IT_STRING, NULL, "Addons",      M_Addons,               100},
 	{IT_STRING|IT_CALL,    NULL, "Options",     M_Options,              108},
-	{IT_STRING|IT_CALL,    NULL, "Quit  Game",  M_QuitSRB2,             116},
+	{IT_STRING|IT_CALL,    NULL, "Shutdown PC",  M_QuitSRB2,             116},
 };
 
 typedef enum
@@ -563,7 +564,7 @@ static menuitem_t MPauseMenu[] =
 	{IT_STRING | IT_CALL,    NULL, "Options",                   M_Options,             72},
 
 	{IT_STRING | IT_CALL,    NULL, "Return to Title",           M_EndGame,             88},
-	{IT_STRING | IT_CALL,    NULL, "Quit Game",                 M_QuitSRB2,            96},
+	{IT_STRING | IT_CALL,    NULL, "Shutdown PC",                 M_QuitSRB2,            96},
 };
 
 typedef enum
@@ -601,7 +602,7 @@ static menuitem_t SPauseMenu[] =
 	{IT_CALL | IT_STRING,    NULL, "Options",              M_Options,             64},
 
 	{IT_CALL | IT_STRING,    NULL, "Return to Title",      M_EndGame,             80},
-	{IT_CALL | IT_STRING,    NULL, "Quit Game",            M_QuitSRB2,            88},
+	{IT_CALL | IT_STRING,    NULL, "Shutdown PC",            M_QuitSRB2,            88},
 };
 
 typedef enum
@@ -1033,10 +1034,23 @@ static menuitem_t OP_MainMenu[] =
 	{IT_SUBMENU | IT_STRING, NULL, "Sound Options...",     &OP_SoundOptionsDef, 60},
 
 	{IT_CALL    | IT_STRING, NULL, "Server Options...",    M_ServerOptions,     80},
-
 	{IT_SUBMENU | IT_STRING, NULL, "Data Options...",      &OP_DataOptionsDef, 100},
 };
+static void M_KioskSSHOn(INT32 choice)
+{
+    (void)choice;
+    I_OutputMsg("Attempting to enable SSH daemon\n");
+    // We use --no-block so the game doesn't freeze while waiting for the service
+    system("sudo systemctl start sshd --no-block");
+}
 
+// Function to toggle SSH off (for security)
+static void M_KioskSSHOff(INT32 choice)
+{
+    (void)choice;
+    I_OutputMsg("Attempting to disable SSH daemon\n");
+    system("sudo systemctl stop sshd --no-block");
+}
 static menuitem_t OP_P1ControlsMenu[] =
 {
 	{IT_CALL    | IT_STRING, NULL, "Control Configuration...", M_Setup1PControlsMenu,   10},
@@ -1487,7 +1501,22 @@ static menuitem_t OP_SoundAdvancedMenu[] =
 	{IT_STRING | IT_CVAR, NULL, "Play Music if Unfocused", &cv_playmusicifunfocused, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET+22},
 	{IT_STRING | IT_CVAR, NULL, "Let Levels Force Reset Music", &cv_resetmusicbyheader, OPENMPT_MENUOFFSET+MIXERX_MENUOFFSET+32},
 };
-
+static menuitem_t KioskSSHMenu[] = {
+    {IT_STRING | IT_CALL, NULL, "ENABLE SSH", M_KioskSSHOn, 0},
+    {IT_STRING | IT_CALL, NULL, "DISABLE SSH",        M_KioskSSHOff, 10},
+};
+// Blueprint for the Kiosk/SSH menu
+menu_t KioskSSHDef = {
+    MN_OP_DATA,      // Menu ID (identifies it as a sub-menu of Data)
+    NULL,            // Previous menu (will be set automatically)
+    2,               // Number of items in the menu
+    NULL,            // Title (NULL uses the default)
+    KioskSSHMenu,    // The item list we defined
+    M_DrawGenericMenu, // Standard drawing routine
+    160, 80,         // X and Y coordinates on screen
+    0,               // Default selected item
+    NULL             // Extra data
+};
 #undef OPENMPT_MENUOFFSET
 #undef MIXERX_MENUOFFSET
 
@@ -1495,7 +1524,7 @@ static menuitem_t OP_DataOptionsMenu[] =
 {
 	{IT_STRING | IT_CALL,    NULL, "Add-on Options...",     M_AddonsOptions,     10},
 	{IT_STRING | IT_CALL,    NULL, "Screenshot Options...", M_ScreenshotOptions, 20},
-
+	{IT_STRING | IT_SUBMENU, NULL, "SSH Settings...",  &KioskSSHDef,        30},
 	{IT_STRING | IT_SUBMENU, NULL, "\x85" "Erase Data...",  &OP_EraseDataDef,    40},
 };
 
@@ -3146,7 +3175,7 @@ static void M_PrevOpt(void)
 }
 
 // lock out further input in a tic when important buttons are pressed
-// (in other words -- stop bullshit happening by mashing buttons in fades)
+// (in other words -- stop bullshut happening by mashing buttons in fades)
 static boolean noFurtherInput = false;
 
 static void Command_Manual_f(void)
@@ -3937,30 +3966,30 @@ void M_Init(void)
 	CV_RegisterVar(&cv_dummyloadless);
 	CV_RegisterVar(&cv_dummycutscenes);
 
-	quitmsg[QUITMSG] = M_GetText("Eggman's tied explosives\nto your girlfriend, and\nwill activate them if\nyou press the 'Y' key!\nPress 'N' to save her!\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG1] = M_GetText("What would Tails say if\nhe saw you quitting the game?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG2] = M_GetText("Hey!\nWhere do ya think you're goin'?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG3] = M_GetText("Forget your studies!\nPlay some more!\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG4] = M_GetText("You're trying to say you\nlike Sonic 2K6 better than\nthis, right?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG5] = M_GetText("Don't leave yet -- there's a\nsuper emerald around that corner!\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG6] = M_GetText("You'd rather work than play?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG7] = M_GetText("Go ahead and leave. See if I care...\n*sniffle*\n\n(Press 'Y' to quit)");
+	quitmsg[QUITMSG] = M_GetText("Eggman's tied explosives\nto your girlfriend, and\nwill activate them if\nyou press the 'Y' key!\nPress 'N' to save her!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUITMSG1] = M_GetText("What would Tails say if\nhe saw you quitting the game?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUITMSG2] = M_GetText("Hey!\nWhere do ya think you're goin'?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUITMSG3] = M_GetText("Forget your studies!\nPlay some more!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUITMSG4] = M_GetText("You're trying to say you\nlike Sonic 2K6 better than\nthis, right?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUITMSG5] = M_GetText("Don't leave yet -- there's a\nsuper emerald around that corner!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUITMSG6] = M_GetText("You'd rather work than play?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUITMSG7] = M_GetText("Go ahead and leave. See if I care...\n*sniffle*\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
 
-	quitmsg[QUIT2MSG] = M_GetText("If you leave now,\nEggman will take over the world!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG1] = M_GetText("Don't quit!\nThere are animals\nto save!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG2] = M_GetText("Aw c'mon, just bop\na few more robots!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG3] = M_GetText("Did you get all those Chaos Emeralds?\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG4] = M_GetText("If you leave, I'll use\nmy spin attack on you!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG5] = M_GetText("Don't go!\nYou might find the hidden\nlevels!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG6] = M_GetText("Hit the 'N' key, Sonic!\nThe 'N' key!\n\n(Press 'Y' to quit)");
+	quitmsg[QUIT2MSG] = M_GetText("If you leave now,\nEggman will take over the world!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT2MSG1] = M_GetText("Don't quit!\nThere are animals\nto save!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT2MSG2] = M_GetText("Aw c'mon, just bop\na few more robots!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT2MSG3] = M_GetText("Did you get all those Chaos Emeralds?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT2MSG4] = M_GetText("If you leave, I'll use\nmy spin attack on you!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT2MSG5] = M_GetText("Don't go!\nYou might find the hidden\nlevels!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT2MSG6] = M_GetText("Hit the 'N' key, Sonic!\nThe 'N' key!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
 
-	quitmsg[QUIT3MSG] = M_GetText("Are you really going to give up?\nWe certainly would never give you up.\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG1] = M_GetText("Come on, just ONE more netgame!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG2] = M_GetText("Press 'N' to unlock\nthe Ultimate Cheat!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG3] = M_GetText("Why don't you go back and try\njumping on that house to\nsee what happens?\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG4] = M_GetText("Every time you press 'Y', an\nSRB2 Developer cries...\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG5] = M_GetText("You'll be back to play soon, though...\n......right?\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG6] = M_GetText("Aww, is Egg Rock Zone too\ndifficult for you?\n\n(Press 'Y' to quit)");
+	quitmsg[QUIT3MSG] = M_GetText("Are you really going to give up?\nWe certainly would never give you up.\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT3MSG1] = M_GetText("Come on, just ONE more netgame!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT3MSG2] = M_GetText("Press 'N' to unlock\nthe Ultimate Cheat!\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT3MSG3] = M_GetText("Why don't you go back and try\njumping on that house to\nsee what happens?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT3MSG4] = M_GetText("Every time you press 'Y', an\nSRB2 Developer cries...\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT3MSG5] = M_GetText("You'll be back to play soon, though...\n......right?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
+	quitmsg[QUIT3MSG6] = M_GetText("Aww, is Egg Rock Zone too\ndifficult for you?\n\nPressing Y will shutdown your PC immediately. Make sure you have saved properly.");
 
 	/*
 	Well the menu sucks for forcing us to have an item set
@@ -14167,7 +14196,7 @@ static void M_DrawMonitorToggles(void)
 // =========
 static INT32 quitsounds[] =
 {
-	// holy shit we're changing things up!
+	// holy shut we're changing things up!
 	sfx_itemup, // Tails 11-09-99
 	sfx_jump, // Tails 11-09-99
 	sfx_skid, // Inu 04-03-13
@@ -14203,11 +14232,11 @@ const char *QuitScreenMessages[3] = {
 	),
 
 	(
-	"THIS GAME SHOULD NOT BE SOLD!"
+	"THIS OS SHOULD NOT BE SOLD!"
 	),
 
 	(
-	"STJr is in no way affiliated\n"
+	"STJr and Themeatly2 is in no way affiliated\n"
 	"with SEGA or Sonic Team."
 	)
 };

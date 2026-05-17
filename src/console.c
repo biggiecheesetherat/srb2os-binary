@@ -330,7 +330,6 @@ static void CONS_SysExec_f(void)
     {
         CONS_Printf("Process exited with status: %d\n", ret);
     }
-	// redraw to clear tty output
 	vid.recalc = 1;
 
     Z_Free(sys_cmd);

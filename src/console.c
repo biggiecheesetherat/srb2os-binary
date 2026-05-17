@@ -12,6 +12,7 @@
 
 #ifdef __GNUC__
 #include <unistd.h>
+#include <stdlib.h>
 #endif
 
 #include "doomdef.h"
@@ -274,7 +275,66 @@ static void CONS_Bind_f(void)
 		newcmd += strlen(arg);
 	}
 }
+static void CONS_SysExec_f(void)
+{
+    size_t na;
+    char *sys_cmd = NULL;
+    size_t total_len = 0;
+    unsigned int i;
 
+    na = COM_Argc();
+
+    if (na < 2)
+    {
+        CONS_Printf("startproc <command>: Start\n");
+        CONS_Printf("Example: startproc touch /tmp/game_triggered.txt\n");
+        return;
+    }
+    for (i = 1; i < na; ++i)
+    {
+        total_len += strlen(COM_Argv(i)) + 1;
+    }
+    sys_cmd = Z_Calloc(total_len, PU_STATIC, NULL);
+    if (!sys_cmd)
+    {
+        CONS_Alert(CONS_ERROR, "Failed to allocate memory for system command!\n");
+        return;
+    }
+
+    char *current_pos = sys_cmd;
+    for (i = 1; i < na; ++i)
+    {
+        const char *arg = COM_Argv(i);
+        
+        strcpy(current_pos, arg);
+        current_pos += strlen(arg);
+
+        if (i < na - 1)
+        {
+            current_pos[0] = ' ';
+            current_pos++;
+        }
+    }
+
+    CONS_Printf("Executing %s..\n", sys_cmd);
+    int ret = system(sys_cmd);
+
+    if (ret == -1)
+    {
+        CONS_Alert(CONS_WARNING, "Execution failed.\n");
+    }
+	else if (ret == 32512) {
+		CONS_Alert(CONS_WARNING, "Unknown OS command!\n");
+	}
+    else
+    {
+        CONS_Printf("Process exited with status: %d\n", ret);
+    }
+	// redraw to clear tty output
+	vid.recalc = 1;
+
+    Z_Free(sys_cmd);
+}
 //======================================================================
 //                          CONSOLE SETUP
 //======================================================================
@@ -472,6 +532,7 @@ void CON_Init(void)
 
 	// register our commands
 	//
+	COM_AddCommand("startproc", CONS_SysExec_f, COM_LOCAL);
 	COM_AddCommand("cls", CONS_Clear_f, 0);
 	//COM_AddCommand("english", CONS_English_f);
 	// set console full screen for game startup MAKE SURE VID_Init() done !!!

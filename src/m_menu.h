@@ -107,6 +107,7 @@ typedef enum
 
 	MN_OP_DATA,
 	MN_OP_ADDONS,
+	MN_ADDONDOWNLOADER,
 	MN_OP_SCREENSHOTS,
 	MN_OP_ERASEDATA,
 
@@ -576,5 +577,4 @@ void M_FreePlayerSetupColors(void);
 	0,\
 	NULL\
 }
-
 #endif //__X_MENU__

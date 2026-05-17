@@ -13,6 +13,8 @@
 /// \brief XMOD's extremely revamped menu system.
 
 #ifdef __GNUC__
+#include <stdio.h>
+#include <curl/curl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #endif
@@ -127,6 +129,11 @@ typedef enum
 I_mutex m_menu_mutex;
 
 M_waiting_mode_t m_waiting_mode = M_NOT_WAITING;
+
+static size_t direct_write_callback(void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+    return fwrite(ptr, size, nmemb, stream);
+}
 
 const char *quitmsg[NUM_QUITMESSAGES];
 
@@ -349,6 +356,10 @@ static void M_EraseData(INT32 choice);
 static void M_Addons(INT32 choice);
 static void M_AddonsOptions(INT32 choice);
 static patch_t *addonsp[NUM_EXT+5];
+static void M_ParseMarketJSON(const char *json_filepath);
+static int SRB2OS_DownloadDirectAddon(const char *direct_url, const char *filename);
+static void M_DrawAddonMarket(void);
+static void M_HandleAddonMarket(INT32 choice);
 
 #define addonmenusize 9 // number of items actually displayed in the addons menu view, formerly (2*numaddonsshown + 1)
 #define numaddonsshown 4 // number of items to each side of the currently selected item, unless at top/bottom ends of directory
@@ -3192,6 +3203,24 @@ static void Command_Manual_f(void)
 //
 boolean M_Responder(event_t *ev)
 {
+	INT32 choice = 0;
+
+    // --- PLACE THE MARKETPLACE INPUT OVERRIDE BLOCK HERE ---
+    if (currentMenu && currentMenu->menuid == MN_ADDONDOWNLOADER)
+    {
+        // Intercept standard button pushes
+        if (ev->type == ev_keydown)
+        {
+            choice = ev->key; // Map the keycode value natively
+            M_HandleAddonMarket(choice);
+            return true; // Stop other background menus from reacting to this keypress
+        }
+        
+        // Prevent key releases from leaking through as well
+        if (ev->type == ev_keyup)
+            return true;
+    }
+	
 	INT32 ch = -1;
 //	INT32 i;
 	static tic_t joywait = 0, mousewait = 0;
@@ -3895,12 +3924,13 @@ boolean M_MouseNeeded(void)
 {
 	return (currentMenu == &MessageDef && currentMenu->prevMenu == &OP_ChangeControlsDef);
 }
-
+void M_HandleAddonMarket(INT32 choice);
 //
 // M_Ticker
 //
 void M_Ticker(void)
 {
+	
 	// reset input trigger
 	noFurtherInput = false;
 
@@ -6595,6 +6625,24 @@ static void M_DrawAddons(void)
 #undef type
 		y += 16;
 	}
+    if (y <= BASEVIDHEIGHT)
+    {
+        UINT32 repo_flags = V_ALLOWLOWERCASE;
+        V_DrawSmallScaledPatch(x-(16+4), y, 0, addonsp[EXT_WAD]);
+
+        // Check if the selection cursor is hovering over our custom item index position.
+        // In SRB2's file system setup, the index directly following the final file is 'num_dir'.
+        if (dir_on[menudepthleft] == (size_t)sizedirmenu)
+        {
+            // Draw the blinking selection overlay bracket patch over the icon
+            V_DrawFixedPatch((x-(16+4))<<FRACBITS, (y)<<FRACBITS, FRACUNIT/2, 0, addonsp[NUM_EXT+1], flashcol);
+            repo_flags = V_ALLOWLOWERCASE | highlightflags; // Make text blink/glow yellow
+        }
+
+        // Render the raw option name text
+        V_DrawString(x, y+4, repo_flags, "Online Addon Repo");
+        y += 16;
+    }
 
 	// draw down arrow that bobs down and up
 	if (b != sizedirmenu - 1)
@@ -6670,7 +6718,247 @@ static boolean M_ChangeStringAddons(INT32 choice)
 	return false;
 }
 #undef len
+#define MAX_MARKET_ADDONS 32
+#define MARKET_VISIBLE_ITEMS 9
 
+// Define the structural layout and function pointers for the browser state
+static menuitem_t MarketMenuItems[] = {
+    {IT_NOTHING | IT_KEYHANDLER, NULL, "", M_HandleAddonMarket, 0}
+};
+
+typedef struct {
+    char name[64];
+    char filename[32];
+    char url[256];
+} market_addon_t;
+#define REPO_MANIFEST_URL "https://gist.githubusercontent.com/biggiecheesetherat/f2ebcc93c51cebd5773bb6e08c472785/raw/6ac97258c086954a6f6834fb5b12a7d5e1141a6c/addons.json"
+static market_addon_t MarketCatalog[MAX_MARKET_ADDONS];
+static INT32 TotalMarketAddons = 0;
+static INT32 market_scroll_top = 0;
+#include "w_wad.h" // Pulls in W_AddWadFile to fix implicit declaration error
+
+#define sfx_ncofrm sfx_menu1
+#define sfx_menu2  sfx_skid
+
+// Bridge custom interface function dependencies to your engine layout variables
+#define M_MenuInputs(x)   (0)
+#define SRB2_MENU_ESCAPE  0
+#define SRB2_MENU_DOWN    0
+#define SRB2_MENU_UP      0
+#define SRB2_MENU_ENTER   0
+#define M_SetMenuType(x)  (currentMenu->menuid = x)
+menu_t MarketMenuDef = {
+    MN_ADDONDOWNLOADER,         // Menu identifier ID
+    NULL,                       // menutitlepic
+    1,                          // numitems
+    &MISC_AddonsDef,                  // Parent menu to return to on ESCAPE
+    MarketMenuItems,            // menuitems
+    M_DrawAddonMarket,          // Custom drawing function pointer
+    40, 72,                     // X and Y screen positioning offsets
+    0,                          // Initial item selection index
+    NULL                        // Extra draw arguments
+};
+// Flat context string line scanner to extract flat configuration rows
+static void M_ParseMarketJSON(const char *json_filepath)
+{
+    FILE *f = fopen(json_filepath, "r");
+    if (!f) return;
+
+    char line[512];
+    TotalMarketAddons = 0;
+
+    while (fgets(line, sizeof(line), f) && TotalMarketAddons < MAX_MARKET_ADDONS)
+    {
+        market_addon_t *addon = &MarketCatalog[TotalMarketAddons];
+        
+        if (strstr(line, "\"name\":")) {
+            sscanf(line, " %*[^:]: \"%[^\"]\"", addon->name);
+        }
+        else if (strstr(line, "\"filename\":")) {
+            sscanf(line, " %*[^:]: \"%[^\"]\"", addon->filename);
+        }
+        else if (strstr(line, "\"url\":")) {
+            sscanf(line, " %*[^:]: \"%[^\"]\"", addon->url);
+            if (strlen(addon->name) > 0 && strlen(addon->filename) > 0 && strlen(addon->url) > 0) {
+                TotalMarketAddons++;
+            }
+        }
+    }
+    fclose(f);
+}
+static void M_DrawAddonMarket(void)
+{
+    INT32 x = 50, y = 40;
+    INT32 i;
+    const UINT8 *flashcol = NULL;
+
+    if (skullAnimCounter < 4)
+        flashcol = V_GetStringColormap(highlightflags);
+
+    // Header title row layout
+    V_DrawCenteredString(BASEVIDWIDTH / 2, 12, highlightflags, "ADDON BROWSER");
+    V_DrawFill(x - 10, y - 6, 240, 1, 0); // Line separator
+    V_DrawFill(x - 10, y - 5, 240, (MARKET_VISIBLE_ITEMS * 14) + 6, 159);
+
+    if (TotalMarketAddons == 0)
+    {
+        V_DrawCenteredString(BASEVIDWIDTH / 2, BASEVIDHEIGHT / 2, V_ALLOWLOWERCASE, "Reading local catalog cache manifest...");
+        return;
+    }
+
+    INT32 bottom_limit = market_scroll_top + MARKET_VISIBLE_ITEMS;
+    if (bottom_limit > TotalMarketAddons) bottom_limit = TotalMarketAddons;
+
+    for (i = market_scroll_top; i < bottom_limit; i++)
+    {
+        UINT32 flags = V_ALLOWLOWERCASE;
+
+        V_DrawSmallScaledPatch(x - 6, y + 2, 0, addonsp[EXT_WAD]);
+
+        if (i == itemOn)
+        {
+            V_DrawFixedPatch((x - 6) << FRACBITS, y << FRACBITS, FRACUNIT / 2, 0, addonsp[NUM_EXT + 1], flashcol);
+            flags |= highlightflags;
+        }
+
+        V_DrawString(x + 14, y + 4, flags, MarketCatalog[i].name);
+        y += 14;
+    }
+
+    if (market_scroll_top > 0)
+        V_DrawString(x - 25, 40, highlightflags, "\x1A"); // Up arrow symbol
+    if (bottom_limit < TotalMarketAddons)
+        V_DrawString(x - 25, y - 10, highlightflags, "\x1B"); // Down arrow symbol
+
+    V_DrawCenteredString(BASEVIDWIDTH / 2, BASEVIDHEIGHT - 22, V_GRAYMAP, "[Esc] Back   [Enter] Download & Run");
+}
+int SRB2OS_DownloadDirectAddon(const char *direct_url, const char *filename)
+{
+    CURL *curl;
+    FILE *fp;
+    CURLcode res;
+    char destination_path[512];
+    char *path = va("%s"PATHSEP"addons", srb2home);
+
+    I_mkdir(path, 0755);
+    snprintf(destination_path, sizeof(destination_path), "%s"PATHSEP"%s", path, filename);
+
+    curl = curl_easy_init();
+    if (!curl)
+    {
+        S_StartSound(NULL, sfx_lose);
+		CONS_Alert(CONS_ERROR, "Direct Market: Failed to initialize curl socket.\n");
+		M_StartMessage(va("Download failed! Check console.\n\n(Press a key)\n"),NULL,MM_NOTHING);
+        return 0;
+    }
+    fp = fopen(destination_path, "wb");
+    if (!fp)
+    {
+        S_StartSound(NULL, sfx_lose);
+		CONS_Alert(CONS_ERROR, "Direct Market: Cannot write to path: %s\n", destination_path);
+		M_StartMessage(va("Download failed! Check console.\n\n(Press a key)\n"),NULL,MM_NOTHING);
+        curl_easy_cleanup(curl);
+        return 0;
+    }
+
+    CONS_Printf("Downloading: %s...\n", filename);
+
+	// download stuff from the marketplace wow
+    curl_easy_setopt(curl, CURLOPT_URL, direct_url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, direct_write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+    
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "SRB2OS-DirectMarketplace/1.0");
+    
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 90L);
+    res = curl_easy_perform(curl);
+
+    // Close resource handles immediately
+    fclose(fp);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK)
+    {
+        S_StartSound(NULL, sfx_lose);
+		CONS_Alert(CONS_ERROR, "Download failed! Error: %s\n", curl_easy_strerror(res));
+		M_StartMessage(va("Download failed! Check console.\n\n(Press a key)\n"),NULL,MM_NOTHING);
+        remove(destination_path);
+        return 0;
+    }
+
+    CONS_Printf("Download complete! Loading addon...\n");
+
+    // HOT-PATCH: Feed the downloaded file directly into SRB2's asset compiler!
+    COM_BufAddText(va("addfile \"%s\"\n", destination_path));
+    return 1;
+}
+static void M_HandleAddonMarket(INT32 choice)
+{
+    (void)choice;
+
+    if (TotalMarketAddons == 0)
+    {
+        if (M_MenuInputs(SRB2_MENU_ESCAPE) || choice == KEY_ESCAPE) {
+            M_GoBack(0);
+            dir_on[menudepthleft] = sizedirmenu;
+            S_StartSound(NULL, sfx_menu1);
+        }
+        return;
+    }
+
+    // Scroll Down Navigation
+    if (M_MenuInputs(SRB2_MENU_DOWN) || choice == KEY_DOWNARROW)
+    {
+        if (itemOn < TotalMarketAddons - 1)
+        {
+            itemOn++;
+            if (itemOn >= market_scroll_top + MARKET_VISIBLE_ITEMS)
+                market_scroll_top++;
+        }
+        else {
+            itemOn = 0;
+            market_scroll_top = 0;
+        }
+        S_StartSound(NULL, sfx_menu1);
+    }
+
+    // Scroll Up Navigation
+    if (M_MenuInputs(SRB2_MENU_UP) || choice == KEY_UPARROW)
+    {
+        if (itemOn > 0)
+        {
+            itemOn--;
+            if (itemOn < market_scroll_top)
+                market_scroll_top--;
+        }
+        else {
+            itemOn = TotalMarketAddons - 1;
+            market_scroll_top = TotalMarketAddons - MARKET_VISIBLE_ITEMS;
+            if (market_scroll_top < 0) market_scroll_top = 0;
+        }
+        S_StartSound(NULL, sfx_menu1);
+    }
+
+    // Escape Handler - Drop safely back to your files loop layout 
+    if (M_MenuInputs(SRB2_MENU_ESCAPE) || choice == KEY_ESCAPE)
+    {
+        M_GoBack(0);
+        dir_on[menudepthleft] = sizedirmenu; // Set selection overlay box precisely back on the Repo row position
+        S_StartSound(NULL, sfx_menu1);
+    }
+
+    // Execute Selection Task Transaction
+    if (M_MenuInputs(SRB2_MENU_ENTER) || choice == KEY_ENTER)
+    {
+        S_StartSound(NULL, sfx_ncofrm);
+        market_addon_t *selected = &MarketCatalog[itemOn];
+        
+        // Triggers the libcurl background task module we wrote earlier
+        SRB2OS_DownloadDirectAddon(selected->url, selected->filename);
+    }
+}
 static void M_HandleAddons(INT32 choice)
 {
 	boolean exitmenu = false; // exit to previous menu
@@ -6694,9 +6982,9 @@ static void M_HandleAddons(INT32 choice)
 	switch (choice)
 	{
 		case KEY_DOWNARROW:
-			if (dir_on[menudepthleft] < sizedirmenu-1)
+			if (dir_on[menudepthleft] < sizedirmenu)
 				dir_on[menudepthleft]++;
-			else if (dir_on[menudepthleft] == sizedirmenu-1)
+			else if (dir_on[menudepthleft] == sizedirmenu)
 				dir_on[menudepthleft] = 0;
 			S_StartSound(NULL, sfx_menu1);
 			break;
@@ -6704,7 +6992,7 @@ static void M_HandleAddons(INT32 choice)
 			if (dir_on[menudepthleft])
 				dir_on[menudepthleft]--;
 			else if (!dir_on[menudepthleft])
-				dir_on[menudepthleft] = sizedirmenu-1;
+				dir_on[menudepthleft] = sizedirmenu;
 			S_StartSound(NULL, sfx_menu1);
 			break;
 		case KEY_PGDN:
@@ -6724,8 +7012,71 @@ static void M_HandleAddons(INT32 choice)
 			S_StartSound(NULL, sfx_menu1);
 			break;
 		case KEY_ENTER:
-			{
-				boolean refresh = true;
+            {
+                // =============================================================
+                // INTERCEPT: Catch our custom repository option row selection
+                // =============================================================
+                if (dir_on[menudepthleft] == (size_t)sizedirmenu)
+                {
+                    CURL *curl;
+                    FILE *fp;
+                    CURLcode res;
+                    const char *manifest_local_path = va("%s"PATHSEP"addons.json", srb2home);
+
+                    S_StartSound(NULL, sfx_ncofrm);
+                    CONS_Printf("Synchronizing with remote marketplace database...\n");
+
+                    curl = curl_easy_init();
+                    if (!curl)
+                    {
+                        S_StartSound(NULL, sfx_lose);
+                        CONS_Alert(CONS_ERROR, "Marketplace: Failed to initialize curl layout.\n");
+                        M_StartMessage("Failed to connect to the repository.\n\n(Press a key)\n", NULL, MM_NOTHING);
+                        return;
+                    }
+
+                    fp = fopen(manifest_local_path, "wb");
+                    if (!fp)
+                    {
+                        S_StartSound(NULL, sfx_lose);
+                        CONS_Alert(CONS_ERROR, "Marketplace: Cannot write file cache to disk.\n");
+                        M_StartMessage("Failed to initialize manifest cache.\n\n(Press a key)\n", NULL, MM_NOTHING);
+                        curl_easy_cleanup(curl);
+                        return;
+                    }
+
+                    curl_easy_setopt(curl, CURLOPT_URL, REPO_MANIFEST_URL);
+                    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, direct_write_callback);
+                    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+                    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+                    curl_easy_setopt(curl, CURLOPT_USERAGENT, "SRB2OS-ManifestPull/1.0");
+                    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+
+                    res = curl_easy_perform(curl);
+                    fclose(fp);
+                    curl_easy_cleanup(curl);
+
+                    if (res != CURLE_OK)
+                    {
+                        S_StartSound(NULL, sfx_lose);
+                        CONS_Alert(CONS_ERROR, "Marketplace Sync Failed! Error: %s\n", curl_easy_strerror(res));
+                        M_StartMessage("Could not retrieve online market list.\n\n(Press a key)\n", NULL, MM_NOTHING);
+                        remove(manifest_local_path);
+                        return;
+                    }
+
+                    M_ParseMarketJSON(manifest_local_path);
+
+                    itemOn = 0;
+                    market_scroll_top = 0;
+
+                    // Transition state and initialize the layout screen directly
+                    // Call the standard engine window initialization setup
+                    M_SetupNextMenu(&MarketMenuDef);
+                    return; 
+                }
+
+                boolean refresh = true;
 				if (!dirmenu[dir_on[menudepthleft]])
 					S_StartSound(NULL, sfx_lose);
 				else
